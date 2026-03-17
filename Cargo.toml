@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "programs/permission-manager",
+    "programs/spiko-token",
+    "programs/minter",
+    "programs/redemption",
+    "integration-tests",
+]
+
+[workspace.dependencies]
+pinocchio = { version = "0.10", features = ["cpi"] }
+pinocchio-system = "0.5"
+pinocchio-token = "0.5"
+pinocchio-token-2022 = "0.2"
+pinocchio-log = "0.5"
+
+[profile.release]
+overflow-checks = true
+lto = "fat"
+codegen-units = 1
+opt-level = 3
+incremental = false
