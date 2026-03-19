@@ -1,0 +1,116 @@
+use pinocchio::{account::AccountView, address::Address, error::ProgramError, ProgramResult};
+
+use permission_manager::state::{
+    PermissionConfig, DISCRIMINATOR_PERMISSION_CONFIG, PERMISSION_CONFIG_SEED,
+};
+
+use crate::{
+    error::TokenError, events::emit_redemption_contract_set, helpers::verify_pda,
+    state::TokenConfig,
+};
+
+/// Set (or update) the redemption contract address stored in TokenConfig.
+///
+/// Only the admin (as identified in the PermissionManager's PermissionConfig)
+/// can call this. The redemption_contract field is set to the provided
+/// program address, or zeroed out to clear it.
+///
+/// Accounts:
+///   0. `[signer]`   Admin caller
+///   1. `[writable]` TokenConfig PDA
+///   2. `[]`         PermissionConfig PDA (from permission_manager, proves admin identity)
+///
+/// Data:
+///   [0..32]  redemption_contract address (32 bytes; all zeros to clear)
+pub struct SetRedemptionContract<'a> {
+    pub caller: &'a AccountView,
+    pub config: &'a AccountView,
+    pub perm_config: &'a AccountView,
+    pub redemption_contract: [u8; 32],
+}
+
+impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for SetRedemptionContract<'a> {
+    type Error = ProgramError;
+
+    fn try_from((data, accounts): (&'a [u8], &'a [AccountView])) -> Result<Self, Self::Error> {
+        let [caller, config, perm_config, ..] = accounts else {
+            return Err(ProgramError::NotEnoughAccountKeys);
+        };
+
+        if !caller.is_signer() {
+            return Err(ProgramError::MissingRequiredSignature);
+        }
+
+        if data.len() < 32 {
+            return Err(ProgramError::InvalidInstructionData);
+        }
+
+        let mut redemption_contract = [0u8; 32];
+        redemption_contract.copy_from_slice(&data[0..32]);
+
+        Ok(Self {
+            caller,
+            config,
+            perm_config,
+            redemption_contract,
+        })
+    }
+}
+
+impl<'a> SetRedemptionContract<'a> {
+    pub fn process(&self, program_id: &Address) -> ProgramResult {
+        // 1. Verify TokenConfig is owned by this program and initialized
+        if !self.config.owned_by(program_id) {
+            return Err(TokenError::NotInitialized.into());
+        }
+
+        // 2. Read config to get the permission_manager address
+        let permission_manager_id = {
+            let data = self.config.try_borrow()?;
+            let config = TokenConfig::from_bytes(&data)?;
+            Address::new_from_array(config.permission_manager.to_bytes())
+        };
+
+        // 3. Verify the PermissionConfig PDA is owned by the permission_manager
+        if !self.perm_config.owned_by(&permission_manager_id) {
+            return Err(TokenError::Unauthorized.into());
+        }
+
+        // 4. Verify it's the actual PermissionConfig PDA
+        verify_pda(
+            self.perm_config,
+            &[PERMISSION_CONFIG_SEED],
+            &permission_manager_id,
+        )?;
+
+        // 5. Read PermissionConfig and verify caller is admin
+        {
+            let perm_data = self.perm_config.try_borrow()?;
+            if perm_data.len() < PermissionConfig::LEN
+                || perm_data[0] != DISCRIMINATOR_PERMISSION_CONFIG
+            {
+                return Err(TokenError::Unauthorized.into());
+            }
+            let perm_config = PermissionConfig::from_bytes(&perm_data)?;
+            if self.caller.address() != &perm_config.admin {
+                return Err(TokenError::Unauthorized.into());
+            }
+        }
+
+        // 6. Write the redemption_contract address to TokenConfig
+        {
+            let mut data = self.config.try_borrow_mut()?;
+            let config = TokenConfig::from_bytes_mut(&mut data)?;
+            config.redemption_contract = Address::new_from_array(self.redemption_contract);
+        }
+
+        pinocchio_log::log!("Redemption contract set");
+        emit_redemption_contract_set(
+            &self.caller.address().to_bytes(),
+            &self.config.address().to_bytes(),
+            &self.redemption_contract,
+        );
+
+        Ok(())
+    }
+}

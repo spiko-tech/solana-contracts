@@ -1,8 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
+    "programs/spiko-events",
     "programs/permission-manager",
     "programs/spiko-token",
+    "programs/spiko-transfer-hook",
     "programs/minter",
     "programs/redemption",
     "integration-tests",

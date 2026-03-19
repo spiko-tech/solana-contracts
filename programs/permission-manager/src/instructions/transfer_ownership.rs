@@ -1,5 +1,6 @@
 use pinocchio::{account::AccountView, address::Address, error::ProgramError, ProgramResult};
 
+use crate::events::emit_ownership_transfer_started;
 use crate::helpers::{require_admin, verify_pda};
 use crate::state::{PermissionConfig, PERMISSION_CONFIG_SEED};
 
@@ -61,6 +62,10 @@ impl<'a> TransferOwnership<'a> {
         }
 
         pinocchio_log::log!("OwnershipTransferStarted");
+        emit_ownership_transfer_started(
+            &self.admin.address().to_bytes(),
+            &self.new_admin.to_bytes(),
+        );
 
         Ok(())
     }

@@ -2,6 +2,7 @@ use pinocchio::{
     account::AccountView, address::Address, cpi::Signer, error::ProgramError, ProgramResult,
 };
 
+use crate::events::emit_role_granted;
 use crate::helpers::{create_pda_account, require_admin_or_role, user_perm_seeds, verify_pda};
 use crate::state::{
     UserPermissions, DISCRIMINATOR_USER_PERMISSION, PERMISSION_CONFIG_SEED, USER_PERMISSION_SEED,
@@ -119,6 +120,11 @@ impl<'a> GrantRole<'a> {
         }
 
         pinocchio_log::log!("RoleGranted: role={}", self.role_id as u64);
+        emit_role_granted(
+            &self.caller.address().to_bytes(),
+            &self.target_user.address().to_bytes(),
+            self.role_id,
+        );
 
         Ok(())
     }

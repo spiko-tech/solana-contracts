@@ -1,3 +1,5 @@
+tmp/
+
 # Rust
 target/
 **/*.rs.bk
@@ -16,9 +18,15 @@ test-ledger/
 .DS_Store
 Thumbs.db
 
+# Node
+node_modules/
+
 # Environment
 .env
 *.pem
 *.json
 !package.json
 !tsconfig.json
+
+# Deploy script keys (mint keypairs)
+scripts/keys/
