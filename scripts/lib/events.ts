@@ -46,7 +46,7 @@ export interface DecodedEvent {
 const addressDecoder = getAddressDecoder();
 
 // =================================================================
-// All 26 event definitions
+// All 25 event definitions
 // =================================================================
 
 const EVENT_DEFS: EventDef[] = [
@@ -98,7 +98,7 @@ const EVENT_DEFS: EventDef[] = [
     fields: [{ name: "new_admin", type: "address" }],
   },
 
-  // ── SpikoToken (8) ─────────────────────────────────────────
+  // ── SpikoToken (7) ─────────────────────────────────────────
   {
     // SHA256("event:TokenInitialized")[0..8]
     name: "TokenInitialized",
@@ -174,18 +174,6 @@ const EVENT_DEFS: EventDef[] = [
       { name: "caller", type: "address" },
       { name: "config", type: "address" },
       { name: "contract", type: "address" },
-    ],
-  },
-  {
-    // SHA256("event:DelegateApproved")[0..8]
-    name: "DelegateApproved",
-    program: "SpikoToken",
-    disc: new Uint8Array([0xb4, 0xda, 0x13, 0x17, 0x68, 0xb0, 0x70, 0x7b]),
-    fields: [
-      { name: "owner", type: "address" },
-      { name: "token_account", type: "address" },
-      { name: "delegate", type: "address" },
-      { name: "amount", type: "u64" },
     ],
   },
 
@@ -442,7 +430,7 @@ export function decodeEvent(data: Uint8Array): DecodedEvent | null {
  * Extract and decode all Spiko events from transaction log messages.
  *
  * Scans for `"Program data: <base64>"` lines, base64-decodes them,
- * and matches against the 26 known event discriminators.
+ * and matches against the 25 known event discriminators.
  */
 export function decodeEventsFromLogs(logs: string[]): DecodedEvent[] {
   const events: DecodedEvent[] = [];

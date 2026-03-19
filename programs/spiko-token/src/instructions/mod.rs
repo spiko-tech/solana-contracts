@@ -1,4 +1,3 @@
-pub mod approve;
 pub mod burn;
 pub mod initialize;
 pub mod mint;
@@ -8,7 +7,6 @@ pub mod set_redemption_contract;
 pub mod transfer;
 pub mod unpause;
 
-pub use approve::ApproveToken;
 pub use burn::BurnToken;
 pub use initialize::InitializeToken;
 pub use mint::MintToken;

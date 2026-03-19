@@ -207,7 +207,7 @@ export function initializeToken(
  *   1. [writable] TokenConfig PDA
  *   2. []         PermissionConfig PDA (from permission_manager)
  *
- * Data: disc(8) + redemption_contract(32 bytes)
+ * Data: disc(7) + redemption_contract(32 bytes)
  */
 export function setRedemptionContract(
   admin: TransactionSigner,
@@ -651,7 +651,7 @@ export function setMinimum(
  *  15.  []         SpikoToken program (transfer hook — self-reference)
  *  16.  []         Transfer Hook program (spiko-transfer-hook)
  *
- * Data: disc(7) + amount(u64 LE) + salt(u64 LE) = 17 bytes
+ * Data: disc(6) + amount(u64 LE) + salt(u64 LE) = 17 bytes
  */
 export function redeemToken(
   user: TransactionSigner,

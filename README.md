@@ -285,7 +285,7 @@ Each event payload is a byte buffer: `discriminator (8 bytes) + fields (LE-packe
 | `OwnershipTransferStarted` | `event:OwnershipTransferStarted` | `b7fdeff68cb38569` | `admin: pubkey(32), new_admin: pubkey(32)` |
 | `OwnershipTransferred` | `event:OwnershipTransferred` | `ac3dcdb7fa322662` | `new_admin: pubkey(32)` |
 
-#### SpikoToken (9 events)
+#### SpikoToken (8 events)
 
 | Event | Hash Input | Discriminator | Fields |
 |---|---|---|---|
@@ -297,7 +297,6 @@ Each event payload is a byte buffer: `discriminator (8 bytes) + fields (LE-packe
 | `TokenPaused` | `event:TokenPaused` | `7e364ca17d97943b` | `caller: pubkey(32), config: pubkey(32)` |
 | `TokenUnpaused` | `event:TokenUnpaused` | `e1114451818691a9` | `caller: pubkey(32), config: pubkey(32)` |
 | `RedemptionContractSet` | `event:RedemptionContractSet` | `bdb31c22e363f63a` | `caller: pubkey(32), config: pubkey(32), contract: pubkey(32)` |
-| `DelegateApproved` | `event:DelegateApproved` | `b4da131768b0707b` | `owner: pubkey(32), token_account: pubkey(32), delegate: pubkey(32), amount: u64(8)` |
 
 #### Minter (7 events)
 

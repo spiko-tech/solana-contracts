@@ -27,11 +27,10 @@ fn process_instruction(
         1 => MintToken::try_from((data, accounts))?.process(program_id),
         2 => BurnToken::try_from((data, accounts))?.process(program_id),
         3 => TransferToken::try_from((data, accounts))?.process(program_id),
-        4 => ApproveToken::try_from((data, accounts))?.process(program_id),
-        5 => Pause::try_from((data, accounts))?.process(program_id),
-        6 => Unpause::try_from((data, accounts))?.process(program_id),
-        7 => RedeemToken::try_from((data, accounts))?.process(program_id),
-        8 => SetRedemptionContract::try_from((data, accounts))?.process(program_id),
+        4 => Pause::try_from((data, accounts))?.process(program_id),
+        5 => Unpause::try_from((data, accounts))?.process(program_id),
+        6 => RedeemToken::try_from((data, accounts))?.process(program_id),
+        7 => SetRedemptionContract::try_from((data, accounts))?.process(program_id),
         _ => Err(pinocchio::error::ProgramError::InvalidInstructionData),
     }
 }

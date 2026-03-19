@@ -23,9 +23,6 @@ const DISC_TOKEN_PAUSED: [u8; 8] = [0x7e, 0x36, 0x4c, 0xa1, 0x7d, 0x97, 0x94, 0x
 const DISC_TOKEN_UNPAUSED: [u8; 8] = [0xe1, 0x11, 0x44, 0x51, 0x81, 0x86, 0x91, 0xa9];
 // SHA256("event:RedemptionContractSet")[0..8]
 const DISC_REDEMPTION_CONTRACT_SET: [u8; 8] = [0xbd, 0xb3, 0x1c, 0x22, 0xe3, 0x63, 0xf6, 0x3a];
-// SHA256("event:DelegateApproved")[0..8]
-const DISC_DELEGATE_APPROVED: [u8; 8] = [0xb4, 0xda, 0x13, 0x17, 0x68, 0xb0, 0x70, 0x7b];
-
 // ---------------------------------------------------------------
 // Event emitters
 // ---------------------------------------------------------------
@@ -111,23 +108,5 @@ pub fn emit_redemption_contract_set(caller: &[u8; 32], config: &[u8; 32], contra
     let off = pack_address(&mut buf, off, caller);
     let off = pack_address(&mut buf, off, config);
     pack_address(&mut buf, off, contract);
-    emit_event(&buf);
-}
-
-/// Emit `DelegateApproved { owner: [u8;32], token_account: [u8;32], delegate: [u8;32], amount: u64 }`
-/// Buffer: disc(8) + owner(32) + token_account(32) + delegate(32) + amount(8) = 112 bytes
-#[inline]
-pub fn emit_delegate_approved(
-    owner: &[u8; 32],
-    token_account: &[u8; 32],
-    delegate: &[u8; 32],
-    amount: u64,
-) {
-    let mut buf = [0u8; 112];
-    let off = pack_disc(&mut buf, &DISC_DELEGATE_APPROVED);
-    let off = pack_address(&mut buf, off, owner);
-    let off = pack_address(&mut buf, off, token_account);
-    let off = pack_address(&mut buf, off, delegate);
-    pack_u64(&mut buf, off, amount);
     emit_event(&buf);
 }
