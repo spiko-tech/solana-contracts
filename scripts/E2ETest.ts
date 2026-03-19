@@ -41,6 +41,7 @@ import {
   sendAndConfirmTransactionFactory,
   getSignatureFromTransaction,
   generateKeyPairSigner,
+  lamports,
 } from "@solana/kit";
 
 import {
@@ -129,20 +130,20 @@ async function fundAccount(
   rpcSub: RpcSubscriptions<SolanaRpcSubscriptionsApi>,
   admin: KeyPairSigner,
   target: Address,
-  lamports: bigint = 50_000_000n // 0.05 SOL
+  amount: bigint = 50_000_000n // 0.05 SOL
 ): Promise<void> {
   try {
-    const sig = await rpc.requestAirdrop(target, lamports).send();
+    const sig = await rpc.requestAirdrop(target, lamports(amount)).send();
     // Wait for airdrop to confirm
     await new Promise((r) => setTimeout(r, 2000));
-    console.log(`  Airdropped ${Number(lamports) / 1e9} SOL to ${target.slice(0, 8)}...`);
+    console.log(`  Airdropped ${Number(amount) / 1e9} SOL to ${target.slice(0, 8)}...`);
   } catch {
     // Faucet rate-limited — transfer from admin instead
     const { getTransferSolInstruction } = await import("@solana-program/system");
     const ix = getTransferSolInstruction({
       source: admin,
       destination: target,
-      amount: lamports,
+      amount: amount,
     });
     await sendAndCapture(rpc, rpcSub, admin, [ix], [admin], `Fund ${target.slice(0, 8)}...`);
   }
