@@ -11,6 +11,7 @@ crate-type = ["cdylib", "lib"]
 pinocchio = { workspace = true }
 pinocchio-system = { workspace = true }
 pinocchio-log = { workspace = true }
+spiko-events = { path = "../spiko-events" }
 
 [dev-dependencies]
 mollusk-svm = "0.10"

@@ -1,6 +1,7 @@
 use pinocchio::{account::AccountView, address::Address, error::ProgramError, ProgramResult};
 
 use crate::error::PermissionError;
+use crate::events::emit_role_removed;
 use crate::helpers::{require_admin_or_role, verify_pda};
 use crate::state::{UserPermissions, PERMISSION_CONFIG_SEED, USER_PERMISSION_SEED};
 
@@ -87,7 +88,12 @@ impl<'a> RevokeRole<'a> {
             perms.clear_role(self.role_id);
         }
 
-        pinocchio_log::log!("RoleRevoked: role={}", self.role_id as u64);
+        pinocchio_log::log!("RoleRemoved: role={}", self.role_id as u64);
+        emit_role_removed(
+            &self.caller.address().to_bytes(),
+            &self.target_user.address().to_bytes(),
+            self.role_id,
+        );
 
         Ok(())
     }

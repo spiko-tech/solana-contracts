@@ -3,6 +3,7 @@ use pinocchio::{
 };
 
 use crate::error::PermissionError;
+use crate::events::emit_permission_manager_initialized;
 use crate::helpers::{config_seeds, create_pda_account, user_perm_seeds, verify_pda};
 use crate::state::{
     PermissionConfig, UserPermissions, DISCRIMINATOR_PERMISSION_CONFIG,
@@ -113,6 +114,7 @@ impl<'a> Initialize<'a> {
         }
 
         pinocchio_log::log!("PermissionManager initialized");
+        emit_permission_manager_initialized(&self.admin.address().to_bytes());
 
         Ok(())
     }

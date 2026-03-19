@@ -1,0 +1,26 @@
+[package]
+name = "integration-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# No lib or bin — test-only crate
+[[test]]
+name = "integration"
+path = "tests/integration.rs"
+
+[dependencies]
+# Programs (lib-only, no entrypoint)
+permission-manager = { path = "../programs/permission-manager", features = ["no-entrypoint"] }
+spiko-token = { path = "../programs/spiko-token", features = ["no-entrypoint"] }
+minter = { path = "../programs/minter", features = ["no-entrypoint"] }
+redemption = { path = "../programs/redemption", features = ["no-entrypoint"] }
+
+[dev-dependencies]
+mollusk-svm = "0.10"
+solana-pubkey = "4.0"
+solana-account = "3.2"
+solana-instruction = "3.0"
+solana-program-error = "3.0"
+solana-sdk-ids = "3.0"
+sha2 = "0.10"
