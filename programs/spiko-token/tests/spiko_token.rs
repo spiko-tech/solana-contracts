@@ -57,7 +57,7 @@ fn setup() -> (Mollusk, Pubkey) {
     (mollusk, program_id)
 }
 
-/// Setup for tests that DO need Token-2022 CPI (initialize, mint, burn, transfer, approve).
+/// Setup for tests that DO need Token-2022 CPI (initialize, mint, burn, transfer).
 fn setup_with_token_2022() -> (Mollusk, Pubkey) {
     let program_id = Pubkey::new_unique();
     std::env::set_var("SBF_OUT_DIR", "../../target/deploy");
@@ -189,11 +189,11 @@ fn user_perms_account(perm_manager_id: &Pubkey, bump: u8, roles: &[u8; 32]) -> A
 // -------------------------------------------------------------------
 
 fn ix_pause() -> Vec<u8> {
-    vec![5] // discriminator only
+    vec![4] // discriminator only
 }
 
 fn ix_unpause() -> Vec<u8> {
-    vec![6] // discriminator only
+    vec![5] // discriminator only
 }
 
 fn ix_initialize() -> Vec<u8> {
@@ -654,10 +654,10 @@ fn perm_config_account(perm_manager_id: &Pubkey, bump: u8, admin: &Pubkey) -> Ac
 // Instruction data builder: set_redemption_contract
 // ===================================================================
 
-/// Discriminator 8: set_redemption_contract
+/// Discriminator 7: set_redemption_contract
 /// Data: [0..32] redemption_contract address
 fn ix_set_redemption_contract(redemption_contract: &Pubkey) -> Vec<u8> {
-    let mut data = vec![8u8]; // discriminator
+    let mut data = vec![7u8]; // discriminator
     data.extend_from_slice(redemption_contract.as_ref());
     data
 }

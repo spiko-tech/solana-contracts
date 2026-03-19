@@ -73,8 +73,10 @@ export const ST_DISC_INITIALIZE = 0;
 export const ST_DISC_MINT = 1;
 export const ST_DISC_BURN = 2;
 export const ST_DISC_TRANSFER = 3;
-export const ST_DISC_REDEEM = 7;
-export const ST_DISC_SET_REDEMPTION_CONTRACT = 8;
+export const ST_DISC_PAUSE = 4;
+export const ST_DISC_UNPAUSE = 5;
+export const ST_DISC_REDEEM = 6;
+export const ST_DISC_SET_REDEMPTION_CONTRACT = 7;
 
 // spiko_transfer_hook
 export const TH_DISC_INIT_EXTRA_ACCOUNT_METAS = 0;

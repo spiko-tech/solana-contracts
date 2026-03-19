@@ -235,15 +235,15 @@ fn ix_perm_grant_role(role_id: u8) -> Vec<u8> {
 
 // -- spiko_token --
 fn ix_token_pause() -> Vec<u8> {
-    vec![5]
+    vec![4]
 }
 
 fn ix_token_unpause() -> Vec<u8> {
-    vec![6]
+    vec![5]
 }
 
 fn ix_token_set_redemption_contract(addr: &Pubkey) -> Vec<u8> {
-    let mut data = vec![8];
+    let mut data = vec![7];
     data.extend_from_slice(addr.as_ref());
     data
 }
