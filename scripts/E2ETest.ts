@@ -97,7 +97,6 @@ async function sendAndCapture(
   rpcSub: RpcSubscriptions<SolanaRpcSubscriptionsApi>,
   payer: KeyPairSigner,
   instructions: any[],
-  signers: KeyPairSigner[],
   label: string
 ): Promise<string> {
   const { value: latestBlockhash } = await rpc.getLatestBlockhash().send();
@@ -145,7 +144,7 @@ async function fundAccount(
       destination: target,
       amount: amount,
     });
-    await sendAndCapture(rpc, rpcSub, admin, [ix], [admin], `Fund ${target.slice(0, 8)}...`);
+    await sendAndCapture(rpc, rpcSub, admin, [ix], `Fund ${target.slice(0, 8)}...`);
   }
 }
 
@@ -268,7 +267,7 @@ async function main() {
       adminPermsAddr,
       ROLE_MINT_INITIATOR
     );
-    return sendAndCapture(rpc, rpcSub, admin, [ix], [admin], "GrantRole(MINT_INITIATOR -> Minter)");
+    return sendAndCapture(rpc, rpcSub, admin, [ix], "GrantRole(MINT_INITIATOR -> Minter)");
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -283,7 +282,7 @@ async function main() {
       adminPermsAddr,
       ROLE_REDEMPTION_EXECUTOR
     );
-    return sendAndCapture(rpc, rpcSub, admin, [ix], [admin], "GrantRole(REDEMPTION_EXECUTOR -> Executor)");
+    return sendAndCapture(rpc, rpcSub, admin, [ix], "GrantRole(REDEMPTION_EXECUTOR -> Executor)");
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -298,7 +297,7 @@ async function main() {
       adminPermsAddr,
       ROLE_WHITELISTER
     );
-    return sendAndCapture(rpc, rpcSub, admin, [ix], [admin], "GrantRole(WHITELISTER -> Whitelister)");
+    return sendAndCapture(rpc, rpcSub, admin, [ix], "GrantRole(WHITELISTER -> Whitelister)");
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -313,7 +312,7 @@ async function main() {
       whitelisterPermsAddr,
       ROLE_WHITELISTED
     );
-    return sendAndCapture(rpc, rpcSub, whitelister, [ix], [whitelister], "GrantRole(WHITELISTED -> User1)");
+    return sendAndCapture(rpc, rpcSub, whitelister, [ix], "GrantRole(WHITELISTED -> User1)");
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -328,7 +327,7 @@ async function main() {
       whitelisterPermsAddr,
       ROLE_WHITELISTED
     );
-    return sendAndCapture(rpc, rpcSub, whitelister, [ix], [whitelister], "GrantRole(WHITELISTED -> User2)");
+    return sendAndCapture(rpc, rpcSub, whitelister, [ix], "GrantRole(WHITELISTED -> User2)");
   });
 
   // ═══════════════════════════════════════════════════════════
@@ -380,7 +379,7 @@ async function main() {
       );
 
       // Admin pays fees, minter co-signs
-      return sendAndCapture(rpc, rpcSub, admin, instructions, [admin, minter], "InitiateMint(20 -> User1)");
+      return sendAndCapture(rpc, rpcSub, admin, instructions, "InitiateMint(20 -> User1)");
     }
   );
 
@@ -425,7 +424,6 @@ async function main() {
         rpcSub,
         admin,
         instructions,
-        [admin, user1],
         "TransferToken(10 User1->User2, Path B)"
       );
     }
@@ -456,7 +454,6 @@ async function main() {
         rpcSub,
         admin,
         [ix],
-        [admin, user1],
         "TransferChecked(5 User1->User2, Path A)"
       );
     }
@@ -517,7 +514,6 @@ async function main() {
         rpcSub,
         admin,
         instructions,
-        [admin, user2],
         "RedeemToken(10 User2)"
       );
     }
@@ -560,7 +556,6 @@ async function main() {
         rpcSub,
         admin,
         [ix],
-        [admin, executor],
         "ExecuteRedemption(10 User2)"
       );
     }
@@ -592,7 +587,6 @@ async function main() {
 
   // Final balance check
   console.log("\n--- Final Balances ---\n");
-  const { getBase64EncodedWireTransaction } = await import("@solana/kit");
   for (const [name, ata] of [["User1", user1Ata], ["User2", user2Ata], ["Vault", vaultAta]] as const) {
     try {
       const { value } = await rpc

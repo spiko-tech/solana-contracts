@@ -18,7 +18,6 @@ import { address } from "@solana/kit";
 
 import { TOKEN_DECIMALS } from "./lib/constants.js";
 import {
-  permissionConfigPda,
   userPermissionsPda,
   tokenConfigPda,
   mintAuthorityPda,
@@ -71,7 +70,6 @@ async function main() {
   console.log(`Mint:           ${mintAddr}`);
 
   // Derive all PDAs
-  const [permConfigAddr] = await permissionConfigPda();
   const [adminPermsAddr] = await userPermissionsPda(admin.address);
   const [minterConfigAddr] = await minterConfigPda();
   const [minterConfigPermsAddr] = await userPermissionsPda(minterConfigAddr);
