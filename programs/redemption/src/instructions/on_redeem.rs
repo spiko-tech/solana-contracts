@@ -107,7 +107,6 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for OnRedeem<'a> {
 
 impl<'a> OnRedeem<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify RedemptionConfig is owned by this program
         {
             if !self.config.owned_by(program_id) {
                 return Err(RedemptionError::NotInitialized.into());
@@ -118,7 +117,6 @@ impl<'a> OnRedeem<'a> {
 
         let mint_key_bytes = self.token_mint.address().to_bytes();
 
-        // 2. Verify amount >= minimum
         {
             verify_pda(
                 self.token_minimum,
@@ -137,18 +135,15 @@ impl<'a> OnRedeem<'a> {
             }
         }
 
-        // 3. Compute operation_id = SHA256(user, token_mint, amount, salt)
         let operation_id =
             compute_operation_id(&self.user_address, &mint_key_bytes, self.amount, self.salt);
 
-        // 4. Verify RedemptionOperation PDA
         let op_bump = verify_pda(
             self.redemption_op,
             &[REDEMPTION_OPERATION_SEED, &operation_id],
             program_id,
         )?;
 
-        // 5. Check operation doesn't already exist
         {
             let op_data = self.redemption_op.try_borrow()?;
             if !op_data.is_empty() && op_data[0] != 0 {
@@ -161,11 +156,9 @@ impl<'a> OnRedeem<'a> {
             }
         }
 
-        // 6. Get current time
         let clock = Clock::get()?;
         let now = clock.unix_timestamp;
 
-        // 7. Create RedemptionOperation PDA
         let op_bump_bytes = [op_bump];
         let op_seeds = redemption_operation_seeds(&operation_id, &op_bump_bytes);
         let op_signer = Signer::from(&op_seeds);
@@ -178,7 +171,6 @@ impl<'a> OnRedeem<'a> {
             &[op_signer],
         )?;
 
-        // 8. Write operation data
         {
             let mut data = self.redemption_op.try_borrow_mut()?;
             let op = RedemptionOperation::from_bytes_mut(&mut data)?;

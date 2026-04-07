@@ -102,7 +102,6 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for ExecuteRedemption<'a> {
 
 impl<'a> ExecuteRedemption<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Read RedemptionConfig to get permission_manager
         let permission_manager_id = {
             if !self.config.owned_by(program_id) {
                 return Err(RedemptionError::NotInitialized.into());
@@ -112,7 +111,6 @@ impl<'a> ExecuteRedemption<'a> {
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // 2. Verify operator has ROLE_REDEMPTION_EXECUTOR
         require_permission(
             self.operator_perms,
             &permission_manager_id,
@@ -120,7 +118,6 @@ impl<'a> ExecuteRedemption<'a> {
             RedemptionError::Unauthorized.into(),
         )?;
 
-        // 3. Recompute operation_id and verify RedemptionOperation PDA
         let mint_key_bytes = self.token_mint.address().to_bytes();
         let operation_id =
             compute_operation_id(&self.user, &mint_key_bytes, self.amount, self.salt);
@@ -131,10 +128,8 @@ impl<'a> ExecuteRedemption<'a> {
             program_id,
         )?;
 
-        // 4. Verify vault authority PDA
         let vault_bump = verify_pda(self.vault_authority, &[VAULT_SEED], program_id)?;
 
-        // 5. Check status == PENDING and deadline not passed
         let clock = Clock::get()?;
         let now = clock.unix_timestamp;
 
@@ -154,7 +149,6 @@ impl<'a> ExecuteRedemption<'a> {
             }
         }
 
-        // 6. CPI to spiko_token.burn()
         cpi_spiko_token_burn(
             self.vault_authority,
             vault_bump,
@@ -168,7 +162,6 @@ impl<'a> ExecuteRedemption<'a> {
             self.amount,
         )?;
 
-        // 7. Set status = EXECUTED
         {
             let mut data = self.redemption_op.try_borrow_mut()?;
             let op = RedemptionOperation::from_bytes_mut(&mut data)?;

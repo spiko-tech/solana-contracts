@@ -65,7 +65,6 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for SetMinimum<'a> {
 
 impl<'a> SetMinimum<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Read RedemptionConfig to get permission_manager address
         let permission_manager_id = {
             if !self.config.owned_by(program_id) {
                 return Err(RedemptionError::NotInitialized.into());
@@ -75,7 +74,6 @@ impl<'a> SetMinimum<'a> {
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // 2. Verify caller is admin
         require_admin(
             self.caller,
             self.perm_config,
@@ -83,14 +81,12 @@ impl<'a> SetMinimum<'a> {
             RedemptionError::Unauthorized.into(),
         )?;
 
-        // 3. Verify TokenMinimum PDA
         let bump = verify_pda(
             self.token_minimum,
             &[TOKEN_MINIMUM_SEED, &self.token_mint],
             program_id,
         )?;
 
-        // 4. Create PDA if needed
         let needs_creation = self.token_minimum.lamports() == 0;
 
         if needs_creation {
@@ -107,7 +103,6 @@ impl<'a> SetMinimum<'a> {
             )?;
         }
 
-        // 5. Write minimum
         {
             let mut data = self.token_minimum.try_borrow_mut()?;
             let tm = TokenMinimum::from_bytes_mut(&mut data)?;

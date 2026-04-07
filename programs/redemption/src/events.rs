@@ -1,13 +1,4 @@
-//! Structured events for the Redemption program.
-//!
-//! Each function emits an Anchor-compatible event via `sol_log_data`:
-//! discriminator (8 bytes) = SHA256("event:<EventName>")[0..8], then LE-packed fields.
-
 use spiko_events::{emit_event, pack_address, pack_disc, pack_i64, pack_u64};
-
-// ---------------------------------------------------------------
-// Discriminators — precomputed SHA256("event:<EventName>")[0..8]
-// ---------------------------------------------------------------
 
 // SHA256("event:RedemptionInitialized")[0..8]
 const DISC_REDEMPTION_INITIALIZED: [u8; 8] = [0x6a, 0xc8, 0x64, 0x72, 0x94, 0x64, 0x26, 0xcb];
@@ -20,12 +11,6 @@ const DISC_REDEMPTION_CANCELED: [u8; 8] = [0xbd, 0xf4, 0xd0, 0xe8, 0x3c, 0x68, 0
 // SHA256("event:TokenMinimumUpdated")[0..8]
 const DISC_TOKEN_MINIMUM_UPDATED: [u8; 8] = [0xeb, 0x3c, 0x99, 0x47, 0x61, 0xd4, 0x70, 0x6e];
 
-// ---------------------------------------------------------------
-// Event emitters
-// ---------------------------------------------------------------
-
-/// Emit `RedemptionInitialized { admin: [u8;32] }`
-/// Buffer: disc(8) + admin(32) = 40 bytes
 #[inline]
 pub fn emit_redemption_initialized(admin: &[u8; 32]) {
     pinocchio_log::log!("RedemptionInitialized");
@@ -35,8 +20,6 @@ pub fn emit_redemption_initialized(admin: &[u8; 32]) {
     emit_event(&buf);
 }
 
-/// Emit `RedemptionInitiated { user: [u8;32], mint: [u8;32], amount: u64, salt: u64, deadline: i64 }`
-/// Buffer: disc(8) + user(32) + mint(32) + amount(8) + salt(8) + deadline(8) = 96 bytes
 #[inline]
 pub fn emit_redemption_initiated(
     user: &[u8; 32],
@@ -56,8 +39,6 @@ pub fn emit_redemption_initiated(
     emit_event(&buf);
 }
 
-/// Emit `RedemptionExecuted { operator: [u8;32], user: [u8;32], mint: [u8;32], amount: u64, salt: u64 }`
-/// Buffer: disc(8) + operator(32) + user(32) + mint(32) + amount(8) + salt(8) = 120 bytes
 #[inline]
 pub fn emit_redemption_executed(
     operator: &[u8; 32],
@@ -77,8 +58,6 @@ pub fn emit_redemption_executed(
     emit_event(&buf);
 }
 
-/// Emit `RedemptionCanceled { caller: [u8;32], user: [u8;32], mint: [u8;32], amount: u64, salt: u64 }`
-/// Buffer: disc(8) + caller(32) + user(32) + mint(32) + amount(8) + salt(8) = 120 bytes
 #[inline]
 pub fn emit_redemption_canceled(
     caller: &[u8; 32],
@@ -98,8 +77,6 @@ pub fn emit_redemption_canceled(
     emit_event(&buf);
 }
 
-/// Emit `TokenMinimumUpdated { caller: [u8;32], mint: [u8;32], minimum: u64 }`
-/// Buffer: disc(8) + caller(32) + mint(32) + minimum(8) = 80 bytes
 #[inline]
 pub fn emit_token_minimum_updated(caller: &[u8; 32], mint: &[u8; 32], minimum: u64) {
     pinocchio_log::log!("TokenMinimumUpdated");

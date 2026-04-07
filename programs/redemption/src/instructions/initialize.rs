@@ -55,10 +55,8 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for InitializeRedemption<'a> {
 
 impl<'a> InitializeRedemption<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify RedemptionConfig PDA
         let bump = verify_pda(self.config, &[REDEMPTION_CONFIG_SEED], program_id)?;
 
-        // 2. Check not already initialized
         {
             let data = self.config.try_borrow()?;
             if !data.is_empty() && data[0] != 0 {
@@ -66,7 +64,6 @@ impl<'a> InitializeRedemption<'a> {
             }
         }
 
-        // 3. Create RedemptionConfig PDA
         let bump_bytes = [bump];
         let seeds = redemption_config_seeds(&bump_bytes);
         let signer = Signer::from(&seeds);
