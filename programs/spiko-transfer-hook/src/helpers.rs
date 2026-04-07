@@ -5,7 +5,6 @@ pub use spiko_permission::require_permission;
 
 use crate::state::EXTRA_ACCOUNT_METAS_SEED;
 
-/// Check that a token is not paused by reading the TokenConfig data.
 #[inline]
 pub fn require_not_paused(config_data: &[u8]) -> Result<(), ProgramError> {
     use spiko_token::state::TokenConfig;
@@ -15,10 +14,6 @@ pub fn require_not_paused(config_data: &[u8]) -> Result<(), ProgramError> {
     }
     Ok(())
 }
-
-// -----------------------------------------------------------------
-// Signer seeds builder
-// -----------------------------------------------------------------
 
 /// Build Seed array for ExtraAccountMetaList PDA.
 /// Seeds: ["extra-account-metas", mint_pubkey, bump]
