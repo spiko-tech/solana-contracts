@@ -35,3 +35,19 @@ pub fn emit_transfer(
     pack_u64(&mut buf, off, amount);
     emit_event(&buf);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    fn expected_disc(event_name: &str) -> [u8; 8] {
+        let hash = Sha256::digest(event_name.as_bytes());
+        hash[..8].try_into().unwrap()
+    }
+
+    #[test]
+    fn verify_event_discriminators() {
+        assert_eq!(DISC_TRANSFER, expected_disc("event:Transfer"));
+    }
+}

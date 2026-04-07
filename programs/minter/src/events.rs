@@ -141,3 +141,34 @@ pub fn emit_max_delay_updated(caller: &[u8; 32], max_delay: i64) {
     pack_i64(&mut buf, off, max_delay);
     emit_event(&buf);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    fn expected_disc(event_name: &str) -> [u8; 8] {
+        let hash = Sha256::digest(event_name.as_bytes());
+        hash[..8].try_into().unwrap()
+    }
+
+    #[test]
+    fn verify_event_discriminators() {
+        assert_eq!(
+            DISC_MINTER_INITIALIZED,
+            expected_disc("event:MinterInitialized")
+        );
+        assert_eq!(DISC_MINT_EXECUTED, expected_disc("event:MintExecuted"));
+        assert_eq!(DISC_MINT_BLOCKED, expected_disc("event:MintBlocked"));
+        assert_eq!(DISC_MINT_APPROVED, expected_disc("event:MintApproved"));
+        assert_eq!(DISC_MINT_CANCELED, expected_disc("event:MintCanceled"));
+        assert_eq!(
+            DISC_DAILY_LIMIT_UPDATED,
+            expected_disc("event:DailyLimitUpdated")
+        );
+        assert_eq!(
+            DISC_MAX_DELAY_UPDATED,
+            expected_disc("event:MaxDelayUpdated")
+        );
+    }
+}
