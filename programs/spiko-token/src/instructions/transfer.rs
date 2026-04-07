@@ -93,25 +93,21 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for TransferToken<'a> {
 
 impl<'a> TransferToken<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify TokenConfig is owned by this program
         if !self.config.owned_by(program_id) {
             return Err(TokenError::NotInitialized.into());
         }
 
-        // 2. Check not paused
         {
             let config_data = self.config.try_borrow()?;
             require_not_paused(&config_data)?;
         }
 
-        // 3. Get permission_manager_id from config
         let permission_manager_id = {
             let config_data = self.config.try_borrow()?;
             let config = TokenConfig::from_bytes(&config_data)?;
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // 4. Verify sender is whitelisted
         require_permission(
             self.sender_perms,
             &permission_manager_id,
@@ -119,7 +115,6 @@ impl<'a> TransferToken<'a> {
             TokenError::UnauthorizedFrom.into(),
         )?;
 
-        // 5. Verify recipient is whitelisted
         require_permission(
             self.recipient_perms,
             &permission_manager_id,
@@ -127,11 +122,6 @@ impl<'a> TransferToken<'a> {
             TokenError::UnauthorizedTo.into(),
         )?;
 
-        // 6. CPI to Token-2022: TransferChecked with Transfer Hook extra accounts
-        //    Token-2022 TransferChecked (opcode 12) data:
-        //      [0]    = 12 (instruction discriminator)
-        //      [1..9] = amount (u64 LE)
-        //      [9]    = decimals (u8)
         {
             let mut ix_data = [0u8; 10];
             ix_data[0] = 12; // TransferChecked opcode

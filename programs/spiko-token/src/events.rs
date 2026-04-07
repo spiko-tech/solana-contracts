@@ -1,13 +1,4 @@
-//! Structured events for the SpikoToken program.
-//!
-//! Each function emits an Anchor-compatible event via `sol_log_data`:
-//! discriminator (8 bytes) = SHA256("event:<EventName>")[0..8], then LE-packed fields.
-
 use spiko_events::{emit_event, pack_address, pack_disc, pack_u64};
-
-// ---------------------------------------------------------------
-// Discriminators — precomputed SHA256("event:<EventName>")[0..8]
-// ---------------------------------------------------------------
 
 // SHA256("event:TokenInitialized")[0..8]
 const DISC_TOKEN_INITIALIZED: [u8; 8] = [0x4d, 0x46, 0xe9, 0x7c, 0xec, 0x5c, 0xcc, 0x00];
@@ -23,12 +14,7 @@ const DISC_TOKEN_PAUSED: [u8; 8] = [0x7e, 0x36, 0x4c, 0xa1, 0x7d, 0x97, 0x94, 0x
 const DISC_TOKEN_UNPAUSED: [u8; 8] = [0xe1, 0x11, 0x44, 0x51, 0x81, 0x86, 0x91, 0xa9];
 // SHA256("event:RedemptionContractSet")[0..8]
 const DISC_REDEMPTION_CONTRACT_SET: [u8; 8] = [0xbd, 0xb3, 0x1c, 0x22, 0xe3, 0x63, 0xf6, 0x3a];
-// ---------------------------------------------------------------
-// Event emitters
-// ---------------------------------------------------------------
 
-/// Emit `TokenInitialized { admin: [u8;32], mint: [u8;32] }`
-/// Buffer: disc(8) + admin(32) + mint(32) = 72 bytes
 #[inline]
 pub fn emit_token_initialized(admin: &[u8; 32], mint: &[u8; 32]) {
     pinocchio_log::log!("TokenInitialized");
@@ -39,8 +25,6 @@ pub fn emit_token_initialized(admin: &[u8; 32], mint: &[u8; 32]) {
     emit_event(&buf);
 }
 
-/// Emit `Mint { caller: [u8;32], mint: [u8;32], recipient_ata: [u8;32], amount: u64 }`
-/// Buffer: disc(8) + caller(32) + mint(32) + recipient_ata(32) + amount(8) = 112 bytes
 #[inline]
 pub fn emit_mint(caller: &[u8; 32], mint: &[u8; 32], recipient_ata: &[u8; 32], amount: u64) {
     pinocchio_log::log!("Mint");
@@ -53,8 +37,6 @@ pub fn emit_mint(caller: &[u8; 32], mint: &[u8; 32], recipient_ata: &[u8; 32], a
     emit_event(&buf);
 }
 
-/// Emit `Burn { caller: [u8;32], mint: [u8;32], source_ata: [u8;32], amount: u64 }`
-/// Buffer: disc(8) + caller(32) + mint(32) + source_ata(32) + amount(8) = 112 bytes
 #[inline]
 pub fn emit_burn(caller: &[u8; 32], mint: &[u8; 32], source_ata: &[u8; 32], amount: u64) {
     pinocchio_log::log!("Burn");
@@ -67,8 +49,6 @@ pub fn emit_burn(caller: &[u8; 32], mint: &[u8; 32], source_ata: &[u8; 32], amou
     emit_event(&buf);
 }
 
-/// Emit `RedeemInitiated { user: [u8;32], mint: [u8;32], amount: u64, salt: u64 }`
-/// Buffer: disc(8) + user(32) + mint(32) + amount(8) + salt(8) = 88 bytes
 #[inline]
 pub fn emit_redeem_initiated(user: &[u8; 32], mint: &[u8; 32], amount: u64, salt: u64) {
     pinocchio_log::log!("RedeemInitiated");
@@ -81,8 +61,6 @@ pub fn emit_redeem_initiated(user: &[u8; 32], mint: &[u8; 32], amount: u64, salt
     emit_event(&buf);
 }
 
-/// Emit `TokenPaused { caller: [u8;32], config: [u8;32] }`
-/// Buffer: disc(8) + caller(32) + config(32) = 72 bytes
 #[inline]
 pub fn emit_token_paused(caller: &[u8; 32], config: &[u8; 32]) {
     pinocchio_log::log!("TokenPaused");
@@ -93,8 +71,6 @@ pub fn emit_token_paused(caller: &[u8; 32], config: &[u8; 32]) {
     emit_event(&buf);
 }
 
-/// Emit `TokenUnpaused { caller: [u8;32], config: [u8;32] }`
-/// Buffer: disc(8) + caller(32) + config(32) = 72 bytes
 #[inline]
 pub fn emit_token_unpaused(caller: &[u8; 32], config: &[u8; 32]) {
     pinocchio_log::log!("TokenUnpaused");
@@ -105,8 +81,6 @@ pub fn emit_token_unpaused(caller: &[u8; 32], config: &[u8; 32]) {
     emit_event(&buf);
 }
 
-/// Emit `RedemptionContractSet { caller: [u8;32], config: [u8;32], contract: [u8;32] }`
-/// Buffer: disc(8) + caller(32) + config(32) + contract(32) = 104 bytes
 #[inline]
 pub fn emit_redemption_contract_set(caller: &[u8; 32], config: &[u8; 32], contract: &[u8; 32]) {
     pinocchio_log::log!("RedemptionContractSet");

@@ -1,12 +1,3 @@
-//! Shared event infrastructure for Spiko programs.
-//!
-//! Provides an Anchor-compatible `sol_log_data` wrapper and `emit_event` helper.
-//! Events use the Anchor format: `SHA256("event:<EventName>")[0..8]` discriminator
-//! followed by LE-packed field data.
-//!
-//! All serialization is manual LE packing into fixed-size stack buffers — no Borsh
-//! dependency, matching the zero-copy philosophy of the rest of the codebase.
-
 /// Emit a structured event via the `sol_log_data` syscall.
 ///
 /// `data` should be a single byte slice: `discriminator(8) + LE-packed fields`.
@@ -45,10 +36,6 @@ pub fn emit_event(data: &[u8]) {
     #[cfg(not(target_os = "solana"))]
     let _ = data;
 }
-
-// ---------------------------------------------------------------
-// Buffer packing helpers
-// ---------------------------------------------------------------
 
 /// Write a 32-byte address into `buf` at `offset`. Returns new offset.
 #[inline(always)]

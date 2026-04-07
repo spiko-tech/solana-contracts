@@ -55,19 +55,16 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for SetRedemptionContract<'a> {
 
 impl<'a> SetRedemptionContract<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify TokenConfig is owned by this program and initialized
         if !self.config.owned_by(program_id) {
             return Err(TokenError::NotInitialized.into());
         }
 
-        // 2. Read config to get the permission_manager address
         let permission_manager_id = {
             let data = self.config.try_borrow()?;
             let config = TokenConfig::from_bytes(&data)?;
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // 3. Verify caller is admin via permission_manager
         require_admin(
             self.caller,
             self.perm_config,
@@ -75,7 +72,6 @@ impl<'a> SetRedemptionContract<'a> {
             TokenError::Unauthorized.into(),
         )?;
 
-        // 4. Write the redemption_contract address to TokenConfig
         {
             let mut data = self.config.try_borrow_mut()?;
             let config = TokenConfig::from_bytes_mut(&mut data)?;
