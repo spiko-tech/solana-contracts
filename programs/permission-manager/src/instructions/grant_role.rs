@@ -50,7 +50,6 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for GrantRole<'a> {
             return Err(ProgramError::InvalidInstructionData);
         }
 
-        // Verify system program
         if system_program.address() != &pinocchio_system::ID {
             return Err(ProgramError::IncorrectProgramId);
         }
@@ -69,10 +68,8 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for GrantRole<'a> {
 
 impl<'a> GrantRole<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify PermissionConfig PDA
         verify_pda(self.config, &[PERMISSION_CONFIG_SEED], program_id)?;
 
-        // 2. Check caller is admin OR holds a role that can manage target role
         require_admin_or_role(
             self.caller,
             self.config,
@@ -81,14 +78,12 @@ impl<'a> GrantRole<'a> {
             program_id,
         )?;
 
-        // 3. Verify target user's UserPermissions PDA address
         let user_perm_bump = verify_pda(
             self.user_perms,
             &[USER_PERMISSION_SEED, self.target_user.address().as_ref()],
             program_id,
         )?;
 
-        // 4. Create the user_perms PDA if it doesn't exist yet
         let needs_creation = !self.user_perms.owned_by(program_id);
 
         if needs_creation {
@@ -104,7 +99,6 @@ impl<'a> GrantRole<'a> {
                 &signers,
             )?;
 
-            // Initialize the new account
             let mut data = self.user_perms.try_borrow_mut()?;
             let perms = UserPermissions::from_bytes_mut(&mut data)?;
             perms.discriminator = DISCRIMINATOR_USER_PERMISSION;
@@ -112,7 +106,6 @@ impl<'a> GrantRole<'a> {
             perms.roles = [0u8; 32];
         }
 
-        // 5. Set the role bit
         {
             let mut data = self.user_perms.try_borrow_mut()?;
             let perms = UserPermissions::from_bytes_mut(&mut data)?;

@@ -52,22 +52,18 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for Initialize<'a> {
 
 impl<'a> Initialize<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Derive and verify PermissionConfig PDA
         let config_bump = verify_pda(self.config, &[PERMISSION_CONFIG_SEED], program_id)?;
 
-        // Check config is not already initialized (should be owned by system program)
         if self.config.owned_by(program_id) {
             return Err(PermissionError::AlreadyInitialized.into());
         }
 
-        // 2. Derive and verify admin's UserPermissions PDA
         let admin_perm_bump = verify_pda(
             self.admin_perms,
             &[USER_PERMISSION_SEED, self.admin.address().as_ref()],
             program_id,
         )?;
 
-        // 3. Create the PermissionConfig PDA account
         let config_bump_ref = [config_bump];
         let config_signer_seeds = config_seeds(&config_bump_ref);
         let config_signers = [Signer::from(&config_signer_seeds)];
@@ -80,7 +76,6 @@ impl<'a> Initialize<'a> {
             &config_signers,
         )?;
 
-        // 4. Write config data
         {
             let mut data = self.config.try_borrow_mut()?;
             let config = PermissionConfig::from_bytes_mut(&mut data)?;
@@ -90,7 +85,6 @@ impl<'a> Initialize<'a> {
             config.pending_admin = ZERO_ADDRESS;
         }
 
-        // 5. Create the admin's UserPermissions PDA account
         let admin_perm_bump_ref = [admin_perm_bump];
         let admin_perm_signer_seeds =
             user_perm_seeds(self.admin.address().as_ref(), &admin_perm_bump_ref);
@@ -104,7 +98,6 @@ impl<'a> Initialize<'a> {
             &admin_perm_signers,
         )?;
 
-        // 6. Write admin's permissions (empty roles — admin is identified by config.admin, not a role bit)
         {
             let mut data = self.admin_perms.try_borrow_mut()?;
             let perms = UserPermissions::from_bytes_mut(&mut data)?;

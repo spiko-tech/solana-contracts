@@ -65,7 +65,6 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for SetDailyLimit<'a> {
 
 impl<'a> SetDailyLimit<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Read MinterConfig to get permission_manager address
         let permission_manager_id = {
             if !self.config.owned_by(program_id) {
                 return Err(MinterError::NotInitialized.into());
@@ -75,7 +74,6 @@ impl<'a> SetDailyLimit<'a> {
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // 2. Verify caller is admin
         require_admin(
             self.caller,
             self.perm_config,
@@ -83,14 +81,12 @@ impl<'a> SetDailyLimit<'a> {
             MinterError::Unauthorized.into(),
         )?;
 
-        // 3. Verify DailyLimit PDA
         let bump = verify_pda(
             self.daily_limit,
             &[DAILY_LIMIT_SEED, &self.token_mint],
             program_id,
         )?;
 
-        // 4. Check if the PDA needs to be created (lamports == 0 means uninitialized)
         let needs_creation = self.daily_limit.lamports() == 0;
 
         if needs_creation {
@@ -108,7 +104,6 @@ impl<'a> SetDailyLimit<'a> {
             )?;
         }
 
-        // 5. Write the limit
         {
             let mut data = self.daily_limit.try_borrow_mut()?;
             let dl = DailyLimit::from_bytes_mut(&mut data)?;

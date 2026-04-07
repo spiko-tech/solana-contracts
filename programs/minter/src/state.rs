@@ -1,39 +1,18 @@
 use pinocchio::address::Address;
 
-// -----------------------------------------------------------------
-// PDA Seeds
-// -----------------------------------------------------------------
-
 pub const MINTER_CONFIG_SEED: &[u8] = b"minter_config";
 pub const DAILY_LIMIT_SEED: &[u8] = b"daily_limit";
 pub const MINT_OPERATION_SEED: &[u8] = b"mint_op";
-
-// -----------------------------------------------------------------
-// Account discriminators
-// -----------------------------------------------------------------
 
 pub const DISCRIMINATOR_MINTER_CONFIG: u8 = 1;
 pub const DISCRIMINATOR_DAILY_LIMIT: u8 = 2;
 pub const DISCRIMINATOR_MINT_OPERATION: u8 = 3;
 
-// -----------------------------------------------------------------
-// Operation status values
-// -----------------------------------------------------------------
-
 pub const STATUS_NULL: u8 = 0;
 pub const STATUS_PENDING: u8 = 1;
 pub const STATUS_DONE: u8 = 2;
 
-// -----------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------
-
-/// Seconds per day, used for daily limit reset logic.
 pub const SECONDS_PER_DAY: i64 = 86_400;
-
-// -----------------------------------------------------------------
-// MinterConfig -- Singleton configuration
-// -----------------------------------------------------------------
 
 /// Global configuration for the Minter program.
 ///
@@ -82,10 +61,6 @@ impl MinterConfig {
         self.max_delay = value.to_le_bytes();
     }
 }
-
-// -----------------------------------------------------------------
-// DailyLimit -- Per-token daily mint tracking
-// -----------------------------------------------------------------
 
 /// Tracks the daily mint limit and usage for a specific token.
 ///
@@ -150,10 +125,6 @@ impl DailyLimit {
         self.last_day = value.to_le_bytes();
     }
 }
-
-// -----------------------------------------------------------------
-// MintOperation -- Per-operation state
-// -----------------------------------------------------------------
 
 /// Tracks the status and deadline of a single mint operation.
 ///
