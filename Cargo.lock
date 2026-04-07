@@ -1260,7 +1260,9 @@ dependencies = [
  "solana-program-error",
  "solana-pubkey 4.1.0",
  "solana-sdk-ids",
+ "spiko-common",
  "spiko-events",
+ "spiko-permission",
  "spiko-token",
 ]
 
@@ -1493,6 +1495,7 @@ dependencies = [
  "solana-program-error",
  "solana-pubkey 4.1.0",
  "solana-sdk-ids",
+ "spiko-common",
  "spiko-events",
 ]
 
@@ -1729,7 +1732,9 @@ dependencies = [
  "solana-program-error",
  "solana-pubkey 4.1.0",
  "solana-sdk-ids",
+ "spiko-common",
  "spiko-events",
+ "spiko-permission",
  "spiko-token",
 ]
 
@@ -2885,10 +2890,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "spiko-common"
+version = "0.1.0"
+dependencies = [
+ "pinocchio",
+ "pinocchio-system",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "spiko-events"
 version = "0.1.0"
 dependencies = [
  "pinocchio",
+]
+
+[[package]]
+name = "spiko-permission"
+version = "0.1.0"
+dependencies = [
+ "permission-manager",
+ "pinocchio",
+ "spiko-common",
 ]
 
 [[package]]
@@ -2907,7 +2930,9 @@ dependencies = [
  "solana-program-error",
  "solana-pubkey 4.1.0",
  "solana-sdk-ids",
+ "spiko-common",
  "spiko-events",
+ "spiko-permission",
 ]
 
 [[package]]
@@ -2924,7 +2949,9 @@ dependencies = [
  "solana-program-error",
  "solana-pubkey 4.1.0",
  "solana-sdk-ids",
+ "spiko-common",
  "spiko-events",
+ "spiko-permission",
  "spiko-token",
 ]
 

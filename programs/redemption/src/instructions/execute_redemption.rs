@@ -117,6 +117,7 @@ impl<'a> ExecuteRedemption<'a> {
             self.operator_perms,
             &permission_manager_id,
             ROLE_REDEMPTION_EXECUTOR,
+            RedemptionError::Unauthorized.into(),
         )?;
 
         // 3. Recompute operation_id and verify RedemptionOperation PDA

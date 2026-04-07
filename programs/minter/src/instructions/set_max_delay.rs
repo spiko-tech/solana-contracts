@@ -59,7 +59,12 @@ impl<'a> SetMaxDelay<'a> {
         };
 
         // 2. Verify caller is admin
-        require_admin(self.caller, self.perm_config, &permission_manager_id)?;
+        require_admin(
+            self.caller,
+            self.perm_config,
+            &permission_manager_id,
+            MinterError::Unauthorized.into(),
+        )?;
 
         // 3. Update max_delay
         {

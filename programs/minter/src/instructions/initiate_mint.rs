@@ -132,6 +132,7 @@ impl<'a> InitiateMint<'a> {
             self.caller_perms,
             &permission_manager_id,
             ROLE_MINT_INITIATOR,
+            MinterError::Unauthorized.into(),
         )?;
 
         // 3. Compute operation_id

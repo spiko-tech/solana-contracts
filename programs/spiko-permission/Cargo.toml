@@ -1,0 +1,10 @@
+[package]
+name = "spiko-permission"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+pinocchio = { workspace = true }
+permission-manager = { path = "../permission-manager", features = ["no-entrypoint"] }
+spiko-common = { path = "../spiko-common" }

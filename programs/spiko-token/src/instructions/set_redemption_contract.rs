@@ -1,11 +1,7 @@
 use pinocchio::{account::AccountView, address::Address, error::ProgramError, ProgramResult};
 
-use permission_manager::state::{
-    PermissionConfig, DISCRIMINATOR_PERMISSION_CONFIG, PERMISSION_CONFIG_SEED,
-};
-
 use crate::{
-    error::TokenError, events::emit_redemption_contract_set, helpers::verify_pda,
+    error::TokenError, events::emit_redemption_contract_set, helpers::require_admin,
     state::TokenConfig,
 };
 
@@ -71,33 +67,15 @@ impl<'a> SetRedemptionContract<'a> {
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // 3. Verify the PermissionConfig PDA is owned by the permission_manager
-        if !self.perm_config.owned_by(&permission_manager_id) {
-            return Err(TokenError::Unauthorized.into());
-        }
-
-        // 4. Verify it's the actual PermissionConfig PDA
-        verify_pda(
+        // 3. Verify caller is admin via permission_manager
+        require_admin(
+            self.caller,
             self.perm_config,
-            &[PERMISSION_CONFIG_SEED],
             &permission_manager_id,
+            TokenError::Unauthorized.into(),
         )?;
 
-        // 5. Read PermissionConfig and verify caller is admin
-        {
-            let perm_data = self.perm_config.try_borrow()?;
-            if perm_data.len() < PermissionConfig::LEN
-                || perm_data[0] != DISCRIMINATOR_PERMISSION_CONFIG
-            {
-                return Err(TokenError::Unauthorized.into());
-            }
-            let perm_config = PermissionConfig::from_bytes(&perm_data)?;
-            if self.caller.address() != &perm_config.admin {
-                return Err(TokenError::Unauthorized.into());
-            }
-        }
-
-        // 6. Write the redemption_contract address to TokenConfig
+        // 4. Write the redemption_contract address to TokenConfig
         {
             let mut data = self.config.try_borrow_mut()?;
             let config = TokenConfig::from_bytes_mut(&mut data)?;

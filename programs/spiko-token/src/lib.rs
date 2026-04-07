@@ -31,6 +31,7 @@ fn process_instruction(
         5 => Unpause::try_from((data, accounts))?.process(program_id),
         6 => RedeemToken::try_from((data, accounts))?.process(program_id),
         7 => SetRedemptionContract::try_from((data, accounts))?.process(program_id),
+        8 => BurnFrom::try_from((data, accounts))?.process(program_id),
         _ => Err(pinocchio::error::ProgramError::InvalidInstructionData),
     }
 }

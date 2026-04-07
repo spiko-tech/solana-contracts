@@ -1,4 +1,5 @@
 pub mod burn;
+pub mod burn_from;
 pub mod initialize;
 pub mod mint;
 pub mod pause;
@@ -8,6 +9,7 @@ pub mod transfer;
 pub mod unpause;
 
 pub use burn::BurnToken;
+pub use burn_from::BurnFrom;
 pub use initialize::InitializeToken;
 pub use mint::MintToken;
 pub use pause::Pause;

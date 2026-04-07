@@ -2,6 +2,8 @@
 resolver = "2"
 members = [
     "programs/spiko-events",
+    "programs/spiko-common",
+    "programs/spiko-permission",
     "programs/permission-manager",
     "programs/spiko-token",
     "programs/spiko-transfer-hook",
