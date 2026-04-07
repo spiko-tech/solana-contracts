@@ -33,31 +33,25 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for AcceptOwnership<'a> {
 
 impl<'a> AcceptOwnership<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify PermissionConfig PDA
         verify_pda(self.config, &[PERMISSION_CONFIG_SEED], program_id)?;
 
-        // 2. Verify config is initialized (owned by program)
         if !self.config.owned_by(program_id) {
             return Err(PermissionError::NotInitialized.into());
         }
 
-        // 3. Read config, check pending admin
         {
             let data = self.config.try_borrow()?;
             let config = PermissionConfig::from_bytes(&data)?;
 
-            // Must have a pending admin
             if !config.has_pending_admin() {
                 return Err(PermissionError::NoPendingAdmin.into());
             }
 
-            // Caller must be the pending admin
             if self.new_admin.address() != &config.pending_admin {
                 return Err(PermissionError::NotPendingAdmin.into());
             }
         }
 
-        // 4. Finalize the transfer
         {
             let mut data = self.config.try_borrow_mut()?;
             let config = PermissionConfig::from_bytes_mut(&mut data)?;

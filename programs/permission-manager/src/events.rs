@@ -5,10 +5,6 @@
 
 use spiko_events::{emit_event, pack_address, pack_disc, pack_u8};
 
-// ---------------------------------------------------------------
-// Discriminators — precomputed SHA256("event:<EventName>")[0..8]
-// ---------------------------------------------------------------
-
 // SHA256("event:PermissionManagerInitialized")[0..8]
 const DISC_PERMISSION_MANAGER_INITIALIZED: [u8; 8] =
     [0xcf, 0x1e, 0x60, 0x38, 0xfd, 0xa9, 0xc5, 0x0f];
@@ -21,12 +17,6 @@ const DISC_OWNERSHIP_TRANSFER_STARTED: [u8; 8] = [0xb7, 0xfd, 0xef, 0xf6, 0x8c, 
 // SHA256("event:OwnershipTransferred")[0..8]
 const DISC_OWNERSHIP_TRANSFERRED: [u8; 8] = [0xac, 0x3d, 0xcd, 0xb7, 0xfa, 0x32, 0x26, 0x62];
 
-// ---------------------------------------------------------------
-// Event emitters
-// ---------------------------------------------------------------
-
-/// Emit `PermissionManagerInitialized { admin: [u8;32] }`
-/// Buffer: disc(8) + admin(32) = 40 bytes
 #[inline]
 pub fn emit_permission_manager_initialized(admin: &[u8; 32]) {
     let mut buf = [0u8; 40];
@@ -35,8 +25,6 @@ pub fn emit_permission_manager_initialized(admin: &[u8; 32]) {
     emit_event(&buf);
 }
 
-/// Emit `RoleGranted { caller: [u8;32], target: [u8;32], role_id: u8 }`
-/// Buffer: disc(8) + caller(32) + target(32) + role_id(1) = 73 bytes
 #[inline]
 pub fn emit_role_granted(caller: &[u8; 32], target: &[u8; 32], role_id: u8) {
     let mut buf = [0u8; 73];
@@ -47,8 +35,6 @@ pub fn emit_role_granted(caller: &[u8; 32], target: &[u8; 32], role_id: u8) {
     emit_event(&buf);
 }
 
-/// Emit `RoleRemoved { caller: [u8;32], target: [u8;32], role_id: u8 }`
-/// Buffer: disc(8) + caller(32) + target(32) + role_id(1) = 73 bytes
 #[inline]
 pub fn emit_role_removed(caller: &[u8; 32], target: &[u8; 32], role_id: u8) {
     let mut buf = [0u8; 73];
@@ -59,8 +45,6 @@ pub fn emit_role_removed(caller: &[u8; 32], target: &[u8; 32], role_id: u8) {
     emit_event(&buf);
 }
 
-/// Emit `OwnershipTransferStarted { admin: [u8;32], new_admin: [u8;32] }`
-/// Buffer: disc(8) + admin(32) + new_admin(32) = 72 bytes
 #[inline]
 pub fn emit_ownership_transfer_started(admin: &[u8; 32], new_admin: &[u8; 32]) {
     let mut buf = [0u8; 72];
@@ -70,8 +54,6 @@ pub fn emit_ownership_transfer_started(admin: &[u8; 32], new_admin: &[u8; 32]) {
     emit_event(&buf);
 }
 
-/// Emit `OwnershipTransferred { new_admin: [u8;32] }`
-/// Buffer: disc(8) + new_admin(32) = 40 bytes
 #[inline]
 pub fn emit_ownership_transferred(new_admin: &[u8; 32]) {
     let mut buf = [0u8; 40];
