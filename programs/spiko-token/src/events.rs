@@ -110,3 +110,34 @@ pub fn emit_redemption_contract_set(caller: &[u8; 32], config: &[u8; 32], contra
     pack_address(&mut buf, off, contract);
     emit_event(&buf);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    fn expected_disc(event_name: &str) -> [u8; 8] {
+        let hash = Sha256::digest(event_name.as_bytes());
+        hash[..8].try_into().unwrap()
+    }
+
+    #[test]
+    fn verify_event_discriminators() {
+        assert_eq!(
+            DISC_TOKEN_INITIALIZED,
+            expected_disc("event:TokenInitialized")
+        );
+        assert_eq!(DISC_MINT, expected_disc("event:Mint"));
+        assert_eq!(DISC_BURN, expected_disc("event:Burn"));
+        assert_eq!(
+            DISC_REDEEM_INITIATED,
+            expected_disc("event:RedeemInitiated")
+        );
+        assert_eq!(DISC_TOKEN_PAUSED, expected_disc("event:TokenPaused"));
+        assert_eq!(DISC_TOKEN_UNPAUSED, expected_disc("event:TokenUnpaused"));
+        assert_eq!(
+            DISC_REDEMPTION_CONTRACT_SET,
+            expected_disc("event:RedemptionContractSet")
+        );
+    }
+}

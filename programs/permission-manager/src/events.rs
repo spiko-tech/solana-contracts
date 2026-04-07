@@ -79,3 +79,32 @@ pub fn emit_ownership_transferred(new_admin: &[u8; 32]) {
     pack_address(&mut buf, off, new_admin);
     emit_event(&buf);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    fn expected_disc(event_name: &str) -> [u8; 8] {
+        let hash = Sha256::digest(event_name.as_bytes());
+        hash[..8].try_into().unwrap()
+    }
+
+    #[test]
+    fn verify_event_discriminators() {
+        assert_eq!(
+            DISC_PERMISSION_MANAGER_INITIALIZED,
+            expected_disc("event:PermissionManagerInitialized")
+        );
+        assert_eq!(DISC_ROLE_GRANTED, expected_disc("event:RoleGranted"));
+        assert_eq!(DISC_ROLE_REMOVED, expected_disc("event:RoleRemoved"));
+        assert_eq!(
+            DISC_OWNERSHIP_TRANSFER_STARTED,
+            expected_disc("event:OwnershipTransferStarted")
+        );
+        assert_eq!(
+            DISC_OWNERSHIP_TRANSFERRED,
+            expected_disc("event:OwnershipTransferred")
+        );
+    }
+}

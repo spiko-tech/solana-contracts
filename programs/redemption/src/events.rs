@@ -105,3 +105,38 @@ pub fn emit_token_minimum_updated(caller: &[u8; 32], mint: &[u8; 32], minimum: u
     pack_u64(&mut buf, off, minimum);
     emit_event(&buf);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sha2::{Digest, Sha256};
+
+    fn expected_disc(event_name: &str) -> [u8; 8] {
+        let hash = Sha256::digest(event_name.as_bytes());
+        hash[..8].try_into().unwrap()
+    }
+
+    #[test]
+    fn verify_event_discriminators() {
+        assert_eq!(
+            DISC_REDEMPTION_INITIALIZED,
+            expected_disc("event:RedemptionInitialized")
+        );
+        assert_eq!(
+            DISC_REDEMPTION_INITIATED,
+            expected_disc("event:RedemptionInitiated")
+        );
+        assert_eq!(
+            DISC_REDEMPTION_EXECUTED,
+            expected_disc("event:RedemptionExecuted")
+        );
+        assert_eq!(
+            DISC_REDEMPTION_CANCELED,
+            expected_disc("event:RedemptionCanceled")
+        );
+        assert_eq!(
+            DISC_TOKEN_MINIMUM_UPDATED,
+            expected_disc("event:TokenMinimumUpdated")
+        );
+    }
+}
