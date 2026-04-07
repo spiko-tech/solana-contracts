@@ -179,8 +179,6 @@ impl<'a> TransferToken<'a> {
             )?;
         }
 
-        pinocchio_log::log!("Transferred tokens");
-
         Ok(())
     }
 }

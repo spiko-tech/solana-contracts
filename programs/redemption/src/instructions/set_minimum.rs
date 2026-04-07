@@ -116,7 +116,6 @@ impl<'a> SetMinimum<'a> {
             tm.set_minimum_amount(self.minimum);
         }
 
-        pinocchio_log::log!("TokenMinimum updated");
         emit_token_minimum_updated(
             &self.caller.address().to_bytes(),
             &self.token_mint,

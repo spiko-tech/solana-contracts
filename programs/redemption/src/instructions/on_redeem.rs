@@ -189,7 +189,6 @@ impl<'a> OnRedeem<'a> {
             op.user = Address::new_from_array(self.user_address);
         }
 
-        pinocchio_log::log!("RedemptionInitiated");
         emit_redemption_initiated(
             &self.user_address,
             &self.token_mint.address().to_bytes(),

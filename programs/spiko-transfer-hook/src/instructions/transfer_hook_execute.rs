@@ -134,8 +134,6 @@ impl<'a> TransferHookExecute<'a> {
             TransferHookError::UnauthorizedTo.into(),
         )?;
 
-        pinocchio_log::log!("Transfer hook: whitelist check passed");
-
         emit_transfer(
             &self.authority.address().to_bytes(),
             &self.mint.address().to_bytes(),

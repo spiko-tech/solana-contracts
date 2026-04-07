@@ -73,7 +73,6 @@ impl<'a> SetMaxDelay<'a> {
             config.set_max_delay(self.max_delay);
         }
 
-        pinocchio_log::log!("MaxDelay updated");
         emit_max_delay_updated(&self.caller.address().to_bytes(), self.max_delay);
 
         Ok(())

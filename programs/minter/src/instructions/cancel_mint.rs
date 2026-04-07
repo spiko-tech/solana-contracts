@@ -121,7 +121,6 @@ impl<'a> CancelMint<'a> {
             op.status = STATUS_DONE;
         }
 
-        pinocchio_log::log!("MintCanceled");
         emit_mint_canceled(
             &self.caller.address().to_bytes(),
             &self.user,

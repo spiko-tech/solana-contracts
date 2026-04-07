@@ -175,7 +175,6 @@ impl<'a> ExecuteRedemption<'a> {
             op.status = STATUS_EXECUTED;
         }
 
-        pinocchio_log::log!("RedemptionExecuted");
         emit_redemption_executed(
             &self.operator.address().to_bytes(),
             &self.user,

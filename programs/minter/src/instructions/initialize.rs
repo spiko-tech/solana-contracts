@@ -93,7 +93,6 @@ impl<'a> InitializeMinter<'a> {
             config.permission_manager = Address::new_from_array(self.permission_manager);
         }
 
-        pinocchio_log::log!("MinterConfig initialized");
         emit_minter_initialized(&self.admin.address().to_bytes(), self.max_delay);
 
         Ok(())

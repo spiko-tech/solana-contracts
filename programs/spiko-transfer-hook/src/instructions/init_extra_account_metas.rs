@@ -206,8 +206,6 @@ impl<'a> InitExtraAccountMetas<'a> {
             buf[156..191].copy_from_slice(&meta4);
         }
 
-        pinocchio_log::log!("ExtraAccountMetaList initialized");
-
         Ok(())
     }
 }

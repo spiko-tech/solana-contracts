@@ -182,7 +182,6 @@ impl<'a> ApproveMint<'a> {
             op.status = STATUS_DONE;
         }
 
-        pinocchio_log::log!("MintApproved");
         emit_mint_approved(
             &self.caller.address().to_bytes(),
             &self.user,

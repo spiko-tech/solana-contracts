@@ -113,7 +113,6 @@ impl<'a> Initialize<'a> {
             perms.roles = [0u8; 32];
         }
 
-        pinocchio_log::log!("PermissionManager initialized");
         emit_permission_manager_initialized(&self.admin.address().to_bytes());
 
         Ok(())

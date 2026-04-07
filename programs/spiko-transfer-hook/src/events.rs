@@ -26,6 +26,7 @@ pub fn emit_transfer(
     destination: &[u8; 32],
     amount: u64,
 ) {
+    pinocchio_log::log!("Transfer");
     let mut buf = [0u8; 144];
     let off = pack_disc(&mut buf, &DISC_TRANSFER);
     let off = pack_address(&mut buf, off, sender);

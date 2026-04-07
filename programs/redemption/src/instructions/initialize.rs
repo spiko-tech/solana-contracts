@@ -88,7 +88,6 @@ impl<'a> InitializeRedemption<'a> {
             config.permission_manager = Address::new_from_array(self.permission_manager);
         }
 
-        pinocchio_log::log!("RedemptionConfig initialized");
         emit_redemption_initialized(&self.admin.address().to_bytes());
 
         Ok(())

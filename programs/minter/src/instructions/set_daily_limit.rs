@@ -118,7 +118,6 @@ impl<'a> SetDailyLimit<'a> {
             // If newly created, used_amount and last_day are already zero
         }
 
-        pinocchio_log::log!("DailyLimit updated");
         emit_daily_limit_updated(
             &self.caller.address().to_bytes(),
             &self.token_mint,

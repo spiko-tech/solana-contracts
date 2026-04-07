@@ -82,7 +82,6 @@ impl<'a> SetRedemptionContract<'a> {
             config.redemption_contract = Address::new_from_array(self.redemption_contract);
         }
 
-        pinocchio_log::log!("Redemption contract set");
         emit_redemption_contract_set(
             &self.caller.address().to_bytes(),
             &self.config.address().to_bytes(),

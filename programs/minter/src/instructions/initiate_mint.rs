@@ -223,7 +223,6 @@ impl<'a> InitiateMint<'a> {
                 self.amount,
             )?;
 
-            pinocchio_log::log!("MintExecuted (immediate)");
             emit_mint_executed(
                 &self.caller.address().to_bytes(),
                 &self.user,
@@ -255,7 +254,6 @@ impl<'a> InitiateMint<'a> {
                 op.set_deadline(now + max_delay);
             }
 
-            pinocchio_log::log!("MintBlocked (pending approval)");
             emit_mint_blocked(
                 &self.caller.address().to_bytes(),
                 &self.user,
