@@ -86,13 +86,10 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for TransferHookExecute<'a> {
 
 impl<'a> TransferHookExecute<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify ExtraAccountMetaList is owned by this program
         if !self.extra_account_meta_list.owned_by(program_id) {
             return Err(ProgramError::IllegalOwner);
         }
 
-        // 2. Verify TokenConfig is owned by the SpikoToken program
-        //    (not by this program — TokenConfig belongs to spiko-token)
         if !self
             .token_config
             .owned_by(self.spiko_token_program.address())
@@ -100,25 +97,21 @@ impl<'a> TransferHookExecute<'a> {
             return Err(TransferHookError::NotInitialized.into());
         }
 
-        // 3. Check not paused
         {
             let config_data = self.token_config.try_borrow()?;
             require_not_paused(&config_data)?;
         }
 
-        // 4. Get permission_manager_id from config
         let permission_manager_id = {
             let config_data = self.token_config.try_borrow()?;
             let config = TokenConfig::from_bytes(&config_data)?;
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // 5. Verify the permission_manager_program account matches the stored ID
         if self.permission_manager_program.address() != &permission_manager_id {
             return Err(TransferHookError::Unauthorized.into());
         }
 
-        // 6. Verify sender is whitelisted
         require_permission(
             self.sender_perms,
             &permission_manager_id,
@@ -126,7 +119,6 @@ impl<'a> TransferHookExecute<'a> {
             TransferHookError::UnauthorizedFrom.into(),
         )?;
 
-        // 7. Verify recipient is whitelisted
         require_permission(
             self.recipient_perms,
             &permission_manager_id,

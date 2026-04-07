@@ -109,7 +109,6 @@ impl<'a> InitExtraAccountMetas<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
         let mint_key = self.mint.address();
 
-        // 1. Verify TokenConfig is initialized (owned by spiko-token program)
         if !self
             .token_config
             .owned_by(self.spiko_token_program.address())
@@ -117,7 +116,6 @@ impl<'a> InitExtraAccountMetas<'a> {
             return Err(TransferHookError::NotInitialized.into());
         }
 
-        // 2. Read permission_manager and spiko_token program from config
         let (permission_manager_bytes, spiko_token_bytes) = {
             let config_data = self.token_config.try_borrow()?;
             let config = TokenConfig::from_bytes(&config_data)?;
@@ -136,19 +134,16 @@ impl<'a> InitExtraAccountMetas<'a> {
             )
         };
 
-        // 3. Verify ExtraAccountMetaList PDA is not already initialized
         if self.extra_account_meta_list.owned_by(program_id) {
             return Err(TransferHookError::AlreadyInitialized.into());
         }
 
-        // 4. Derive ExtraAccountMetaList PDA: ["extra-account-metas", mint_pubkey]
         let meta_list_bump = verify_pda(
             self.extra_account_meta_list,
             &[EXTRA_ACCOUNT_METAS_SEED, mint_key.as_ref()],
             program_id,
         )?;
 
-        // 5. Create the PDA account
         let bump_bytes = [meta_list_bump];
         let seeds = crate::helpers::extra_account_metas_seeds(mint_key.as_ref(), &bump_bytes);
         let signer = Signer::from(&seeds);
@@ -161,7 +156,6 @@ impl<'a> InitExtraAccountMetas<'a> {
             &[signer],
         )?;
 
-        // 6. Write the ExtraAccountMetaList data
         {
             let mut data = self.extra_account_meta_list.try_borrow_mut()?;
             let buf = &mut data[..EXTRA_ACCOUNT_META_LIST_SIZE];
@@ -209,10 +203,6 @@ impl<'a> InitExtraAccountMetas<'a> {
         Ok(())
     }
 }
-
-// -----------------------------------------------------------------
-// ExtraAccountMeta builders (35 bytes each)
-// -----------------------------------------------------------------
 
 /// Build a literal pubkey ExtraAccountMeta (discriminator = 0).
 #[inline]
@@ -279,10 +269,6 @@ fn build_user_perms_pda_meta(token_account_index: u8) -> [u8; 35] {
     meta[34] = 0; // is_writable = false
     meta
 }
-
-// -----------------------------------------------------------------
-// Signer seeds builder
-// -----------------------------------------------------------------
 
 /// Build Seed array for ExtraAccountMetaList PDA.
 /// Seeds: ["extra-account-metas", mint_pubkey, bump]
