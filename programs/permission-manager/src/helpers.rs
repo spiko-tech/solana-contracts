@@ -15,7 +15,6 @@ pub fn require_admin(
     config_account: &AccountView,
     program_id: &Address,
 ) -> Result<(), ProgramError> {
-    // Verify the config account is owned by this program
     if !config_account.owned_by(program_id) {
         return Err(crate::error::PermissionError::NotInitialized.into());
     }
@@ -48,12 +47,10 @@ pub fn require_admin_or_role(
     target_role: u8,
     program_id: &Address,
 ) -> Result<(), ProgramError> {
-    // Path 1: caller is admin — can manage any role
     if require_admin(caller, config_account, program_id).is_ok() {
         return Ok(());
     }
 
-    // Path 2: caller holds a role that can manage target_role
     if !caller_perms.owned_by(program_id) {
         return Err(crate::error::PermissionError::Unauthorized.into());
     }
@@ -61,10 +58,6 @@ pub fn require_admin_or_role(
     let data = caller_perms.try_borrow()?;
     let perms = UserPermissions::from_bytes(&data)?;
 
-    // Check each defined role that could be a grantor for target_role.
-    // Since the hierarchy is small and hardcoded, we only need to check
-    // the specific grantor roles that map to target_role.
-    // For extensibility, we iterate over the 8 currently defined roles (0..=7).
     for grantor_role in 0..=7u8 {
         if can_manage_role(grantor_role, target_role) && perms.has_role(grantor_role) {
             return Ok(());
@@ -74,8 +67,6 @@ pub fn require_admin_or_role(
     Err(crate::error::PermissionError::Unauthorized.into())
 }
 
-/// Build Seed array for a UserPermissions PDA.
-/// Seeds: ["user_perm", user_pubkey, bump]
 #[inline]
 pub fn user_perm_seeds<'a>(user_key: &'a [u8], bump: &'a [u8; 1]) -> [Seed<'a>; 3] {
     [
@@ -85,8 +76,6 @@ pub fn user_perm_seeds<'a>(user_key: &'a [u8], bump: &'a [u8; 1]) -> [Seed<'a>; 
     ]
 }
 
-/// Build Seed array for the PermissionConfig PDA.
-/// Seeds: ["permission_config", bump]
 #[inline]
 pub fn config_seeds<'a>(bump: &'a [u8; 1]) -> [Seed<'a>; 2] {
     [
