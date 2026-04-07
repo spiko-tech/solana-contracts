@@ -6,21 +6,21 @@ Four programs enforce role-based access control, whitelist-gated transfers, cont
 
 ## Overview
 
-| Program                | Description                                                                                          |
-| ---------------------- | ---------------------------------------------------------------------------------------------------- |
-| **PermissionManager**  | Singleton authorization hub. All permissioned operations across the system are gated through it.     |
-| **SpikoToken**         | Singleton token program. Manages one Token-2022 mint per fund (EUTBL, USTBL), each with TransferHook (whitelist) and PermanentDelegate (admin burn). |
-| **Minter**             | Singleton mint gateway. Enforces per-token daily limits and a two-phase approval flow for large mints. |
-| **Redemption**         | Singleton off-ramp gateway. Users deposit tokens to request redemption; operator confirms after off-chain settlement. |
+| Program               | Description                                                                                                                                          |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PermissionManager** | Singleton authorization hub. All permissioned operations across the system are gated through it.                                                     |
+| **SpikoToken**        | Singleton token program. Manages one Token-2022 mint per fund (EUTBL, USTBL), each with TransferHook (whitelist) and PermanentDelegate (admin burn). |
+| **Minter**            | Singleton mint gateway. Enforces per-token daily limits and a two-phase approval flow for large mints.                                               |
+| **Redemption**        | Singleton off-ramp gateway. Users deposit tokens to request redemption; operator confirms after off-chain settlement.                                |
 
 ## Program IDs (Devnet)
 
-| Program              | Address                                        |
-| -------------------- | ---------------------------------------------- |
-| PermissionManager    | `BTZTjmY3i1ZPFkUvZAwD3WzwQFxxLXeaCYYBNjHKuRoz` |
-| SpikoToken           | `2LKr4wYMkx75hCbrmRCR2iESCWmeDViuSDLxZaZnC4aP` |
-| Minter               | `6jbcB2eNfm1qLXRFd9jJes9yYEUWYafJDjfZ1dobSQ9z` |
-| Redemption           | `GZEFPC74n1ifKrsH9vh67qntZ8bqpzpdDrBasGVCUPPo`  |
+| Program           | Address                                        |
+| ----------------- | ---------------------------------------------- |
+| PermissionManager | `BTZTjmY3i1ZPFkUvZAwD3WzwQFxxLXeaCYYBNjHKuRoz` |
+| SpikoToken        | `2LKr4wYMkx75hCbrmRCR2iESCWmeDViuSDLxZaZnC4aP` |
+| Minter            | `6jbcB2eNfm1qLXRFd9jJes9yYEUWYafJDjfZ1dobSQ9z` |
+| Redemption        | `GZEFPC74n1ifKrsH9vh67qntZ8bqpzpdDrBasGVCUPPo` |
 
 ## Prerequisites
 
@@ -63,6 +63,12 @@ Integration tests (end-to-end flows across all 4 programs):
 
 ```bash
 cargo test-sbf -p integration-tests    # 14 tests
+```
+
+E2E tests:
+
+```bash
+cd scripts && pnpm install && pnpm e2e-test
 ```
 
 Total: **76/77 pass**. The single skip is a Mollusk test-harness limitation with cross-program invocations — the actual on-chain behavior is verified on devnet.
@@ -245,7 +251,7 @@ echo -n "event:RoleGranted" | shasum -a 256
 async function eventDiscriminator(eventName: string): Promise<Uint8Array> {
   const hash = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(`event:${eventName}`)
+    new TextEncoder().encode(`event:${eventName}`),
   );
   return new Uint8Array(hash).slice(0, 8);
 }
@@ -277,45 +283,45 @@ Each event payload is a byte buffer: `discriminator (8 bytes) + fields (LE-packe
 
 #### Permission Manager (5 events)
 
-| Event | Hash Input | Discriminator | Fields |
-|---|---|---|---|
-| `PermissionManagerInitialized` | `event:PermissionManagerInitialized` | `cf1e6038fda9c50f` | `admin: pubkey(32)` |
-| `RoleGranted` | `event:RoleGranted` | `dcb759e48f3ff63a` | `caller: pubkey(32), target: pubkey(32), role_id: u8(1)` |
-| `RoleRevoked` | `event:RoleRevoked` | `a7b734e57ece3e3d` | `caller: pubkey(32), target: pubkey(32), role_id: u8(1)` |
-| `OwnershipTransferStarted` | `event:OwnershipTransferStarted` | `b7fdeff68cb38569` | `admin: pubkey(32), new_admin: pubkey(32)` |
-| `OwnershipTransferred` | `event:OwnershipTransferred` | `ac3dcdb7fa322662` | `new_admin: pubkey(32)` |
+| Event                          | Hash Input                           | Discriminator      | Fields                                                   |
+| ------------------------------ | ------------------------------------ | ------------------ | -------------------------------------------------------- |
+| `PermissionManagerInitialized` | `event:PermissionManagerInitialized` | `cf1e6038fda9c50f` | `admin: pubkey(32)`                                      |
+| `RoleGranted`                  | `event:RoleGranted`                  | `dcb759e48f3ff63a` | `caller: pubkey(32), target: pubkey(32), role_id: u8(1)` |
+| `RoleRevoked`                  | `event:RoleRevoked`                  | `a7b734e57ece3e3d` | `caller: pubkey(32), target: pubkey(32), role_id: u8(1)` |
+| `OwnershipTransferStarted`     | `event:OwnershipTransferStarted`     | `b7fdeff68cb38569` | `admin: pubkey(32), new_admin: pubkey(32)`               |
+| `OwnershipTransferred`         | `event:OwnershipTransferred`         | `ac3dcdb7fa322662` | `new_admin: pubkey(32)`                                  |
 
 #### SpikoToken (8 events)
 
-| Event | Hash Input | Discriminator | Fields |
-|---|---|---|---|
-| `TokenInitialized` | `event:TokenInitialized` | `4d46e97cec5ccc00` | `admin: pubkey(32), mint: pubkey(32)` |
-| `TokensMinted` | `event:TokensMinted` | `cfd480c2af364018` | `caller: pubkey(32), mint: pubkey(32), recipient_ata: pubkey(32), amount: u64(8)` |
-| `TokensBurned` | `event:TokensBurned` | `e6ff2271e235e309` | `caller: pubkey(32), mint: pubkey(32), source_ata: pubkey(32), amount: u64(8)` |
-| `TokensTransferred` | `event:TokensTransferred` | `8c566a26559dcafa` | `sender: pubkey(32), mint: pubkey(32), source: pubkey(32), destination: pubkey(32), amount: u64(8)` |
-| `RedeemInitiated` | `event:RedeemInitiated` | `47dc92b90bdcf513` | `user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)` |
-| `TokenPaused` | `event:TokenPaused` | `7e364ca17d97943b` | `caller: pubkey(32), config: pubkey(32)` |
-| `TokenUnpaused` | `event:TokenUnpaused` | `e1114451818691a9` | `caller: pubkey(32), config: pubkey(32)` |
-| `RedemptionContractSet` | `event:RedemptionContractSet` | `bdb31c22e363f63a` | `caller: pubkey(32), config: pubkey(32), contract: pubkey(32)` |
+| Event                   | Hash Input                    | Discriminator      | Fields                                                                                              |
+| ----------------------- | ----------------------------- | ------------------ | --------------------------------------------------------------------------------------------------- |
+| `TokenInitialized`      | `event:TokenInitialized`      | `4d46e97cec5ccc00` | `admin: pubkey(32), mint: pubkey(32)`                                                               |
+| `TokensMinted`          | `event:TokensMinted`          | `cfd480c2af364018` | `caller: pubkey(32), mint: pubkey(32), recipient_ata: pubkey(32), amount: u64(8)`                   |
+| `TokensBurned`          | `event:TokensBurned`          | `e6ff2271e235e309` | `caller: pubkey(32), mint: pubkey(32), source_ata: pubkey(32), amount: u64(8)`                      |
+| `TokensTransferred`     | `event:TokensTransferred`     | `8c566a26559dcafa` | `sender: pubkey(32), mint: pubkey(32), source: pubkey(32), destination: pubkey(32), amount: u64(8)` |
+| `RedeemInitiated`       | `event:RedeemInitiated`       | `47dc92b90bdcf513` | `user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)`                                  |
+| `TokenPaused`           | `event:TokenPaused`           | `7e364ca17d97943b` | `caller: pubkey(32), config: pubkey(32)`                                                            |
+| `TokenUnpaused`         | `event:TokenUnpaused`         | `e1114451818691a9` | `caller: pubkey(32), config: pubkey(32)`                                                            |
+| `RedemptionContractSet` | `event:RedemptionContractSet` | `bdb31c22e363f63a` | `caller: pubkey(32), config: pubkey(32), contract: pubkey(32)`                                      |
 
 #### Minter (7 events)
 
-| Event | Hash Input | Discriminator | Fields |
-|---|---|---|---|
-| `MinterInitialized` | `event:MinterInitialized` | `b18962b316ce37c0` | `admin: pubkey(32), max_delay: i64(8)` |
-| `MintExecuted` | `event:MintExecuted` | `37876c4905beed2c` | `caller: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)` |
-| `MintBlocked` | `event:MintBlocked` | `7eee83cdfd6ef523` | `caller: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)` |
-| `MintApproved` | `event:MintApproved` | `0244e91866416823` | `approver: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)` |
-| `MintCanceled` | `event:MintCanceled` | `a84a139d4addc019` | `caller: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)` |
-| `DailyLimitUpdated` | `event:DailyLimitUpdated` | `4108e7add7b647c9` | `caller: pubkey(32), mint: pubkey(32), limit: u64(8)` |
-| `MaxDelayUpdated` | `event:MaxDelayUpdated` | `8151911a62d2a00c` | `caller: pubkey(32), max_delay: i64(8)` |
+| Event               | Hash Input                | Discriminator      | Fields                                                                                   |
+| ------------------- | ------------------------- | ------------------ | ---------------------------------------------------------------------------------------- |
+| `MinterInitialized` | `event:MinterInitialized` | `b18962b316ce37c0` | `admin: pubkey(32), max_delay: i64(8)`                                                   |
+| `MintExecuted`      | `event:MintExecuted`      | `37876c4905beed2c` | `caller: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)`   |
+| `MintBlocked`       | `event:MintBlocked`       | `7eee83cdfd6ef523` | `caller: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)`   |
+| `MintApproved`      | `event:MintApproved`      | `0244e91866416823` | `approver: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)` |
+| `MintCanceled`      | `event:MintCanceled`      | `a84a139d4addc019` | `caller: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)`   |
+| `DailyLimitUpdated` | `event:DailyLimitUpdated` | `4108e7add7b647c9` | `caller: pubkey(32), mint: pubkey(32), limit: u64(8)`                                    |
+| `MaxDelayUpdated`   | `event:MaxDelayUpdated`   | `8151911a62d2a00c` | `caller: pubkey(32), max_delay: i64(8)`                                                  |
 
 #### Redemption (5 events)
 
-| Event | Hash Input | Discriminator | Fields |
-|---|---|---|---|
-| `RedemptionInitialized` | `event:RedemptionInitialized` | `6ac86472946426cb` | `admin: pubkey(32)` |
-| `RedemptionCreated` | `event:RedemptionCreated` | `13123e3c8d46a96f` | `user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8), deadline: i64(8)` |
-| `RedemptionExecuted` | `event:RedemptionExecuted` | `aeda0538242e35d4` | `operator: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)` |
-| `RedemptionCanceled` | `event:RedemptionCanceled` | `bdf4d0e83c68e7a4` | `caller: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)` |
-| `TokenMinimumUpdated` | `event:TokenMinimumUpdated` | `eb3c994761d4706e` | `caller: pubkey(32), mint: pubkey(32), minimum: u64(8)` |
+| Event                   | Hash Input                    | Discriminator      | Fields                                                                                   |
+| ----------------------- | ----------------------------- | ------------------ | ---------------------------------------------------------------------------------------- |
+| `RedemptionInitialized` | `event:RedemptionInitialized` | `6ac86472946426cb` | `admin: pubkey(32)`                                                                      |
+| `RedemptionCreated`     | `event:RedemptionCreated`     | `13123e3c8d46a96f` | `user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8), deadline: i64(8)`     |
+| `RedemptionExecuted`    | `event:RedemptionExecuted`    | `aeda0538242e35d4` | `operator: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)` |
+| `RedemptionCanceled`    | `event:RedemptionCanceled`    | `bdf4d0e83c68e7a4` | `caller: pubkey(32), user: pubkey(32), mint: pubkey(32), amount: u64(8), salt: u64(8)`   |
+| `TokenMinimumUpdated`   | `event:TokenMinimumUpdated`   | `eb3c994761d4706e` | `caller: pubkey(32), mint: pubkey(32), minimum: u64(8)`                                  |

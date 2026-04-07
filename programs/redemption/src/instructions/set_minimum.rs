@@ -76,7 +76,12 @@ impl<'a> SetMinimum<'a> {
         };
 
         // 2. Verify caller is admin
-        require_admin(self.caller, self.perm_config, &permission_manager_id)?;
+        require_admin(
+            self.caller,
+            self.perm_config,
+            &permission_manager_id,
+            RedemptionError::Unauthorized.into(),
+        )?;
 
         // 3. Verify TokenMinimum PDA
         let bump = verify_pda(

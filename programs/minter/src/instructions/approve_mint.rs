@@ -122,6 +122,7 @@ impl<'a> ApproveMint<'a> {
             self.caller_perms,
             &permission_manager_id,
             ROLE_MINT_APPROVER,
+            MinterError::Unauthorized.into(),
         )?;
 
         // 3. Recompute operation_id and verify MintOperation PDA
