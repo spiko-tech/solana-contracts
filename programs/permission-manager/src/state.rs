@@ -1,38 +1,15 @@
 use pinocchio::address::Address;
 
-/// Minter role (bit 0) — can mint tokens via the minter program.
 pub const ROLE_MINTER: u8 = 0;
-
-/// Pauser role (bit 1) — can pause/unpause tokens.
 pub const ROLE_PAUSER: u8 = 1;
-
-/// Burner role (bit 2) — can burn tokens via the redemption program.
 pub const ROLE_BURNER: u8 = 2;
-
-/// Whitelister role (bit 3) — reserved for future use (grant whitelist).
 pub const ROLE_WHITELISTER: u8 = 3;
-
-/// Whitelisted role (bit 4) — user is whitelisted to send/receive tokens.
 pub const ROLE_WHITELISTED: u8 = 4;
-
-/// Redemption executor role (bit 5) — can execute redemption operations.
 pub const ROLE_REDEMPTION_EXECUTOR: u8 = 5;
-
-/// Mint approver role (bit 6) — can approve over-limit mint operations.
 pub const ROLE_MINT_APPROVER: u8 = 6;
-
-/// Mint initiator role (bit 7) — can initiate mint operations.
 pub const ROLE_MINT_INITIATOR: u8 = 7;
-
-/// Maximum valid role bit index (bits 0..=255 are representable in 32 bytes).
 pub const MAX_ROLE_BIT: u8 = 255;
 
-/// Check whether `grantor_role` has authority to grant/revoke `target_role`.
-///
-/// Currently defined hierarchies:
-///   - WHITELISTER (bit 3) can manage WHITELISTED (bit 4)
-///
-/// Easy to extend: add more arms to the match.
 #[inline]
 pub fn can_manage_role(grantor_role: u8, target_role: u8) -> bool {
     matches!(
@@ -41,10 +18,8 @@ pub fn can_manage_role(grantor_role: u8, target_role: u8) -> bool {
     )
 }
 
-/// Size of the role bitmask in bytes (256 bits = 32 bytes).
 pub const ROLE_BITMASK_LEN: usize = 32;
 
-/// Check if a specific role bit is set in a bitmask.
 #[inline]
 pub fn has_role(bitmask: &[u8; ROLE_BITMASK_LEN], role: u8) -> bool {
     let byte_index = (role / 8) as usize;
@@ -97,7 +72,6 @@ impl PermissionConfig {
         Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
     }
 
-    /// Check if there is a pending ownership transfer.
     #[inline]
     pub fn has_pending_admin(&self) -> bool {
         self.pending_admin != ZERO_ADDRESS
@@ -139,13 +113,11 @@ impl UserPermissions {
         Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
     }
 
-    /// Check if the user has a specific role.
     #[inline]
     pub fn has_role(&self, role: u8) -> bool {
         has_role(&self.roles, role)
     }
 
-    /// Grant a role to the user.
     #[inline]
     pub fn set_role(&mut self, role: u8) {
         let byte_index = (role / 8) as usize;
@@ -153,7 +125,6 @@ impl UserPermissions {
         self.roles[byte_index] |= 1 << bit_index;
     }
 
-    /// Revoke a role from the user.
     #[inline]
     pub fn clear_role(&mut self, role: u8) {
         let byte_index = (role / 8) as usize;
