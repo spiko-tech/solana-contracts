@@ -1,41 +1,21 @@
 use pinocchio::address::Address;
 
-// -----------------------------------------------------------------
-// PDA Seeds
-// -----------------------------------------------------------------
-
 pub const REDEMPTION_CONFIG_SEED: &[u8] = b"redemption_config";
 pub const TOKEN_MINIMUM_SEED: &[u8] = b"minimum";
 pub const REDEMPTION_OPERATION_SEED: &[u8] = b"redemption_op";
 pub const VAULT_SEED: &[u8] = b"vault";
 
-// -----------------------------------------------------------------
-// Account discriminators
-// -----------------------------------------------------------------
-
 pub const DISCRIMINATOR_REDEMPTION_CONFIG: u8 = 1;
 pub const DISCRIMINATOR_TOKEN_MINIMUM: u8 = 2;
 pub const DISCRIMINATOR_REDEMPTION_OPERATION: u8 = 4;
-
-// -----------------------------------------------------------------
-// Operation status values
-// -----------------------------------------------------------------
 
 pub const STATUS_NULL: u8 = 0;
 pub const STATUS_PENDING: u8 = 1;
 pub const STATUS_EXECUTED: u8 = 2;
 pub const STATUS_CANCELED: u8 = 3;
 
-// -----------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------
-
 /// Maximum delay for redemption operations (14 days in seconds).
 pub const MAX_DELAY: i64 = 14 * 24 * 60 * 60; // 1_209_600
-
-// -----------------------------------------------------------------
-// RedemptionConfig -- Singleton configuration
-// -----------------------------------------------------------------
 
 /// Global configuration for the Redemption program.
 ///
@@ -72,10 +52,6 @@ impl RedemptionConfig {
         Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
     }
 }
-
-// -----------------------------------------------------------------
-// TokenMinimum -- Per-token minimum redemption amount
-// -----------------------------------------------------------------
 
 /// Stores the minimum redemption amount for a specific token.
 ///
@@ -120,10 +96,6 @@ impl TokenMinimum {
         self.minimum_amount = value.to_le_bytes();
     }
 }
-
-// -----------------------------------------------------------------
-// RedemptionOperation -- Per-operation state
-// -----------------------------------------------------------------
 
 /// Tracks the status of a single redemption operation.
 ///

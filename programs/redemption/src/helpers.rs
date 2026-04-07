@@ -12,10 +12,6 @@ use crate::state::{
     REDEMPTION_CONFIG_SEED, REDEMPTION_OPERATION_SEED, TOKEN_MINIMUM_SEED, VAULT_SEED,
 };
 
-// -----------------------------------------------------------------
-// CPI to spiko_token::burn (discriminator 2)
-// -----------------------------------------------------------------
-
 /// Build and invoke CPI to spiko_token program's burn instruction.
 ///
 /// spiko_token burn (discriminator 2) expects accounts:
@@ -43,12 +39,10 @@ pub fn cpi_spiko_token_burn<'a>(
     spiko_token_program: &AccountView,
     amount: u64,
 ) -> ProgramResult {
-    // Build instruction data: discriminator(2) + amount(8 bytes LE)
     let mut ix_data = [0u8; 9];
     ix_data[0] = 2; // discriminator for burn
     ix_data[1..9].copy_from_slice(&amount.to_le_bytes());
 
-    // Build CPI instruction accounts
     let ix_accounts = [
         InstructionAccount::writable_signer(vault_authority.address()), // caller (PDA signer)
         InstructionAccount::readonly(token_config.address()),           // token config
@@ -85,10 +79,6 @@ pub fn cpi_spiko_token_burn<'a>(
         &[signer],
     )
 }
-
-// -----------------------------------------------------------------
-// CPI to Token-2022 Transfer (for cancel refund)
-// -----------------------------------------------------------------
 
 /// Transfer tokens from vault back to user via Token-2022 transfer.
 /// The vault authority PDA signs.

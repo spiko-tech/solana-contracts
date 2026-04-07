@@ -111,9 +111,6 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for CancelRedemption<'a> {
 
 impl<'a> CancelRedemption<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. NO permission check — anyone can call after deadline
-
-        // 2. Read RedemptionConfig (verify ownership)
         {
             if !self.config.owned_by(program_id) {
                 return Err(RedemptionError::NotInitialized.into());
@@ -122,7 +119,6 @@ impl<'a> CancelRedemption<'a> {
             let _config = RedemptionConfig::from_bytes(&data)?;
         }
 
-        // 3. Recompute operation_id and verify RedemptionOperation PDA
         let mint_key_bytes = self.token_mint.address().to_bytes();
         let operation_id =
             compute_operation_id(&self.user, &mint_key_bytes, self.amount, self.salt);
@@ -133,10 +129,8 @@ impl<'a> CancelRedemption<'a> {
             program_id,
         )?;
 
-        // 4. Verify vault authority PDA
         let vault_bump = verify_pda(self.vault_authority, &[VAULT_SEED], program_id)?;
 
-        // 5. Check status == PENDING and deadline HAS passed
         let clock = Clock::get()?;
         let now = clock.unix_timestamp;
 
@@ -156,7 +150,6 @@ impl<'a> CancelRedemption<'a> {
             }
         }
 
-        // 6. Transfer tokens from vault back to user (with Transfer Hook extra accounts)
         cpi_token_2022_transfer(
             self.vault,
             self.token_mint,
@@ -174,7 +167,6 @@ impl<'a> CancelRedemption<'a> {
             self.amount,
         )?;
 
-        // 7. Set status = CANCELED
         {
             let mut data = self.redemption_op.try_borrow_mut()?;
             let op = RedemptionOperation::from_bytes_mut(&mut data)?;
