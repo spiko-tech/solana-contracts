@@ -127,7 +127,6 @@ impl<'a> BurnFrom<'a> {
         }
         .invoke_signed(&[ma_signer])?;
 
-        pinocchio_log::log!("Burned tokens from account (admin)");
         emit_burn(
             &self.caller.address().to_bytes(),
             &self.mint.address().to_bytes(),

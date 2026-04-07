@@ -285,7 +285,6 @@ impl<'a> RedeemToken<'a> {
             &[tc_signer],
         )?;
 
-        pinocchio_log::log!("RedeemInitiated");
         emit_redeem_initiated(
             &self.user.address().to_bytes(),
             &self.mint.address().to_bytes(),

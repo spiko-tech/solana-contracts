@@ -59,7 +59,6 @@ impl<'a> AcceptOwnership<'a> {
             config.pending_admin = ZERO_ADDRESS;
         }
 
-        pinocchio_log::log!("OwnershipTransferred");
         emit_ownership_transferred(&self.new_admin.address().to_bytes());
 
         Ok(())

@@ -61,7 +61,6 @@ impl<'a> TransferOwnership<'a> {
             config.pending_admin = Address::new_from_array(self.new_admin.to_bytes());
         }
 
-        pinocchio_log::log!("OwnershipTransferStarted");
         emit_ownership_transfer_started(
             &self.admin.address().to_bytes(),
             &self.new_admin.to_bytes(),

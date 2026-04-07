@@ -19,6 +19,7 @@ const DISC_OWNERSHIP_TRANSFERRED: [u8; 8] = [0xac, 0x3d, 0xcd, 0xb7, 0xfa, 0x32,
 
 #[inline]
 pub fn emit_permission_manager_initialized(admin: &[u8; 32]) {
+    pinocchio_log::log!("PermissionManagerInitialized");
     let mut buf = [0u8; 40];
     let off = pack_disc(&mut buf, &DISC_PERMISSION_MANAGER_INITIALIZED);
     pack_address(&mut buf, off, admin);
@@ -27,6 +28,7 @@ pub fn emit_permission_manager_initialized(admin: &[u8; 32]) {
 
 #[inline]
 pub fn emit_role_granted(caller: &[u8; 32], target: &[u8; 32], role_id: u8) {
+    pinocchio_log::log!("RoleGranted");
     let mut buf = [0u8; 73];
     let off = pack_disc(&mut buf, &DISC_ROLE_GRANTED);
     let off = pack_address(&mut buf, off, caller);
@@ -37,6 +39,7 @@ pub fn emit_role_granted(caller: &[u8; 32], target: &[u8; 32], role_id: u8) {
 
 #[inline]
 pub fn emit_role_removed(caller: &[u8; 32], target: &[u8; 32], role_id: u8) {
+    pinocchio_log::log!("RoleRemoved");
     let mut buf = [0u8; 73];
     let off = pack_disc(&mut buf, &DISC_ROLE_REMOVED);
     let off = pack_address(&mut buf, off, caller);
@@ -47,6 +50,7 @@ pub fn emit_role_removed(caller: &[u8; 32], target: &[u8; 32], role_id: u8) {
 
 #[inline]
 pub fn emit_ownership_transfer_started(admin: &[u8; 32], new_admin: &[u8; 32]) {
+    pinocchio_log::log!("OwnershipTransferStarted");
     let mut buf = [0u8; 72];
     let off = pack_disc(&mut buf, &DISC_OWNERSHIP_TRANSFER_STARTED);
     let off = pack_address(&mut buf, off, admin);
@@ -56,6 +60,7 @@ pub fn emit_ownership_transfer_started(admin: &[u8; 32], new_admin: &[u8; 32]) {
 
 #[inline]
 pub fn emit_ownership_transferred(new_admin: &[u8; 32]) {
+    pinocchio_log::log!("OwnershipTransferred");
     let mut buf = [0u8; 40];
     let off = pack_disc(&mut buf, &DISC_OWNERSHIP_TRANSFERRED);
     pack_address(&mut buf, off, new_admin);

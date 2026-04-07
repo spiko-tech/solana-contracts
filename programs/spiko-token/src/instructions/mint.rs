@@ -131,7 +131,6 @@ impl<'a> MintToken<'a> {
         }
         .invoke_signed(&[ma_signer])?;
 
-        pinocchio_log::log!("Minted tokens");
         emit_mint(
             &self.caller.address().to_bytes(),
             &self.mint.address().to_bytes(),

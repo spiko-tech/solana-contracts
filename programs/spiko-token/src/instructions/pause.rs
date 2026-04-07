@@ -67,7 +67,6 @@ impl<'a> Pause<'a> {
             config.paused = 1;
         }
 
-        pinocchio_log::log!("Token paused");
         emit_token_paused(
             &self.caller.address().to_bytes(),
             &self.config.address().to_bytes(),

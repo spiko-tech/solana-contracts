@@ -31,6 +31,7 @@ const DISC_REDEMPTION_CONTRACT_SET: [u8; 8] = [0xbd, 0xb3, 0x1c, 0x22, 0xe3, 0x6
 /// Buffer: disc(8) + admin(32) + mint(32) = 72 bytes
 #[inline]
 pub fn emit_token_initialized(admin: &[u8; 32], mint: &[u8; 32]) {
+    pinocchio_log::log!("TokenInitialized");
     let mut buf = [0u8; 72];
     let off = pack_disc(&mut buf, &DISC_TOKEN_INITIALIZED);
     let off = pack_address(&mut buf, off, admin);
@@ -42,6 +43,7 @@ pub fn emit_token_initialized(admin: &[u8; 32], mint: &[u8; 32]) {
 /// Buffer: disc(8) + caller(32) + mint(32) + recipient_ata(32) + amount(8) = 112 bytes
 #[inline]
 pub fn emit_mint(caller: &[u8; 32], mint: &[u8; 32], recipient_ata: &[u8; 32], amount: u64) {
+    pinocchio_log::log!("Mint");
     let mut buf = [0u8; 112];
     let off = pack_disc(&mut buf, &DISC_MINT);
     let off = pack_address(&mut buf, off, caller);
@@ -55,6 +57,7 @@ pub fn emit_mint(caller: &[u8; 32], mint: &[u8; 32], recipient_ata: &[u8; 32], a
 /// Buffer: disc(8) + caller(32) + mint(32) + source_ata(32) + amount(8) = 112 bytes
 #[inline]
 pub fn emit_burn(caller: &[u8; 32], mint: &[u8; 32], source_ata: &[u8; 32], amount: u64) {
+    pinocchio_log::log!("Burn");
     let mut buf = [0u8; 112];
     let off = pack_disc(&mut buf, &DISC_BURN);
     let off = pack_address(&mut buf, off, caller);
@@ -68,6 +71,7 @@ pub fn emit_burn(caller: &[u8; 32], mint: &[u8; 32], source_ata: &[u8; 32], amou
 /// Buffer: disc(8) + user(32) + mint(32) + amount(8) + salt(8) = 88 bytes
 #[inline]
 pub fn emit_redeem_initiated(user: &[u8; 32], mint: &[u8; 32], amount: u64, salt: u64) {
+    pinocchio_log::log!("RedeemInitiated");
     let mut buf = [0u8; 88];
     let off = pack_disc(&mut buf, &DISC_REDEEM_INITIATED);
     let off = pack_address(&mut buf, off, user);
@@ -81,6 +85,7 @@ pub fn emit_redeem_initiated(user: &[u8; 32], mint: &[u8; 32], amount: u64, salt
 /// Buffer: disc(8) + caller(32) + config(32) = 72 bytes
 #[inline]
 pub fn emit_token_paused(caller: &[u8; 32], config: &[u8; 32]) {
+    pinocchio_log::log!("TokenPaused");
     let mut buf = [0u8; 72];
     let off = pack_disc(&mut buf, &DISC_TOKEN_PAUSED);
     let off = pack_address(&mut buf, off, caller);
@@ -92,6 +97,7 @@ pub fn emit_token_paused(caller: &[u8; 32], config: &[u8; 32]) {
 /// Buffer: disc(8) + caller(32) + config(32) = 72 bytes
 #[inline]
 pub fn emit_token_unpaused(caller: &[u8; 32], config: &[u8; 32]) {
+    pinocchio_log::log!("TokenUnpaused");
     let mut buf = [0u8; 72];
     let off = pack_disc(&mut buf, &DISC_TOKEN_UNPAUSED);
     let off = pack_address(&mut buf, off, caller);
@@ -103,6 +109,7 @@ pub fn emit_token_unpaused(caller: &[u8; 32], config: &[u8; 32]) {
 /// Buffer: disc(8) + caller(32) + config(32) + contract(32) = 104 bytes
 #[inline]
 pub fn emit_redemption_contract_set(caller: &[u8; 32], config: &[u8; 32], contract: &[u8; 32]) {
+    pinocchio_log::log!("RedemptionContractSet");
     let mut buf = [0u8; 104];
     let off = pack_disc(&mut buf, &DISC_REDEMPTION_CONTRACT_SET);
     let off = pack_address(&mut buf, off, caller);

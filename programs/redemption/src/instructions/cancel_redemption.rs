@@ -181,7 +181,6 @@ impl<'a> CancelRedemption<'a> {
             op.status = STATUS_CANCELED;
         }
 
-        pinocchio_log::log!("RedemptionCanceled");
         emit_redemption_canceled(
             &self.caller.address().to_bytes(),
             &self.user,

@@ -32,6 +32,7 @@ const DISC_MAX_DELAY_UPDATED: [u8; 8] = [0x81, 0x51, 0x91, 0x1a, 0x62, 0xd2, 0xa
 /// Buffer: disc(8) + admin(32) + max_delay(8) = 48 bytes
 #[inline]
 pub fn emit_minter_initialized(admin: &[u8; 32], max_delay: i64) {
+    pinocchio_log::log!("MinterInitialized");
     let mut buf = [0u8; 48];
     let off = pack_disc(&mut buf, &DISC_MINTER_INITIALIZED);
     let off = pack_address(&mut buf, off, admin);
@@ -49,6 +50,7 @@ pub fn emit_mint_executed(
     amount: u64,
     salt: u64,
 ) {
+    pinocchio_log::log!("MintExecuted");
     let mut buf = [0u8; 120];
     let off = pack_disc(&mut buf, &DISC_MINT_EXECUTED);
     let off = pack_address(&mut buf, off, caller);
@@ -69,6 +71,7 @@ pub fn emit_mint_blocked(
     amount: u64,
     salt: u64,
 ) {
+    pinocchio_log::log!("MintBlocked");
     let mut buf = [0u8; 120];
     let off = pack_disc(&mut buf, &DISC_MINT_BLOCKED);
     let off = pack_address(&mut buf, off, caller);
@@ -89,6 +92,7 @@ pub fn emit_mint_approved(
     amount: u64,
     salt: u64,
 ) {
+    pinocchio_log::log!("MintApproved");
     let mut buf = [0u8; 120];
     let off = pack_disc(&mut buf, &DISC_MINT_APPROVED);
     let off = pack_address(&mut buf, off, approver);
@@ -109,6 +113,7 @@ pub fn emit_mint_canceled(
     amount: u64,
     salt: u64,
 ) {
+    pinocchio_log::log!("MintCanceled");
     let mut buf = [0u8; 120];
     let off = pack_disc(&mut buf, &DISC_MINT_CANCELED);
     let off = pack_address(&mut buf, off, caller);
@@ -123,6 +128,7 @@ pub fn emit_mint_canceled(
 /// Buffer: disc(8) + caller(32) + mint(32) + limit(8) = 80 bytes
 #[inline]
 pub fn emit_daily_limit_updated(caller: &[u8; 32], mint: &[u8; 32], limit: u64) {
+    pinocchio_log::log!("DailyLimitUpdated");
     let mut buf = [0u8; 80];
     let off = pack_disc(&mut buf, &DISC_DAILY_LIMIT_UPDATED);
     let off = pack_address(&mut buf, off, caller);
@@ -135,6 +141,7 @@ pub fn emit_daily_limit_updated(caller: &[u8; 32], mint: &[u8; 32], limit: u64) 
 /// Buffer: disc(8) + caller(32) + max_delay(8) = 48 bytes
 #[inline]
 pub fn emit_max_delay_updated(caller: &[u8; 32], max_delay: i64) {
+    pinocchio_log::log!("MaxDelayUpdated");
     let mut buf = [0u8; 48];
     let off = pack_disc(&mut buf, &DISC_MAX_DELAY_UPDATED);
     let off = pack_address(&mut buf, off, caller);

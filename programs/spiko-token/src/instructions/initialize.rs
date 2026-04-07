@@ -187,7 +187,6 @@ impl<'a> InitializeToken<'a> {
             config.redemption_contract = Address::new_from_array([0u8; 32]); // not set initially
         }
 
-        pinocchio_log::log!("Token initialized");
         emit_token_initialized(
             &self.admin.address().to_bytes(),
             &self.mint.address().to_bytes(),

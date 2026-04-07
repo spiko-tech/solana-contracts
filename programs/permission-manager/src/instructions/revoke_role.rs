@@ -88,7 +88,6 @@ impl<'a> RevokeRole<'a> {
             perms.clear_role(self.role_id);
         }
 
-        pinocchio_log::log!("RoleRemoved: role={}", self.role_id as u64);
         emit_role_removed(
             &self.caller.address().to_bytes(),
             &self.target_user.address().to_bytes(),

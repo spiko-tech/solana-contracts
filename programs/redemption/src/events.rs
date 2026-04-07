@@ -28,6 +28,7 @@ const DISC_TOKEN_MINIMUM_UPDATED: [u8; 8] = [0xeb, 0x3c, 0x99, 0x47, 0x61, 0xd4,
 /// Buffer: disc(8) + admin(32) = 40 bytes
 #[inline]
 pub fn emit_redemption_initialized(admin: &[u8; 32]) {
+    pinocchio_log::log!("RedemptionInitialized");
     let mut buf = [0u8; 40];
     let off = pack_disc(&mut buf, &DISC_REDEMPTION_INITIALIZED);
     pack_address(&mut buf, off, admin);
@@ -44,6 +45,7 @@ pub fn emit_redemption_initiated(
     salt: u64,
     deadline: i64,
 ) {
+    pinocchio_log::log!("RedemptionInitiated");
     let mut buf = [0u8; 96];
     let off = pack_disc(&mut buf, &DISC_REDEMPTION_INITIATED);
     let off = pack_address(&mut buf, off, user);
@@ -64,6 +66,7 @@ pub fn emit_redemption_executed(
     amount: u64,
     salt: u64,
 ) {
+    pinocchio_log::log!("RedemptionExecuted");
     let mut buf = [0u8; 120];
     let off = pack_disc(&mut buf, &DISC_REDEMPTION_EXECUTED);
     let off = pack_address(&mut buf, off, operator);
@@ -84,6 +87,7 @@ pub fn emit_redemption_canceled(
     amount: u64,
     salt: u64,
 ) {
+    pinocchio_log::log!("RedemptionCanceled");
     let mut buf = [0u8; 120];
     let off = pack_disc(&mut buf, &DISC_REDEMPTION_CANCELED);
     let off = pack_address(&mut buf, off, caller);
@@ -98,6 +102,7 @@ pub fn emit_redemption_canceled(
 /// Buffer: disc(8) + caller(32) + mint(32) + minimum(8) = 80 bytes
 #[inline]
 pub fn emit_token_minimum_updated(caller: &[u8; 32], mint: &[u8; 32], minimum: u64) {
+    pinocchio_log::log!("TokenMinimumUpdated");
     let mut buf = [0u8; 80];
     let off = pack_disc(&mut buf, &DISC_TOKEN_MINIMUM_UPDATED);
     let off = pack_address(&mut buf, off, caller);

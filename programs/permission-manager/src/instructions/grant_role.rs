@@ -119,7 +119,6 @@ impl<'a> GrantRole<'a> {
             perms.set_role(self.role_id);
         }
 
-        pinocchio_log::log!("RoleGranted: role={}", self.role_id as u64);
         emit_role_granted(
             &self.caller.address().to_bytes(),
             &self.target_user.address().to_bytes(),
