@@ -121,18 +121,15 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for RedeemToken<'a> {
 
 impl<'a> RedeemToken<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify TokenConfig is owned by this program
         if !self.config.owned_by(program_id) {
             return Err(TokenError::NotInitialized.into());
         }
 
-        // 2. Check not paused
         {
             let config_data = self.config.try_borrow()?;
             require_not_paused(&config_data)?;
         }
 
-        // 3. Get permission_manager_id, config bump, and redemption_contract from config
         let (permission_manager_id, config_bump, redemption_contract) = {
             let config_data = self.config.try_borrow()?;
             let config = TokenConfig::from_bytes(&config_data)?;
@@ -157,7 +154,6 @@ impl<'a> RedeemToken<'a> {
         // Suppress unused variable warning — redemption_contract was validated above
         let _ = redemption_contract;
 
-        // 4. Verify user is whitelisted
         require_permission(
             self.user_perms,
             &permission_manager_id,
@@ -165,7 +161,6 @@ impl<'a> RedeemToken<'a> {
             TokenError::UnauthorizedFrom.into(),
         )?;
 
-        // 5. Verify vault authority is whitelisted (recipient of transfer)
         require_permission(
             self.vault_authority_perms,
             &permission_manager_id,
@@ -173,13 +168,6 @@ impl<'a> RedeemToken<'a> {
             TokenError::UnauthorizedTo.into(),
         )?;
 
-        // 6. CPI to Token-2022: TransferChecked (user -> vault)
-        //    Must include Transfer Hook extra accounts so Token-2022 can invoke the hook.
-        //
-        //    Token-2022 TransferChecked (opcode 12) data:
-        //      [0]    = 12 (instruction discriminator)
-        //      [1..9] = amount (u64 LE)
-        //      [9]    = decimals (u8)
         {
             let mut ix_data = [0u8; 10];
             ix_data[0] = 12; // TransferChecked opcode
@@ -228,19 +216,6 @@ impl<'a> RedeemToken<'a> {
             )?;
         }
 
-        // 7. CPI to Redemption::on_redeem (discriminator 4)
-        //    The TokenConfig PDA signs, proving this CPI originates from spiko_token.
-        //
-        //    on_redeem accounts:
-        //      0. token_config (signer — PDA signer proof)
-        //      1. user (signer, writable — payer for operation PDA)
-        //      2. redemption_config
-        //      3. redemption_op (writable)
-        //      4. token_minimum
-        //      5. token_mint
-        //      6. system_program
-        //
-        //    on_redeem data: disc(4) + user(32) + amount(8) + salt(8) = 49 bytes
         let user_key_bytes = self.user.address().to_bytes();
         let mut ix_data = [0u8; 49];
         ix_data[0] = 4; // discriminator for on_redeem

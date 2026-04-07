@@ -72,18 +72,15 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for MintToken<'a> {
 
 impl<'a> MintToken<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify TokenConfig is owned by this program
         if !self.config.owned_by(program_id) {
             return Err(TokenError::NotInitialized.into());
         }
 
-        // 2. Check not paused
         {
             let config_data = self.config.try_borrow()?;
             require_not_paused(&config_data)?;
         }
 
-        // 3. Get permission_manager_id and mint_authority_bump from config
         let (permission_manager_id, mint_auth_bump) = {
             let config_data = self.config.try_borrow()?;
             let config = TokenConfig::from_bytes(&config_data)?;
@@ -93,7 +90,6 @@ impl<'a> MintToken<'a> {
             )
         };
 
-        // 4. Verify caller has MINTER role
         require_permission(
             self.caller_perms,
             &permission_manager_id,
@@ -101,7 +97,6 @@ impl<'a> MintToken<'a> {
             TokenError::Unauthorized.into(),
         )?;
 
-        // 5. Verify recipient is whitelisted (has WHITELISTED role)
         require_permission(
             self.recipient_perms,
             &permission_manager_id,
@@ -109,7 +104,6 @@ impl<'a> MintToken<'a> {
             TokenError::UnauthorizedTo.into(),
         )?;
 
-        // 6. Verify mint authority PDA
         let mint_key = self.mint.address();
         let _ma_bump = crate::helpers::verify_pda(
             self.mint_authority,
@@ -117,7 +111,6 @@ impl<'a> MintToken<'a> {
             program_id,
         )?;
 
-        // 7. CPI to Token-2022: MintTo (mint authority PDA signs)
         let bump_bytes = [mint_auth_bump];
         let ma_seeds = mint_authority_seeds(mint_key.as_ref(), &bump_bytes);
         let ma_signer = Signer::from(&ma_seeds);

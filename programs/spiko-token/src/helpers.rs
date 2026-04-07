@@ -5,7 +5,6 @@ pub use spiko_permission::{require_admin, require_permission};
 
 use crate::state::{MINT_AUTHORITY_SEED, TOKEN_CONFIG_SEED};
 
-/// Check that a token is not paused.
 #[inline]
 pub fn require_not_paused(config_data: &[u8]) -> Result<(), ProgramError> {
     use crate::state::TokenConfig;
@@ -15,10 +14,6 @@ pub fn require_not_paused(config_data: &[u8]) -> Result<(), ProgramError> {
     }
     Ok(())
 }
-
-// -----------------------------------------------------------------
-// Signer seeds builders
-// -----------------------------------------------------------------
 
 /// Build Seed array for a TokenConfig PDA.
 /// Seeds: ["token_config", mint_pubkey, bump]

@@ -83,30 +83,22 @@ impl<'a> InitializeToken<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
         let mint_key = self.mint.address();
 
-        // 1. Verify TokenConfig PDA is not yet initialized
         if self.config.owned_by(program_id) {
             return Err(TokenError::AlreadyInitialized.into());
         }
 
-        // 2. Derive TokenConfig PDA: ["token_config", mint_pubkey]
         let config_bump = verify_pda(
             self.config,
             &[TOKEN_CONFIG_SEED, mint_key.as_ref()],
             program_id,
         )?;
 
-        // 3. Derive MintAuthority PDA: ["mint_authority", mint_pubkey]
         let mint_auth_bump = verify_pda(
             self.mint_authority,
             &[MINT_AUTHORITY_SEED, mint_key.as_ref()],
             program_id,
         )?;
 
-        // 4. Initialize the Transfer Hook extension on the mint via raw CPI.
-        //    Token-2022 extension instruction namespace:
-        //      byte[0] = 36 (ExtensionInstruction)
-        //      byte[1] = 0 (InitializeTransferHook)
-        //    Followed by: authority (32 bytes, Pubkey), program_id (32 bytes, Pubkey)
         {
             let mut ix_data = [0u8; 66]; // 2 + 32 + 32
             ix_data[0] = 36; // ExtensionInstruction
@@ -128,10 +120,6 @@ impl<'a> InitializeToken<'a> {
             pinocchio::cpi::invoke::<1>(&ix, &[self.mint])?;
         }
 
-        // 5. Initialize the PermanentDelegate extension on the mint via raw CPI.
-        //    Token-2022 instruction: byte[0] = 35 (InitializePermanentDelegate)
-        //    Followed by: delegate (32 bytes, Pubkey = MintAuthority PDA)
-        //    This allows the MintAuthority PDA to burn tokens from any account.
         {
             let mut ix_data = [0u8; 33]; // 1 + 32
             ix_data[0] = 35; // InitializePermanentDelegate
@@ -149,7 +137,6 @@ impl<'a> InitializeToken<'a> {
             pinocchio::cpi::invoke::<1>(&ix, &[self.mint])?;
         }
 
-        // 6. InitializeMint2 via pinocchio-token-2022 CPI
         let mint_authority_addr = self.mint_authority.address();
         pinocchio_token_2022::instructions::InitializeMint2 {
             mint: self.mint,
@@ -160,7 +147,6 @@ impl<'a> InitializeToken<'a> {
         }
         .invoke()?;
 
-        // 7. Create TokenConfig PDA
         let config_bump_bytes = [config_bump];
         let config_seeds = token_config_seeds(mint_key.as_ref(), &config_bump_bytes);
         let config_signer = Signer::from(&config_seeds);
@@ -173,7 +159,6 @@ impl<'a> InitializeToken<'a> {
             &[config_signer],
         )?;
 
-        // 8. Write config data
         {
             let mut data = self.config.try_borrow_mut()?;
             let config = TokenConfig::from_bytes_mut(&mut data)?;

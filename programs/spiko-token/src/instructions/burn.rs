@@ -77,18 +77,15 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for BurnToken<'a> {
 
 impl<'a> BurnToken<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify TokenConfig is owned by this program
         if !self.config.owned_by(program_id) {
             return Err(TokenError::NotInitialized.into());
         }
 
-        // 2. Check not paused
         {
             let config_data = self.config.try_borrow()?;
             require_not_paused(&config_data)?;
         }
 
-        // 3. Get permission_manager_id and mint_authority_bump from config
         let (permission_manager_id, mint_auth_bump) = {
             let config_data = self.config.try_borrow()?;
             let config = TokenConfig::from_bytes(&config_data)?;
@@ -98,7 +95,6 @@ impl<'a> BurnToken<'a> {
             )
         };
 
-        // 4. Verify caller has BURNER role
         require_permission(
             self.caller_perms,
             &permission_manager_id,
@@ -106,9 +102,6 @@ impl<'a> BurnToken<'a> {
             TokenError::Unauthorized.into(),
         )?;
 
-        // 5. Verify the source token account is owned by the caller.
-        //    In Token-2022 (and SPL Token) the token account layout has
-        //    the owner pubkey at bytes [32..64] (right after mint at [0..32]).
         {
             let src_data = self.source_token_account.try_borrow()?;
             if src_data.len() < 64 {
@@ -121,7 +114,6 @@ impl<'a> BurnToken<'a> {
             }
         }
 
-        // 6. Verify mint authority PDA
         let mint_key = self.mint.address();
         let _ma_bump = crate::helpers::verify_pda(
             self.mint_authority,
@@ -129,7 +121,6 @@ impl<'a> BurnToken<'a> {
             program_id,
         )?;
 
-        // 7. CPI to Token-2022: Burn (mint authority PDA signs as the authority)
         let bump_bytes = [mint_auth_bump];
         let ma_seeds = mint_authority_seeds(mint_key.as_ref(), &bump_bytes);
         let ma_signer = Signer::from(&ma_seeds);

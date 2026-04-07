@@ -1,27 +1,11 @@
 use pinocchio::address::Address;
 
-// -----------------------------------------------------------------
-// PDA Seeds
-// -----------------------------------------------------------------
-
 pub const TOKEN_CONFIG_SEED: &[u8] = b"token_config";
 pub const MINT_AUTHORITY_SEED: &[u8] = b"mint_authority";
 
-// -----------------------------------------------------------------
-// Account discriminator
-// -----------------------------------------------------------------
-
 pub const DISCRIMINATOR_TOKEN_CONFIG: u8 = 1;
 
-// -----------------------------------------------------------------
-// Token decimals (as specified in Architecture: 5 decimal places)
-// -----------------------------------------------------------------
-
 pub const TOKEN_DECIMALS: u8 = 5;
-
-// -----------------------------------------------------------------
-// TokenConfig -- Per-fund configuration account
-// -----------------------------------------------------------------
 
 /// Configuration for a single Spiko fund token.
 ///

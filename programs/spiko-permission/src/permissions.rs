@@ -7,10 +7,6 @@ use permission_manager::state::{
 
 use spiko_common::verify_pda;
 
-// -----------------------------------------------------------------
-// Permission check: direct role check via PDA read
-// -----------------------------------------------------------------
-
 /// Read a UserPermissions PDA from the permission_manager and check
 /// that the user has the specified role.
 ///
@@ -43,10 +39,6 @@ pub fn require_permission(
 
     Ok(())
 }
-
-// -----------------------------------------------------------------
-// Admin check: direct read of permission_manager's PermissionConfig
-// -----------------------------------------------------------------
 
 /// Verify the caller is the admin by reading the permission_manager's
 /// PermissionConfig PDA directly (cross-program read).

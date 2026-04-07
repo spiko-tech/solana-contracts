@@ -40,19 +40,16 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for Unpause<'a> {
 
 impl<'a> Unpause<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify TokenConfig is owned by this program and initialized
         if !self.config.owned_by(program_id) {
             return Err(TokenError::NotInitialized.into());
         }
 
-        // 2. Read config to get the permission_manager address
         let permission_manager_id = {
             let data = self.config.try_borrow()?;
             let config = TokenConfig::from_bytes(&data)?;
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // 3. Check caller has PAUSER role
         require_permission(
             self.caller_perms,
             &permission_manager_id,
@@ -60,7 +57,6 @@ impl<'a> Unpause<'a> {
             TokenError::Unauthorized.into(),
         )?;
 
-        // 4. Set paused = 0
         {
             let mut data = self.config.try_borrow_mut()?;
             let config = TokenConfig::from_bytes_mut(&mut data)?;
