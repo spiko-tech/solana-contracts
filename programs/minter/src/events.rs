@@ -1,13 +1,4 @@
-//! Structured events for the Minter program.
-//!
-//! Each function emits an Anchor-compatible event via `sol_log_data`:
-//! discriminator (8 bytes) = SHA256("event:<EventName>")[0..8], then LE-packed fields.
-
 use spiko_events::{emit_event, pack_address, pack_disc, pack_i64, pack_u64};
-
-// ---------------------------------------------------------------
-// Discriminators — precomputed SHA256("event:<EventName>")[0..8]
-// ---------------------------------------------------------------
 
 // SHA256("event:MinterInitialized")[0..8]
 const DISC_MINTER_INITIALIZED: [u8; 8] = [0xb1, 0x89, 0x62, 0xb3, 0x16, 0xce, 0x37, 0xc0];
@@ -24,12 +15,6 @@ const DISC_DAILY_LIMIT_UPDATED: [u8; 8] = [0x41, 0x08, 0xe7, 0xad, 0xd7, 0xb6, 0
 // SHA256("event:MaxDelayUpdated")[0..8]
 const DISC_MAX_DELAY_UPDATED: [u8; 8] = [0x81, 0x51, 0x91, 0x1a, 0x62, 0xd2, 0xa0, 0x0c];
 
-// ---------------------------------------------------------------
-// Event emitters
-// ---------------------------------------------------------------
-
-/// Emit `MinterInitialized { admin: [u8;32], max_delay: i64 }`
-/// Buffer: disc(8) + admin(32) + max_delay(8) = 48 bytes
 #[inline]
 pub fn emit_minter_initialized(admin: &[u8; 32], max_delay: i64) {
     pinocchio_log::log!("MinterInitialized");
@@ -40,8 +25,6 @@ pub fn emit_minter_initialized(admin: &[u8; 32], max_delay: i64) {
     emit_event(&buf);
 }
 
-/// Emit `MintExecuted { caller: [u8;32], user: [u8;32], mint: [u8;32], amount: u64, salt: u64 }`
-/// Buffer: disc(8) + caller(32) + user(32) + mint(32) + amount(8) + salt(8) = 120 bytes
 #[inline]
 pub fn emit_mint_executed(
     caller: &[u8; 32],
@@ -61,8 +44,6 @@ pub fn emit_mint_executed(
     emit_event(&buf);
 }
 
-/// Emit `MintBlocked { caller: [u8;32], user: [u8;32], mint: [u8;32], amount: u64, salt: u64 }`
-/// Buffer: disc(8) + caller(32) + user(32) + mint(32) + amount(8) + salt(8) = 120 bytes
 #[inline]
 pub fn emit_mint_blocked(
     caller: &[u8; 32],
@@ -82,8 +63,6 @@ pub fn emit_mint_blocked(
     emit_event(&buf);
 }
 
-/// Emit `MintApproved { approver: [u8;32], user: [u8;32], mint: [u8;32], amount: u64, salt: u64 }`
-/// Buffer: disc(8) + approver(32) + user(32) + mint(32) + amount(8) + salt(8) = 120 bytes
 #[inline]
 pub fn emit_mint_approved(
     approver: &[u8; 32],
@@ -103,8 +82,6 @@ pub fn emit_mint_approved(
     emit_event(&buf);
 }
 
-/// Emit `MintCanceled { caller: [u8;32], user: [u8;32], mint: [u8;32], amount: u64, salt: u64 }`
-/// Buffer: disc(8) + caller(32) + user(32) + mint(32) + amount(8) + salt(8) = 120 bytes
 #[inline]
 pub fn emit_mint_canceled(
     caller: &[u8; 32],
@@ -124,8 +101,6 @@ pub fn emit_mint_canceled(
     emit_event(&buf);
 }
 
-/// Emit `DailyLimitUpdated { caller: [u8;32], mint: [u8;32], limit: u64 }`
-/// Buffer: disc(8) + caller(32) + mint(32) + limit(8) = 80 bytes
 #[inline]
 pub fn emit_daily_limit_updated(caller: &[u8; 32], mint: &[u8; 32], limit: u64) {
     pinocchio_log::log!("DailyLimitUpdated");
@@ -137,8 +112,6 @@ pub fn emit_daily_limit_updated(caller: &[u8; 32], mint: &[u8; 32], limit: u64) 
     emit_event(&buf);
 }
 
-/// Emit `MaxDelayUpdated { caller: [u8;32], max_delay: i64 }`
-/// Buffer: disc(8) + caller(32) + max_delay(8) = 48 bytes
 #[inline]
 pub fn emit_max_delay_updated(caller: &[u8; 32], max_delay: i64) {
     pinocchio_log::log!("MaxDelayUpdated");

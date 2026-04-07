@@ -48,7 +48,6 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for SetMaxDelay<'a> {
 
 impl<'a> SetMaxDelay<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Read MinterConfig to get permission_manager address
         let permission_manager_id = {
             if !self.config.owned_by(program_id) {
                 return Err(MinterError::NotInitialized.into());
@@ -58,7 +57,6 @@ impl<'a> SetMaxDelay<'a> {
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // 2. Verify caller is admin
         require_admin(
             self.caller,
             self.perm_config,
@@ -66,7 +64,6 @@ impl<'a> SetMaxDelay<'a> {
             MinterError::Unauthorized.into(),
         )?;
 
-        // 3. Update max_delay
         {
             let mut data = self.config.try_borrow_mut()?;
             let config = MinterConfig::from_bytes_mut(&mut data)?;

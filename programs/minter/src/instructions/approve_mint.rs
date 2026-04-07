@@ -104,7 +104,6 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for ApproveMint<'a> {
 
 impl<'a> ApproveMint<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Read MinterConfig
         let (permission_manager_id, config_bump) = {
             if !self.config.owned_by(program_id) {
                 return Err(MinterError::NotInitialized.into());
@@ -117,7 +116,6 @@ impl<'a> ApproveMint<'a> {
             )
         };
 
-        // 2. Verify caller has ROLE_MINT_APPROVER
         require_permission(
             self.caller_perms,
             &permission_manager_id,
@@ -125,7 +123,6 @@ impl<'a> ApproveMint<'a> {
             MinterError::Unauthorized.into(),
         )?;
 
-        // 3. Recompute operation_id and verify MintOperation PDA
         let operation_id =
             compute_operation_id(&self.user, &self.token_mint_key, self.amount, self.salt);
 
@@ -135,12 +132,10 @@ impl<'a> ApproveMint<'a> {
             program_id,
         )?;
 
-        // 4. Verify token_mint account matches the key in instruction data
         if self.token_mint.address().to_bytes() != self.token_mint_key {
             return Err(ProgramError::InvalidArgument);
         }
 
-        // 5. Check MintOperation is PENDING and not expired
         let clock = Clock::get()?;
         let now = clock.unix_timestamp;
 
@@ -160,7 +155,6 @@ impl<'a> ApproveMint<'a> {
             }
         }
 
-        // 6. CPI to spiko_token.mint()
         cpi_spiko_token_mint(
             self.config,
             config_bump,
@@ -175,7 +169,6 @@ impl<'a> ApproveMint<'a> {
             self.amount,
         )?;
 
-        // 7. Set status = DONE
         {
             let mut data = self.mint_operation.try_borrow_mut()?;
             let op = MintOperation::from_bytes_mut(&mut data)?;

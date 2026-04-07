@@ -10,10 +10,6 @@ pub use spiko_permission::{require_admin, require_permission};
 
 use crate::state::{DAILY_LIMIT_SEED, MINTER_CONFIG_SEED, MINT_OPERATION_SEED};
 
-// -----------------------------------------------------------------
-// CPI to spiko_token::mint (discriminator 1)
-// -----------------------------------------------------------------
-
 /// Build and invoke CPI to spiko_token program's mint instruction.
 ///
 /// spiko_token mint (discriminator 1) expects accounts:
@@ -105,10 +101,6 @@ pub fn cpi_spiko_token_mint<'a>(
         &[signer],
     )
 }
-
-// -----------------------------------------------------------------
-// Signer seeds builders
-// -----------------------------------------------------------------
 
 /// Build Seed array for the MinterConfig PDA.
 /// Seeds: ["minter_config", bump]

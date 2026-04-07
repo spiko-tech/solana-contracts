@@ -113,7 +113,6 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for InitiateMint<'a> {
 
 impl<'a> InitiateMint<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Read MinterConfig
         let (permission_manager_id, max_delay, config_bump) = {
             if !self.config.owned_by(program_id) {
                 return Err(MinterError::NotInitialized.into());
@@ -127,7 +126,6 @@ impl<'a> InitiateMint<'a> {
             )
         };
 
-        // 2. Verify caller has ROLE_MINT_INITIATOR
         require_permission(
             self.caller_perms,
             &permission_manager_id,
@@ -135,19 +133,16 @@ impl<'a> InitiateMint<'a> {
             MinterError::Unauthorized.into(),
         )?;
 
-        // 3. Compute operation_id
         let mint_key_bytes = self.token_mint.address().to_bytes();
         let operation_id =
             compute_operation_id(&self.user, &mint_key_bytes, self.amount, self.salt);
 
-        // 4. Verify MintOperation PDA matches the computed operation_id
         let op_bump = verify_pda(
             self.mint_operation,
             &[MINT_OPERATION_SEED, &operation_id],
             program_id,
         )?;
 
-        // 5. If MintOperation account already exists, check it's not already used
         {
             let op_data = self.mint_operation.try_borrow()?;
             if !op_data.is_empty() && op_data[0] != 0 {
@@ -161,19 +156,16 @@ impl<'a> InitiateMint<'a> {
             }
         }
 
-        // 6. Verify DailyLimit PDA
         verify_pda(
             self.daily_limit,
             &[DAILY_LIMIT_SEED, &mint_key_bytes],
             program_id,
         )?;
 
-        // 7. Get current time
         let clock = Clock::get()?;
         let now = clock.unix_timestamp;
         let current_day = now / SECONDS_PER_DAY;
 
-        // 8. Read daily limit and determine if within limit
         let within_limit = {
             if !self.daily_limit.owned_by(program_id) {
                 return Err(MinterError::NotInitialized.into());
@@ -181,7 +173,6 @@ impl<'a> InitiateMint<'a> {
             let mut data = self.daily_limit.try_borrow_mut()?;
             let dl = DailyLimit::from_bytes_mut(&mut data)?;
 
-            // Lazy day reset
             if current_day != dl.last_day() {
                 dl.set_used_amount(0);
                 dl.set_last_day(current_day);
@@ -198,17 +189,14 @@ impl<'a> InitiateMint<'a> {
                 .ok_or::<ProgramError>(MinterError::ArithmeticOverflow.into())?
                 <= limit
             {
-                // Within limit — update used amount
                 dl.set_used_amount(used + self.amount);
                 true
             } else {
-                // Over limit
                 false
             }
         };
 
         if within_limit {
-            // 9a. Immediate mint: CPI to spiko_token.mint()
             cpi_spiko_token_mint(
                 self.config, // MinterConfig PDA signs as the "caller" for spiko_token
                 config_bump,
@@ -231,7 +219,6 @@ impl<'a> InitiateMint<'a> {
                 self.salt,
             );
         } else {
-            // 9b. Over limit: create PENDING MintOperation
             let op_bump_bytes = [op_bump];
             let op_seeds = mint_operation_seeds(&operation_id, &op_bump_bytes);
             let op_signer = Signer::from(&op_seeds);
@@ -244,7 +231,6 @@ impl<'a> InitiateMint<'a> {
                 &[op_signer],
             )?;
 
-            // Write operation data
             {
                 let mut data = self.mint_operation.try_borrow_mut()?;
                 let op = MintOperation::from_bytes_mut(&mut data)?;

@@ -48,13 +48,10 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for TransferOwnership<'a> {
 
 impl<'a> TransferOwnership<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify PermissionConfig PDA
         verify_pda(self.config, &[PERMISSION_CONFIG_SEED], program_id)?;
 
-        // 2. Check caller is admin
         require_admin(self.admin, self.config, program_id)?;
 
-        // 3. Set pending_admin
         {
             let mut data = self.config.try_borrow_mut()?;
             let config = PermissionConfig::from_bytes_mut(&mut data)?;

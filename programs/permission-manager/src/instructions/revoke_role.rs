@@ -57,10 +57,8 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for RevokeRole<'a> {
 
 impl<'a> RevokeRole<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify PermissionConfig PDA
         verify_pda(self.config, &[PERMISSION_CONFIG_SEED], program_id)?;
 
-        // 2. Check caller is admin OR holds a role that can manage target role
         require_admin_or_role(
             self.caller,
             self.config,
@@ -69,19 +67,16 @@ impl<'a> RevokeRole<'a> {
             program_id,
         )?;
 
-        // 3. Verify target user's UserPermissions PDA is owned by this program
         if !self.user_perms.owned_by(program_id) {
             return Err(PermissionError::NotInitialized.into());
         }
 
-        // 4. Verify the PDA address matches
         verify_pda(
             self.user_perms,
             &[USER_PERMISSION_SEED, self.target_user.address().as_ref()],
             program_id,
         )?;
 
-        // 5. Clear the role bit
         {
             let mut data = self.user_perms.try_borrow_mut()?;
             let perms = UserPermissions::from_bytes_mut(&mut data)?;

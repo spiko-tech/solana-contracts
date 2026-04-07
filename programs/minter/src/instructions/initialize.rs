@@ -59,10 +59,8 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for InitializeMinter<'a> {
 
 impl<'a> InitializeMinter<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Verify MinterConfig PDA
         let bump = verify_pda(self.config, &[MINTER_CONFIG_SEED], program_id)?;
 
-        // 2. Check not already initialized (account should have zero lamports / zero data)
         {
             let data = self.config.try_borrow()?;
             if !data.is_empty() && data[0] != 0 {
@@ -70,7 +68,6 @@ impl<'a> InitializeMinter<'a> {
             }
         }
 
-        // 3. Create MinterConfig PDA
         let bump_bytes = [bump];
         let seeds = minter_config_seeds(&bump_bytes);
         let signer = Signer::from(&seeds);
@@ -83,7 +80,6 @@ impl<'a> InitializeMinter<'a> {
             &[signer],
         )?;
 
-        // 4. Write config data
         {
             let mut data = self.config.try_borrow_mut()?;
             let config = MinterConfig::from_bytes_mut(&mut data)?;

@@ -73,7 +73,6 @@ impl<'a> TryFrom<(&'a [u8], &'a [AccountView])> for CancelMint<'a> {
 
 impl<'a> CancelMint<'a> {
     pub fn process(&self, program_id: &Address) -> ProgramResult {
-        // 1. Read MinterConfig to get permission_manager
         let permission_manager_id = {
             if !self.config.owned_by(program_id) {
                 return Err(MinterError::NotInitialized.into());
@@ -83,7 +82,6 @@ impl<'a> CancelMint<'a> {
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // 2. Verify caller has ROLE_MINT_APPROVER
         require_permission(
             self.caller_perms,
             &permission_manager_id,
@@ -91,7 +89,6 @@ impl<'a> CancelMint<'a> {
             MinterError::Unauthorized.into(),
         )?;
 
-        // 3. Recompute operation_id and verify MintOperation PDA
         let operation_id =
             compute_operation_id(&self.user, &self.token_mint_key, self.amount, self.salt);
 
@@ -101,7 +98,6 @@ impl<'a> CancelMint<'a> {
             program_id,
         )?;
 
-        // 4. Verify MintOperation is PENDING (can cancel regardless of deadline)
         {
             if !self.mint_operation.owned_by(program_id) {
                 return Err(MinterError::NotInitialized.into());
@@ -114,7 +110,6 @@ impl<'a> CancelMint<'a> {
             }
         }
 
-        // 5. Set status = DONE
         {
             let mut data = self.mint_operation.try_borrow_mut()?;
             let op = MintOperation::from_bytes_mut(&mut data)?;
