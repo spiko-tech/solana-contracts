@@ -2,7 +2,7 @@ use pinocchio::{account::AccountView, address::Address, error::ProgramError};
 
 use permission_manager::state::{
     has_role, PermissionConfig, UserPermissions, DISCRIMINATOR_PERMISSION_CONFIG,
-    DISCRIMINATOR_USER_PERMISSION, PERMISSION_CONFIG_SEED,
+    DISCRIMINATOR_USER_PERMISSION, PERMISSION_CONFIG_SEED, USER_PERMISSION_SEED,
 };
 
 use spiko_common::verify_pda;
@@ -10,6 +10,9 @@ use spiko_common::verify_pda;
 /// Read a UserPermissions PDA from the permission_manager and check
 /// that the user has the specified role.
 ///
+/// - `expected_user`: the address of the user whose permissions are being checked;
+///   the function verifies that `user_perms_account` is the PDA derived from
+///   `["user_perm", expected_user]` under `permission_manager_id`.
 /// - `user_perms_account`: UserPermissions PDA (owned by permission_manager_id)
 /// - `permission_manager_id`: the permission_manager program's address
 /// - `role_bit`: the role bit to check (e.g. ROLE_MINTER, ROLE_PAUSER, etc.)
@@ -17,6 +20,7 @@ use spiko_common::verify_pda;
 ///
 /// Returns Ok(()) if authorized, Err(error_on_fail) if not.
 pub fn require_permission(
+    expected_user: &Address,
     user_perms_account: &AccountView,
     permission_manager_id: &Address,
     role_bit: u8,
@@ -24,6 +28,17 @@ pub fn require_permission(
 ) -> Result<(), ProgramError> {
     // Verify account is owned by the permission_manager program
     if !user_perms_account.owned_by(permission_manager_id) {
+        return Err(error_on_fail);
+    }
+
+    // Verify the PDA is derived from the expected user's address
+    if verify_pda(
+        user_perms_account,
+        &[USER_PERMISSION_SEED, expected_user.as_ref()],
+        permission_manager_id,
+    )
+    .is_err()
+    {
         return Err(error_on_fail);
     }
 

@@ -2,7 +2,7 @@ use pinocchio::{account::AccountView, address::Address, cpi::Seed, error::Progra
 
 pub use spiko_common::{create_pda_account, verify_pda};
 
-use crate::state::{can_manage_role, PermissionConfig, UserPermissions};
+use crate::state::{can_manage_role, PermissionConfig, UserPermissions, USER_PERMISSION_SEED};
 
 /// Verify that the caller is the admin stored in PermissionConfig.
 ///
@@ -54,6 +54,14 @@ pub fn require_admin_or_role(
     if !caller_perms.owned_by(program_id) {
         return Err(crate::error::PermissionError::Unauthorized.into());
     }
+
+    // Verify the caller_perms PDA is derived from the caller's address
+    verify_pda(
+        caller_perms,
+        &[USER_PERMISSION_SEED, caller.address().as_ref()],
+        program_id,
+    )
+    .map_err(|_| -> ProgramError { crate::error::PermissionError::Unauthorized.into() })?;
 
     let data = caller_perms.try_borrow()?;
     let perms = UserPermissions::from_bytes(&data)?;

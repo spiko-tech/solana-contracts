@@ -76,7 +76,6 @@ impl<'a> InitializeRedemption<'a> {
             &[signer],
         )?;
 
-        // 4. Write config data
         {
             let mut data = self.config.try_borrow_mut()?;
             let config = RedemptionConfig::from_bytes_mut(&mut data)?;

@@ -112,14 +112,36 @@ impl<'a> TransferHookExecute<'a> {
             return Err(TransferHookError::Unauthorized.into());
         }
 
+        // Extract sender owner from source token account (bytes 32..64)
+        let sender_owner = {
+            let src_data = self.source.try_borrow()?;
+            if src_data.len() < 64 {
+                return Err(TransferHookError::UnauthorizedFrom.into());
+            }
+            let owner_bytes: &[u8; 32] = src_data[32..64].try_into().unwrap();
+            Address::new_from_array(*owner_bytes)
+        };
+
         require_permission(
+            &sender_owner,
             self.sender_perms,
             &permission_manager_id,
             ROLE_WHITELISTED,
             TransferHookError::UnauthorizedFrom.into(),
         )?;
 
+        // Extract recipient owner from destination token account (bytes 32..64)
+        let recipient_owner = {
+            let dest_data = self.destination.try_borrow()?;
+            if dest_data.len() < 64 {
+                return Err(TransferHookError::UnauthorizedTo.into());
+            }
+            let owner_bytes: &[u8; 32] = dest_data[32..64].try_into().unwrap();
+            Address::new_from_array(*owner_bytes)
+        };
+
         require_permission(
+            &recipient_owner,
             self.recipient_perms,
             &permission_manager_id,
             ROLE_WHITELISTED,
