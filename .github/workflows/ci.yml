@@ -84,6 +84,9 @@ jobs:
       - name: Add Solana CLI to PATH
         run: echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
+      - name: Build all programs
+        run: cargo build-sbf
+
       - name: Test permission-manager
         run: cargo test-sbf -p permission-manager
 
