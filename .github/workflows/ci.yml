@@ -87,6 +87,12 @@ jobs:
       - name: Build all programs
         run: cargo build-sbf
 
+      - name: Fetch Token-2022 program binary for Mollusk tests
+        run: |
+          solana program dump -u mainnet-beta \
+            TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb \
+            target/deploy/spl_token_2022.so
+
       - name: Test permission-manager
         run: cargo test-sbf -p permission-manager
 
