@@ -51,6 +51,7 @@ impl<'a> Unpause<'a> {
         };
 
         require_permission(
+            self.caller.address(),
             self.caller_perms,
             &permission_manager_id,
             ROLE_PAUSER,

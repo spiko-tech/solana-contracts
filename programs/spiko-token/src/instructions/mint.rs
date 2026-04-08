@@ -91,13 +91,26 @@ impl<'a> MintToken<'a> {
         };
 
         require_permission(
+            self.caller.address(),
             self.caller_perms,
             &permission_manager_id,
             ROLE_MINTER,
             TokenError::Unauthorized.into(),
         )?;
 
+        // Extract the recipient's owner from the token account data (bytes 32..64)
+        // and verify the recipient_perms PDA is derived from that owner.
+        let recipient_owner = {
+            let ata_data = self.recipient_token_account.try_borrow()?;
+            if ata_data.len() < 64 {
+                return Err(TokenError::UnauthorizedTo.into());
+            }
+            let owner_bytes: &[u8; 32] = ata_data[32..64].try_into().unwrap();
+            Address::new_from_array(*owner_bytes)
+        };
+
         require_permission(
+            &recipient_owner,
             self.recipient_perms,
             &permission_manager_id,
             permission_manager::state::ROLE_WHITELISTED,

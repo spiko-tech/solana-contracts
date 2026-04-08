@@ -127,6 +127,7 @@ impl<'a> InitiateMint<'a> {
         };
 
         require_permission(
+            self.caller.address(),
             self.caller_perms,
             &permission_manager_id,
             ROLE_MINT_INITIATOR,

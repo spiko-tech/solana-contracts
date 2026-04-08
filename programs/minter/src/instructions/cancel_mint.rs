@@ -83,6 +83,7 @@ impl<'a> CancelMint<'a> {
         };
 
         require_permission(
+            self.caller.address(),
             self.caller_perms,
             &permission_manager_id,
             ROLE_MINT_APPROVER,

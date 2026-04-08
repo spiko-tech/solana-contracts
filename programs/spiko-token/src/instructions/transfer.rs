@@ -109,13 +109,26 @@ impl<'a> TransferToken<'a> {
         };
 
         require_permission(
+            self.sender.address(),
             self.sender_perms,
             &permission_manager_id,
             ROLE_WHITELISTED,
             TokenError::UnauthorizedFrom.into(),
         )?;
 
+        // Extract the recipient's owner from the destination token account
+        // data (bytes 32..64) and verify the recipient_perms PDA matches.
+        let recipient_owner = {
+            let dest_data = self.destination.try_borrow()?;
+            if dest_data.len() < 64 {
+                return Err(TokenError::UnauthorizedTo.into());
+            }
+            let owner_bytes: &[u8; 32] = dest_data[32..64].try_into().unwrap();
+            Address::new_from_array(*owner_bytes)
+        };
+
         require_permission(
+            &recipient_owner,
             self.recipient_perms,
             &permission_manager_id,
             ROLE_WHITELISTED,

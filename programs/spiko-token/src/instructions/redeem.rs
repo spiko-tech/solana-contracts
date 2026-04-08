@@ -155,13 +155,26 @@ impl<'a> RedeemToken<'a> {
         let _ = redemption_contract;
 
         require_permission(
+            self.user.address(),
             self.user_perms,
             &permission_manager_id,
             ROLE_WHITELISTED,
             TokenError::UnauthorizedFrom.into(),
         )?;
 
+        // Extract the vault's owner from the vault token account data
+        // (bytes 32..64) and verify the vault_authority_perms PDA matches.
+        let vault_owner = {
+            let vault_data = self.vault.try_borrow()?;
+            if vault_data.len() < 64 {
+                return Err(TokenError::UnauthorizedTo.into());
+            }
+            let owner_bytes: &[u8; 32] = vault_data[32..64].try_into().unwrap();
+            Address::new_from_array(*owner_bytes)
+        };
+
         require_permission(
+            &vault_owner,
             self.vault_authority_perms,
             &permission_manager_id,
             ROLE_WHITELISTED,

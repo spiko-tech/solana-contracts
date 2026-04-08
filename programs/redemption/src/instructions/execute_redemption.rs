@@ -112,6 +112,7 @@ impl<'a> ExecuteRedemption<'a> {
         };
 
         require_permission(
+            self.operator.address(),
             self.operator_perms,
             &permission_manager_id,
             ROLE_REDEMPTION_EXECUTOR,
