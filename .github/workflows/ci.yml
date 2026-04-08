@@ -34,10 +34,19 @@ jobs:
           restore-keys: |
             cargo-build-${{ runner.os }}-
 
-      - name: Install Solana CLI
-        uses: solana-program/setup-solana@v1
+      - name: Cache Solana CLI
+        uses: actions/cache@v4
+        id: cache-solana
         with:
-          solana-cli-version: ${{ env.SOLANA_CLI_VERSION }}
+          path: ~/.local/share/solana
+          key: solana-${{ env.SOLANA_CLI_VERSION }}-${{ runner.os }}
+
+      - name: Install Solana CLI
+        if: steps.cache-solana.outputs.cache-hit != 'true'
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_CLI_VERSION }}/install)"
+
+      - name: Add Solana CLI to PATH
+        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Build all programs
         run: cargo build-sbf
@@ -67,10 +76,19 @@ jobs:
           restore-keys: |
             cargo-test-${{ runner.os }}-
 
-      - name: Install Solana CLI
-        uses: solana-program/setup-solana@v1
+      - name: Cache Solana CLI
+        uses: actions/cache@v4
+        id: cache-solana
         with:
-          solana-cli-version: ${{ env.SOLANA_CLI_VERSION }}
+          path: ~/.local/share/solana
+          key: solana-${{ env.SOLANA_CLI_VERSION }}-${{ runner.os }}
+
+      - name: Install Solana CLI
+        if: steps.cache-solana.outputs.cache-hit != 'true'
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_CLI_VERSION }}/install)"
+
+      - name: Add Solana CLI to PATH
+        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Test permission-manager
         run: cargo test-sbf -p permission-manager
@@ -112,10 +130,19 @@ jobs:
           restore-keys: |
             cargo-integration-${{ runner.os }}-
 
-      - name: Install Solana CLI
-        uses: solana-program/setup-solana@v1
+      - name: Cache Solana CLI
+        uses: actions/cache@v4
+        id: cache-solana
         with:
-          solana-cli-version: ${{ env.SOLANA_CLI_VERSION }}
+          path: ~/.local/share/solana
+          key: solana-${{ env.SOLANA_CLI_VERSION }}-${{ runner.os }}
+
+      - name: Install Solana CLI
+        if: steps.cache-solana.outputs.cache-hit != 'true'
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_CLI_VERSION }}/install)"
+
+      - name: Add Solana CLI to PATH
+        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Run integration tests
         run: cargo test-sbf -p integration-tests
@@ -146,10 +173,19 @@ jobs:
           restore-keys: |
             cargo-e2e-${{ runner.os }}-
 
-      - name: Install Solana CLI
-        uses: solana-program/setup-solana@v1
+      - name: Cache Solana CLI
+        uses: actions/cache@v4
+        id: cache-solana
         with:
-          solana-cli-version: ${{ env.SOLANA_CLI_VERSION }}
+          path: ~/.local/share/solana
+          key: solana-${{ env.SOLANA_CLI_VERSION }}-${{ runner.os }}
+
+      - name: Install Solana CLI
+        if: steps.cache-solana.outputs.cache-hit != 'true'
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_CLI_VERSION }}/install)"
+
+      - name: Add Solana CLI to PATH
+        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
