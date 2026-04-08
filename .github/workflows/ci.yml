@@ -1,0 +1,265 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+env:
+  SOLANA_CLI_VERSION: stable
+  RUST_TOOLCHAIN: stable
+
+jobs:
+  # ===========================================================
+  # Job 1: Build all Solana programs
+  # ===========================================================
+  build:
+    name: Build Programs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Cache Cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-build-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-build-${{ runner.os }}-
+
+      - name: Install Solana CLI
+        uses: solana-program/setup-solana@v1
+        with:
+          solana-cli-version: ${{ env.SOLANA_CLI_VERSION }}
+
+      - name: Build all programs
+        run: cargo build-sbf
+
+  # ===========================================================
+  # Job 2: Unit tests (per-program, Mollusk-based)
+  # ===========================================================
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Cache Cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-test-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-test-${{ runner.os }}-
+
+      - name: Install Solana CLI
+        uses: solana-program/setup-solana@v1
+        with:
+          solana-cli-version: ${{ env.SOLANA_CLI_VERSION }}
+
+      - name: Test permission-manager
+        run: cargo test-sbf -p permission-manager
+
+      - name: Test spiko-token
+        run: cargo test-sbf -p spiko-token
+
+      - name: Test spiko-transfer-hook
+        run: cargo test-sbf -p spiko-transfer-hook
+
+      - name: Test minter
+        run: cargo test-sbf -p minter
+
+      - name: Test redemption
+        run: cargo test-sbf -p redemption
+
+  # ===========================================================
+  # Job 3: Integration tests (cross-program, Mollusk-based)
+  # ===========================================================
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Cache Cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-integration-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-integration-${{ runner.os }}-
+
+      - name: Install Solana CLI
+        uses: solana-program/setup-solana@v1
+        with:
+          solana-cli-version: ${{ env.SOLANA_CLI_VERSION }}
+
+      - name: Run integration tests
+        run: cargo test-sbf -p integration-tests
+
+  # ===========================================================
+  # Job 4: E2E test on devnet
+  # Build -> Deploy -> Initialize -> Run E2E test
+  # ===========================================================
+  e2e-test:
+    name: E2E Test (Devnet)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Cache Cargo registry + build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: cargo-e2e-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            cargo-e2e-${{ runner.os }}-
+
+      - name: Install Solana CLI
+        uses: solana-program/setup-solana@v1
+        with:
+          solana-cli-version: ${{ env.SOLANA_CLI_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      # -------------------------------------------------------
+      # Build all programs
+      # -------------------------------------------------------
+      - name: Build all programs
+        run: cargo build-sbf
+
+      # -------------------------------------------------------
+      # Configure Solana CLI for devnet
+      # -------------------------------------------------------
+      - name: Configure Solana CLI
+        run: |
+          solana config set --url devnet
+          solana-keygen new --no-bip39-passphrase --outfile ~/.config/solana/id.json
+          solana config set --keypair ~/.config/solana/id.json
+          echo "Deployer address: $(solana address)"
+
+      # -------------------------------------------------------
+      # Fund deployer account via devnet faucet
+      # -------------------------------------------------------
+      - name: Airdrop SOL to deployer
+        run: |
+          # Deploying 5 programs needs significant SOL for rent-exempt reserves.
+          # Retry airdrop multiple times to accumulate enough SOL.
+          for i in 1 2 3 4 5; do
+            echo "Airdrop attempt $i..."
+            solana airdrop 5 || true
+            sleep 5
+          done
+          echo "Balance: $(solana balance)"
+
+      # -------------------------------------------------------
+      # Deploy all 5 programs to devnet
+      # -------------------------------------------------------
+      - name: Deploy programs to devnet
+        run: |
+          echo "Deploying Permission Manager..."
+          PM_ID=$(solana program deploy target/deploy/permission_manager.so --output json | python3 -c "import sys,json; print(json.load(sys.stdin)['programId'])")
+          echo "PM_ID=$PM_ID" >> $GITHUB_ENV
+          echo "  Permission Manager: $PM_ID"
+
+          echo "Deploying Spiko Token..."
+          ST_ID=$(solana program deploy target/deploy/spiko_token.so --output json | python3 -c "import sys,json; print(json.load(sys.stdin)['programId'])")
+          echo "ST_ID=$ST_ID" >> $GITHUB_ENV
+          echo "  Spiko Token: $ST_ID"
+
+          echo "Deploying Transfer Hook..."
+          TH_ID=$(solana program deploy target/deploy/spiko_transfer_hook.so --output json | python3 -c "import sys,json; print(json.load(sys.stdin)['programId'])")
+          echo "TH_ID=$TH_ID" >> $GITHUB_ENV
+          echo "  Transfer Hook: $TH_ID"
+
+          echo "Deploying Minter..."
+          MT_ID=$(solana program deploy target/deploy/minter.so --output json | python3 -c "import sys,json; print(json.load(sys.stdin)['programId'])")
+          echo "MT_ID=$MT_ID" >> $GITHUB_ENV
+          echo "  Minter: $MT_ID"
+
+          echo "Deploying Redemption..."
+          RD_ID=$(solana program deploy target/deploy/redemption.so --output json | python3 -c "import sys,json; print(json.load(sys.stdin)['programId'])")
+          echo "RD_ID=$RD_ID" >> $GITHUB_ENV
+          echo "  Redemption: $RD_ID"
+
+          echo ""
+          echo "Balance after deploy: $(solana balance)"
+
+      # -------------------------------------------------------
+      # Patch constants.ts with freshly deployed program IDs
+      # -------------------------------------------------------
+      - name: Update program IDs in scripts
+        run: |
+          CONSTANTS_FILE="scripts/lib/constants.ts"
+
+          sed -i "s|address(\"BTZTjmY3i1ZPFkUvZAwD3WzwQFxxLXeaCYYBNjHKuRoz\")|address(\"$PM_ID\")|g" "$CONSTANTS_FILE"
+          sed -i "s|address(\"2LKr4wYMkx75hCbrmRCR2iESCWmeDViuSDLxZaZnC4aP\")|address(\"$ST_ID\")|g" "$CONSTANTS_FILE"
+          sed -i "s|address(\"6jbcB2eNfm1qLXRFd9jJes9yYEUWYafJDjfZ1dobSQ9z\")|address(\"$MT_ID\")|g" "$CONSTANTS_FILE"
+          sed -i "s|address(\"GZEFPC74n1ifKrsH9vh67qntZ8bqpzpdDrBasGVCUPPo\")|address(\"$RD_ID\")|g" "$CONSTANTS_FILE"
+          sed -i "s|address(\"GMpqabVyd98sefjUB3fLhy6HA77xTnGpWy9e7vJs2vtJ\")|address(\"$TH_ID\")|g" "$CONSTANTS_FILE"
+
+          echo "Updated constants.ts with fresh program IDs:"
+          grep -E "PROGRAM_ID" "$CONSTANTS_FILE"
+
+      # -------------------------------------------------------
+      # Install script dependencies and run initialization
+      # -------------------------------------------------------
+      - name: Install script dependencies
+        run: pnpm install
+        working-directory: scripts
+
+      - name: Generate mint keypairs
+        run: |
+          mkdir -p scripts/keys
+          solana-keygen new -o scripts/keys/eutbl-mint.json --no-bip39-passphrase
+          solana-keygen new -o scripts/keys/ustbl-mint.json --no-bip39-passphrase
+
+      - name: Initialize programs (deploy.ts)
+        run: pnpm run deploy
+        working-directory: scripts
+
+      # -------------------------------------------------------
+      # Run E2E test
+      # -------------------------------------------------------
+      - name: Run E2E test
+        run: pnpm run e2e-test
+        working-directory: scripts
