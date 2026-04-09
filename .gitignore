@@ -27,6 +27,7 @@ node_modules/
 *.json
 !package.json
 !tsconfig.json
+!idl/*.json
 
 # Deploy script keys (mint keypairs)
 scripts/keys/
