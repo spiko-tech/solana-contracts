@@ -145,6 +145,11 @@ export const ROLE_NAMES: Record<number, string> = {
 //   Metadata data = update_authority(32) + mint(32) + name(4+N) + symbol(4+S) + uri(4+U) + additional_metadata(4)
 //
 // Use mintAccountSize() to compute the exact size for a given token.
+// Use MINT_FIXED_EXTENSIONS_SIZE for the CreateAccount space parameter
+// (InitializeMint2 requires account size to match fixed extensions only;
+// TokenMetadataInitialize will realloc to add the variable-length metadata).
+export const MINT_FIXED_EXTENSIONS_SIZE = 338n;
+
 export function mintAccountSize(name: string, symbol: string, uri: string): bigint {
   const fixed = 338;
   const metadataData = 32 + 32 + 4 + name.length + 4 + symbol.length + 4 + uri.length + 4;
