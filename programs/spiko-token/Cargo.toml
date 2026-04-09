@@ -17,7 +17,6 @@ permission-manager = { path = "../permission-manager", features = ["no-entrypoin
 spiko-common = { path = "../spiko-common" }
 spiko-permission = { path = "../spiko-permission" }
 spiko-events = { path = "../spiko-events" }
-shank = { workspace = true }
 
 [dev-dependencies]
 mollusk-svm = "0.10"

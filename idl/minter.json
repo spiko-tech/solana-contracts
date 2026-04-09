@@ -1,531 +1,140 @@
 {
-  "version": "0.1.0",
-  "name": "minter",
+  "address": "6jbcB2eNfm1qLXRFd9jJes9yYEUWYafJDjfZ1dobSQ9z",
+  "metadata": {
+    "name": "minter",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
   "instructions": [
     {
-      "name": "InitializeMinter",
+      "name": "initializeMinter",
+      "discriminator": [0],
       "accounts": [
-        {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "Admin / deployer (payer for PDA creation)"
-          ]
-        },
-        {
-          "name": "minterConfig",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "MinterConfig PDA (to be created). Seeds: [\"minter_config\"]"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program"
-          ]
-        }
+        { "name": "admin", "writable": true, "signer": true, "docs": ["Admin / deployer (payer for PDA creation)"] },
+        { "name": "minterConfig", "writable": true, "docs": ["MinterConfig PDA. Seeds: [\"minter_config\"]"] },
+        { "name": "systemProgram", "address": "11111111111111111111111111111111" }
       ],
       "args": [
-        {
-          "name": "maxDelay",
-          "type": "i64"
-        },
-        {
-          "name": "permissionManager",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 0
-      }
+        { "name": "maxDelay", "type": "i64" },
+        { "name": "permissionManager", "type": "pubkey" }
+      ]
     },
     {
-      "name": "InitiateMint",
+      "name": "initiateMint",
+      "discriminator": [1],
       "accounts": [
-        {
-          "name": "caller",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Caller (must have ROLE_MINT_INITIATOR)"
-          ]
-        },
-        {
-          "name": "minterConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "MinterConfig PDA"
-          ]
-        },
-        {
-          "name": "dailyLimit",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "DailyLimit PDA for this token. Seeds: [\"daily_limit\", mint]"
-          ]
-        },
-        {
-          "name": "mintOperation",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "MintOperation PDA (created if blocked). Seeds: [\"mint_op\", operation_id]"
-          ]
-        },
-        {
-          "name": "callerPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Caller's UserPermissions PDA (from permission_manager)"
-          ]
-        },
-        {
-          "name": "spikoTokenProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Spiko Token program (for CPI if immediate mint)"
-          ]
-        },
-        {
-          "name": "tokenConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "TokenConfig PDA (on spiko-token, for CPI)"
-          ]
-        },
-        {
-          "name": "tokenMint",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 Mint (for CPI)"
-          ]
-        },
-        {
-          "name": "recipientTokenAccount",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Recipient's token account (for CPI)"
-          ]
-        },
-        {
-          "name": "mintAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Mint authority PDA (spiko-token, for CPI)"
-          ]
-        },
-        {
-          "name": "minterUserPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Minter's UserPermissions PDA (MinterConfig has ROLE_MINTER)"
-          ]
-        },
-        {
-          "name": "recipientPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Recipient's UserPermissions PDA (whitelist check, for CPI)"
-          ]
-        },
-        {
-          "name": "token2022Program",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 program"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program (for PDA creation if blocked)"
-          ]
-        }
+        { "name": "caller", "signer": true, "docs": ["Caller (must have ROLE_MINT_INITIATOR)"] },
+        { "name": "minterConfig", "writable": true, "docs": ["MinterConfig PDA"] },
+        { "name": "dailyLimit", "writable": true, "docs": ["DailyLimit PDA for this token. Seeds: [\"daily_limit\", mint]"] },
+        { "name": "mintOperation", "writable": true, "docs": ["MintOperation PDA. Seeds: [\"mint_op\", operation_id]"] },
+        { "name": "callerPermissions", "docs": ["Caller's UserPermissions PDA (from permission_manager)"] },
+        { "name": "spikoTokenProgram", "docs": ["Spiko Token program (for CPI if immediate mint)"] },
+        { "name": "tokenConfig", "docs": ["TokenConfig PDA (on spiko-token, for CPI)"] },
+        { "name": "tokenMint", "writable": true, "docs": ["Token-2022 Mint (for CPI)"] },
+        { "name": "recipientTokenAccount", "writable": true, "docs": ["Recipient's token account (for CPI)"] },
+        { "name": "mintAuthority", "docs": ["Mint authority PDA (spiko-token, for CPI)"] },
+        { "name": "minterUserPermissions", "docs": ["Minter's UserPermissions PDA (MinterConfig has ROLE_MINTER)"] },
+        { "name": "recipientPermissions", "docs": ["Recipient's UserPermissions PDA (whitelist check, for CPI)"] },
+        { "name": "token2022Program", "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" },
+        { "name": "systemProgram", "address": "11111111111111111111111111111111" }
       ],
       "args": [
-        {
-          "name": "user",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "amount",
-          "type": "u64"
-        },
-        {
-          "name": "salt",
-          "type": "u64"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 1
-      }
+        { "name": "user", "type": "pubkey" },
+        { "name": "amount", "type": "u64" },
+        { "name": "salt", "type": "u64" }
+      ]
     },
     {
-      "name": "ApproveMint",
+      "name": "approveMint",
+      "discriminator": [2],
       "accounts": [
-        {
-          "name": "caller",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Caller (must have ROLE_MINT_APPROVER)"
-          ]
-        },
-        {
-          "name": "minterConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "MinterConfig PDA"
-          ]
-        },
-        {
-          "name": "mintOperation",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "MintOperation PDA"
-          ]
-        },
-        {
-          "name": "callerPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Caller's UserPermissions PDA (from permission_manager)"
-          ]
-        },
-        {
-          "name": "spikoTokenProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Spiko Token program (for CPI)"
-          ]
-        },
-        {
-          "name": "tokenConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "TokenConfig PDA (on spiko-token, for CPI)"
-          ]
-        },
-        {
-          "name": "tokenMint",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 Mint (for CPI)"
-          ]
-        },
-        {
-          "name": "recipientTokenAccount",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Recipient's token account (for CPI)"
-          ]
-        },
-        {
-          "name": "mintAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Mint authority PDA (spiko-token, for CPI)"
-          ]
-        },
-        {
-          "name": "minterUserPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Minter's UserPermissions PDA (MinterConfig has ROLE_MINTER)"
-          ]
-        },
-        {
-          "name": "recipientPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Recipient's UserPermissions PDA (whitelist check, for CPI)"
-          ]
-        },
-        {
-          "name": "token2022Program",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 program"
-          ]
-        }
+        { "name": "caller", "signer": true, "docs": ["Caller (must have ROLE_MINT_APPROVER)"] },
+        { "name": "minterConfig", "docs": ["MinterConfig PDA"] },
+        { "name": "mintOperation", "writable": true, "docs": ["MintOperation PDA"] },
+        { "name": "callerPermissions", "docs": ["Caller's UserPermissions PDA (from permission_manager)"] },
+        { "name": "spikoTokenProgram", "docs": ["Spiko Token program (for CPI)"] },
+        { "name": "tokenConfig", "docs": ["TokenConfig PDA (on spiko-token, for CPI)"] },
+        { "name": "tokenMint", "writable": true, "docs": ["Token-2022 Mint (for CPI)"] },
+        { "name": "recipientTokenAccount", "writable": true, "docs": ["Recipient's token account (for CPI)"] },
+        { "name": "mintAuthority", "docs": ["Mint authority PDA (spiko-token, for CPI)"] },
+        { "name": "minterUserPermissions", "docs": ["Minter's UserPermissions PDA (MinterConfig has ROLE_MINTER)"] },
+        { "name": "recipientPermissions", "docs": ["Recipient's UserPermissions PDA (whitelist check, for CPI)"] },
+        { "name": "token2022Program", "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" }
       ],
       "args": [
-        {
-          "name": "user",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "tokenMint",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "amount",
-          "type": "u64"
-        },
-        {
-          "name": "salt",
-          "type": "u64"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 2
-      }
+        { "name": "user", "type": "pubkey" },
+        { "name": "tokenMintArg", "type": "pubkey" },
+        { "name": "amount", "type": "u64" },
+        { "name": "salt", "type": "u64" }
+      ]
     },
     {
-      "name": "CancelMint",
+      "name": "cancelMint",
+      "discriminator": [3],
       "accounts": [
-        {
-          "name": "caller",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Caller (must have ROLE_MINT_APPROVER)"
-          ]
-        },
-        {
-          "name": "minterConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "MinterConfig PDA"
-          ]
-        },
-        {
-          "name": "mintOperation",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "MintOperation PDA"
-          ]
-        },
-        {
-          "name": "callerPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Caller's UserPermissions PDA (from permission_manager)"
-          ]
-        }
+        { "name": "caller", "signer": true, "docs": ["Caller (must have ROLE_MINT_APPROVER)"] },
+        { "name": "minterConfig", "docs": ["MinterConfig PDA"] },
+        { "name": "mintOperation", "writable": true, "docs": ["MintOperation PDA"] },
+        { "name": "callerPermissions", "docs": ["Caller's UserPermissions PDA (from permission_manager)"] }
       ],
       "args": [
-        {
-          "name": "user",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "tokenMint",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "amount",
-          "type": "u64"
-        },
-        {
-          "name": "salt",
-          "type": "u64"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 3
-      }
+        { "name": "user", "type": "pubkey" },
+        { "name": "tokenMintArg", "type": "pubkey" },
+        { "name": "amount", "type": "u64" },
+        { "name": "salt", "type": "u64" }
+      ]
     },
     {
-      "name": "SetDailyLimit",
+      "name": "setDailyLimit",
+      "discriminator": [4],
       "accounts": [
-        {
-          "name": "caller",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "Admin caller (payer if creating DailyLimit PDA)"
-          ]
-        },
-        {
-          "name": "minterConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "MinterConfig PDA (to read permission_manager)"
-          ]
-        },
-        {
-          "name": "permissionConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "PermissionConfig PDA (from permission_manager, for admin check)"
-          ]
-        },
-        {
-          "name": "dailyLimit",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "DailyLimit PDA for the token (created if needed). Seeds: [\"daily_limit\", mint]"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program"
-          ]
-        }
+        { "name": "caller", "writable": true, "signer": true, "docs": ["Admin caller (payer if creating DailyLimit PDA)"] },
+        { "name": "minterConfig", "docs": ["MinterConfig PDA (to read permission_manager)"] },
+        { "name": "permissionConfig", "docs": ["PermissionConfig PDA (from permission_manager, for admin check)"] },
+        { "name": "dailyLimit", "writable": true, "docs": ["DailyLimit PDA for the token (created if needed). Seeds: [\"daily_limit\", mint]"] },
+        { "name": "systemProgram", "address": "11111111111111111111111111111111" }
       ],
       "args": [
-        {
-          "name": "tokenMint",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "limit",
-          "type": "u64"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 4
-      }
+        { "name": "tokenMintArg", "type": "pubkey" },
+        { "name": "limit", "type": "u64" }
+      ]
     },
     {
-      "name": "SetMaxDelay",
+      "name": "setMaxDelay",
+      "discriminator": [5],
       "accounts": [
-        {
-          "name": "caller",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Admin caller"
-          ]
-        },
-        {
-          "name": "minterConfig",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "MinterConfig PDA"
-          ]
-        },
-        {
-          "name": "permissionConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "PermissionConfig PDA (from permission_manager, for admin check)"
-          ]
-        }
+        { "name": "caller", "signer": true, "docs": ["Admin caller"] },
+        { "name": "minterConfig", "writable": true, "docs": ["MinterConfig PDA"] },
+        { "name": "permissionConfig", "docs": ["PermissionConfig PDA (from permission_manager, for admin check)"] }
       ],
       "args": [
-        {
-          "name": "maxDelay",
-          "type": "i64"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 5
-      }
+        { "name": "maxDelay", "type": "i64" }
+      ]
     }
   ],
   "accounts": [
+    { "name": "MinterConfig", "discriminator": [1] },
+    { "name": "DailyLimit", "discriminator": [2] },
+    { "name": "MintOperation", "discriminator": [3] }
+  ],
+  "events": [
+    { "name": "MinterInitialized", "discriminator": [177, 137, 98, 179, 22, 206, 55, 192] },
+    { "name": "MintExecuted", "discriminator": [55, 135, 108, 73, 5, 190, 237, 44] },
+    { "name": "MintBlocked", "discriminator": [126, 238, 131, 205, 253, 110, 245, 35] },
+    { "name": "MintApproved", "discriminator": [2, 68, 233, 24, 102, 65, 104, 35] },
+    { "name": "MintCanceled", "discriminator": [168, 74, 19, 157, 74, 221, 192, 25] },
+    { "name": "DailyLimitUpdated", "discriminator": [65, 8, 231, 173, 215, 182, 71, 201] },
+    { "name": "MaxDelayUpdated", "discriminator": [129, 81, 145, 26, 98, 210, 160, 12] }
+  ],
+  "types": [
     {
       "name": "MinterConfig",
       "type": {
         "kind": "struct",
         "fields": [
-          {
-            "name": "discriminator",
-            "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "maxDelay",
-            "type": "i64",
-            "attrs": [
-              "idl-type"
-            ]
-          },
-          {
-            "name": "permissionManager",
-            "type": {
-              "defined": "publicKey"
-            },
-            "attrs": [
-              "idl-type"
-            ]
-          }
+          { "name": "bump", "type": "u8" },
+          { "name": "maxDelay", "type": "i64" },
+          { "name": "permissionManager", "type": "pubkey" }
         ]
       }
     },
@@ -534,35 +143,10 @@
       "type": {
         "kind": "struct",
         "fields": [
-          {
-            "name": "discriminator",
-            "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "limit",
-            "type": "u64",
-            "attrs": [
-              "idl-type"
-            ]
-          },
-          {
-            "name": "usedAmount",
-            "type": "u64",
-            "attrs": [
-              "idl-type"
-            ]
-          },
-          {
-            "name": "lastDay",
-            "type": "i64",
-            "attrs": [
-              "idl-type"
-            ]
-          }
+          { "name": "bump", "type": "u8" },
+          { "name": "limit", "type": "u64" },
+          { "name": "usedAmount", "type": "u64" },
+          { "name": "lastDay", "type": "i64" }
         ]
       }
     },
@@ -571,31 +155,95 @@
       "type": {
         "kind": "struct",
         "fields": [
-          {
-            "name": "discriminator",
-            "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "status",
-            "type": "u8"
-          },
-          {
-            "name": "deadline",
-            "type": "i64",
-            "attrs": [
-              "idl-type"
-            ]
-          }
+          { "name": "bump", "type": "u8" },
+          { "name": "status", "type": "u8" },
+          { "name": "deadline", "type": "i64" }
+        ]
+      }
+    },
+    {
+      "name": "MinterInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "admin", "type": "pubkey" },
+          { "name": "maxDelay", "type": "i64" }
+        ]
+      }
+    },
+    {
+      "name": "MintExecuted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "caller", "type": "pubkey" },
+          { "name": "user", "type": "pubkey" },
+          { "name": "mint", "type": "pubkey" },
+          { "name": "amount", "type": "u64" },
+          { "name": "salt", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "MintBlocked",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "caller", "type": "pubkey" },
+          { "name": "user", "type": "pubkey" },
+          { "name": "mint", "type": "pubkey" },
+          { "name": "amount", "type": "u64" },
+          { "name": "salt", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "MintApproved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "approver", "type": "pubkey" },
+          { "name": "user", "type": "pubkey" },
+          { "name": "mint", "type": "pubkey" },
+          { "name": "amount", "type": "u64" },
+          { "name": "salt", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "MintCanceled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "caller", "type": "pubkey" },
+          { "name": "user", "type": "pubkey" },
+          { "name": "mint", "type": "pubkey" },
+          { "name": "amount", "type": "u64" },
+          { "name": "salt", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "DailyLimitUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "caller", "type": "pubkey" },
+          { "name": "mint", "type": "pubkey" },
+          { "name": "limit", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "MaxDelayUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "caller", "type": "pubkey" },
+          { "name": "maxDelay", "type": "i64" }
         ]
       }
     }
   ],
-  "metadata": {
-    "origin": "shank",
-    "address": "6jbcB2eNfm1qLXRFd9jJes9yYEUWYafJDjfZ1dobSQ9z"
-  }
+  "errors": []
 }

@@ -2,7 +2,6 @@ pub mod error;
 pub mod events;
 pub mod helpers;
 pub mod instructions;
-pub mod shank_idl;
 pub mod state;
 
 pub use instructions::*;

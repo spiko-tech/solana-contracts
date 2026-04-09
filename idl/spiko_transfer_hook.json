@@ -1,163 +1,62 @@
 {
-  "version": "0.1.0",
-  "name": "spiko_transfer_hook",
+  "address": "GMpqabVyd98sefjUB3fLhy6HA77xTnGpWy9e7vJs2vtJ",
+  "metadata": {
+    "name": "spiko_transfer_hook",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
   "instructions": [
     {
-      "name": "InitExtraAccountMetas",
+      "name": "initExtraAccountMetas",
+      "discriminator": [0],
       "accounts": [
-        {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "Admin / deployer (payer)"
-          ]
-        },
-        {
-          "name": "extraAccountMetaList",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "ExtraAccountMetaList PDA (to be created). Seeds: [\"extra-account-metas\", mint]"
-          ]
-        },
-        {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 Mint"
-          ]
-        },
-        {
-          "name": "tokenConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "TokenConfig PDA (must be initialized, owned by spiko-token)"
-          ]
-        },
-        {
-          "name": "spikoTokenProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "SpikoToken program"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program"
-          ]
-        }
+        { "name": "admin", "writable": true, "signer": true, "docs": ["Admin / deployer (payer)"] },
+        { "name": "extraAccountMetaList", "writable": true, "docs": ["ExtraAccountMetaList PDA. Seeds: [\"extra-account-metas\", mint]"] },
+        { "name": "mint", "docs": ["Token-2022 Mint"] },
+        { "name": "tokenConfig", "docs": ["TokenConfig PDA (must be initialized, owned by spiko-token)"] },
+        { "name": "spikoTokenProgram", "docs": ["SpikoToken program"] },
+        { "name": "systemProgram", "address": "11111111111111111111111111111111" }
       ],
-      "args": [],
-      "discriminant": {
-        "type": "u8",
-        "value": 0
-      }
+      "args": []
     },
     {
-      "name": "TransferHookExecute",
+      "name": "transferHookExecute",
+      "discriminator": [105, 37, 101, 197, 75, 251, 102, 26],
       "accounts": [
-        {
-          "name": "source",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Source token account"
-          ]
-        },
-        {
-          "name": "mint",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 Mint"
-          ]
-        },
-        {
-          "name": "destination",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Destination token account"
-          ]
-        },
-        {
-          "name": "authority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Source owner / delegate"
-          ]
-        },
-        {
-          "name": "extraAccountMetaList",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "ExtraAccountMetaList PDA (owned by this program)"
-          ]
-        },
-        {
-          "name": "permissionManagerProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "PermissionManager program (extra account)"
-          ]
-        },
-        {
-          "name": "spikoTokenProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "SpikoToken program (extra account)"
-          ]
-        },
-        {
-          "name": "tokenConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "TokenConfig PDA (extra account, derived from SpikoToken)"
-          ]
-        },
-        {
-          "name": "senderPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Sender's UserPermissions PDA (extra account)"
-          ]
-        },
-        {
-          "name": "recipientPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Recipient's UserPermissions PDA (extra account)"
-          ]
-        }
+        { "name": "source", "docs": ["Source token account"] },
+        { "name": "mint", "docs": ["Token-2022 Mint"] },
+        { "name": "destination", "docs": ["Destination token account"] },
+        { "name": "authority", "docs": ["Source owner / delegate"] },
+        { "name": "extraAccountMetaList", "docs": ["ExtraAccountMetaList PDA (owned by this program)"] },
+        { "name": "permissionManagerProgram", "docs": ["PermissionManager program (extra account)"] },
+        { "name": "spikoTokenProgram", "docs": ["SpikoToken program (extra account)"] },
+        { "name": "tokenConfig", "docs": ["TokenConfig PDA (extra account, derived from SpikoToken)"] },
+        { "name": "senderPermissions", "docs": ["Sender's UserPermissions PDA (extra account)"] },
+        { "name": "recipientPermissions", "docs": ["Recipient's UserPermissions PDA (extra account)"] }
       ],
       "args": [
-        {
-          "name": "amount",
-          "type": "u64"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 1
+        { "name": "amount", "type": "u64" }
+      ]
+    }
+  ],
+  "accounts": [],
+  "events": [
+    { "name": "Transfer", "discriminator": [25, 18, 23, 7, 172, 116, 130, 28] }
+  ],
+  "types": [
+    {
+      "name": "Transfer",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "sender", "type": "pubkey" },
+          { "name": "mint", "type": "pubkey" },
+          { "name": "source", "type": "pubkey" },
+          { "name": "destination", "type": "pubkey" },
+          { "name": "amount", "type": "u64" }
+        ]
       }
     }
   ],
-  "metadata": {
-    "origin": "shank",
-    "address": "GMpqabVyd98sefjUB3fLhy6HA77xTnGpWy9e7vJs2vtJ"
-  }
+  "errors": []
 }
