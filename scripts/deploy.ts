@@ -33,6 +33,7 @@ import {
   TRANSFER_HOOK_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
   mintAccountSize,
+  MINT_FIXED_EXTENSIONS_SIZE,
   MAX_DELAY,
   DAILY_LIMIT,
   REDEMPTION_MINIMUM,
@@ -286,12 +287,12 @@ async function main() {
 
     const [tokenConfigAddr] = await tokenConfigPda(mintSigner.address);
     const [mintAuthAddr] = await mintAuthorityPda(mintSigner.address);
-    const accountSize = mintAccountSize(meta.name, meta.symbol, meta.uri);
+    const finalAccountSize = mintAccountSize(meta.name, meta.symbol, meta.uri);
 
     console.log(`  Mint address:       ${mintSigner.address}`);
     console.log(`  TokenConfig PDA:    ${tokenConfigAddr}`);
     console.log(`  MintAuthority PDA:  ${mintAuthAddr}`);
-    console.log(`  Mint account size:  ${accountSize} bytes`);
+    console.log(`  Mint account size:  ${MINT_FIXED_EXTENSIONS_SIZE} bytes (fixed) → ${finalAccountSize} bytes (after metadata realloc)`);
     console.log(`  Metadata:           ${meta.name} (${meta.symbol}), decimals=${meta.decimals}`);
 
     if (await accountExists(rpc, tokenConfigAddr)) {
@@ -299,16 +300,18 @@ async function main() {
       continue;
     }
 
-    // Create the mint account (owned by Token-2022) + Initialize token in one tx
+    // Create the mint account (owned by Token-2022) + Initialize token in one tx.
+    // Space = fixed extensions only (338); InitializeMint2 validates exact size.
+    // Lamports = rent-exempt for the final size (after TokenMetadataInitialize reallocs).
     const rentLamports = await rpc
-      .getMinimumBalanceForRentExemption(accountSize)
+      .getMinimumBalanceForRentExemption(finalAccountSize)
       .send();
 
     const createMintIx = getCreateAccountInstruction({
       payer: admin,
       newAccount: mintSigner,
       lamports: rentLamports,
-      space: accountSize,
+      space: MINT_FIXED_EXTENSIONS_SIZE,
       programAddress: TOKEN_2022_PROGRAM_ID,
     });
 
