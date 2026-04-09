@@ -1,0 +1,163 @@
+{
+  "version": "0.1.0",
+  "name": "spiko_transfer_hook",
+  "instructions": [
+    {
+      "name": "InitExtraAccountMetas",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Admin / deployer (payer)"
+          ]
+        },
+        {
+          "name": "extraAccountMetaList",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "ExtraAccountMetaList PDA (to be created). Seeds: [\"extra-account-metas\", mint]"
+          ]
+        },
+        {
+          "name": "mint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Token-2022 Mint"
+          ]
+        },
+        {
+          "name": "tokenConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "TokenConfig PDA (must be initialized, owned by spiko-token)"
+          ]
+        },
+        {
+          "name": "spikoTokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "SpikoToken program"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    },
+    {
+      "name": "TransferHookExecute",
+      "accounts": [
+        {
+          "name": "source",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Source token account"
+          ]
+        },
+        {
+          "name": "mint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Token-2022 Mint"
+          ]
+        },
+        {
+          "name": "destination",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Destination token account"
+          ]
+        },
+        {
+          "name": "authority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Source owner / delegate"
+          ]
+        },
+        {
+          "name": "extraAccountMetaList",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "ExtraAccountMetaList PDA (owned by this program)"
+          ]
+        },
+        {
+          "name": "permissionManagerProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "PermissionManager program (extra account)"
+          ]
+        },
+        {
+          "name": "spikoTokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "SpikoToken program (extra account)"
+          ]
+        },
+        {
+          "name": "tokenConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "TokenConfig PDA (extra account, derived from SpikoToken)"
+          ]
+        },
+        {
+          "name": "senderPermissions",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Sender's UserPermissions PDA (extra account)"
+          ]
+        },
+        {
+          "name": "recipientPermissions",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Recipient's UserPermissions PDA (extra account)"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "amount",
+          "type": "u64"
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 1
+      }
+    }
+  ],
+  "metadata": {
+    "origin": "shank",
+    "address": "GMpqabVyd98sefjUB3fLhy6HA77xTnGpWy9e7vJs2vtJ"
+  }
+}

@@ -1,0 +1,560 @@
+{
+  "version": "0.1.0",
+  "name": "redemption",
+  "instructions": [
+    {
+      "name": "InitializeRedemption",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Admin / deployer (payer for PDA creation)"
+          ]
+        },
+        {
+          "name": "redemptionConfig",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "RedemptionConfig PDA (to be created). Seeds: [\"redemption_config\"]"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "permissionManager",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    },
+    {
+      "name": "ExecuteRedemption",
+      "accounts": [
+        {
+          "name": "operator",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Operator (must have ROLE_REDEMPTION_EXECUTOR)"
+          ]
+        },
+        {
+          "name": "redemptionConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "RedemptionConfig PDA"
+          ]
+        },
+        {
+          "name": "redemptionOperation",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "RedemptionOperation PDA"
+          ]
+        },
+        {
+          "name": "operatorPermissions",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Operator's UserPermissions PDA (from permission_manager)"
+          ]
+        },
+        {
+          "name": "spikoTokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Spiko Token program (for CPI: burn)"
+          ]
+        },
+        {
+          "name": "tokenConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "TokenConfig PDA (on spiko-token)"
+          ]
+        },
+        {
+          "name": "tokenMint",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Token-2022 Mint"
+          ]
+        },
+        {
+          "name": "vault",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Vault token account (source for burn)"
+          ]
+        },
+        {
+          "name": "mintAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Mint authority PDA (spiko-token)"
+          ]
+        },
+        {
+          "name": "vaultAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Vault authority PDA. Seeds: [\"vault\"]"
+          ]
+        },
+        {
+          "name": "vaultAuthorityPermissions",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Vault authority's UserPermissions PDA (ROLE_BURNER)"
+          ]
+        },
+        {
+          "name": "token2022Program",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Token-2022 program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "user",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "salt",
+          "type": "u64"
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 1
+      }
+    },
+    {
+      "name": "CancelRedemption",
+      "accounts": [
+        {
+          "name": "caller",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Anyone (no permission check, deadline must have passed)"
+          ]
+        },
+        {
+          "name": "redemptionConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "RedemptionConfig PDA"
+          ]
+        },
+        {
+          "name": "redemptionOperation",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "RedemptionOperation PDA"
+          ]
+        },
+        {
+          "name": "vault",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Vault token account (source for refund)"
+          ]
+        },
+        {
+          "name": "userTokenAccount",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "User's token account (destination for refund)"
+          ]
+        },
+        {
+          "name": "vaultAuthority",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Vault authority PDA. Seeds: [\"vault\"]"
+          ]
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Token-2022 Mint"
+          ]
+        },
+        {
+          "name": "token2022Program",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Token-2022 program"
+          ]
+        },
+        {
+          "name": "extraAccountMetaList",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "ExtraAccountMetaList PDA (Transfer Hook)"
+          ]
+        },
+        {
+          "name": "permissionManagerProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "PermissionManager program"
+          ]
+        },
+        {
+          "name": "spikoTokenProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "SpikoToken program"
+          ]
+        },
+        {
+          "name": "tokenConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "TokenConfig PDA (spiko-token)"
+          ]
+        },
+        {
+          "name": "vaultAuthorityPermissions",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Vault authority's UserPermissions PDA (sender perms)"
+          ]
+        },
+        {
+          "name": "userPermissions",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "User's UserPermissions PDA (recipient perms)"
+          ]
+        },
+        {
+          "name": "hookProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Hook program (spiko-transfer-hook)"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "user",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "salt",
+          "type": "u64"
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 2
+      }
+    },
+    {
+      "name": "SetMinimum",
+      "accounts": [
+        {
+          "name": "caller",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Admin caller (payer if creating TokenMinimum PDA)"
+          ]
+        },
+        {
+          "name": "redemptionConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "RedemptionConfig PDA (to read permission_manager)"
+          ]
+        },
+        {
+          "name": "permissionConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "PermissionConfig PDA (from permission_manager, for admin check)"
+          ]
+        },
+        {
+          "name": "tokenMinimum",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "TokenMinimum PDA (created if needed). Seeds: [\"minimum\", mint]"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "tokenMint",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "minimum",
+          "type": "u64"
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 3
+      }
+    },
+    {
+      "name": "OnRedeem",
+      "accounts": [
+        {
+          "name": "tokenConfig",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "TokenConfig PDA (from spiko_token, proves CPI origin)"
+          ]
+        },
+        {
+          "name": "user",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "User (payer for PDA creation)"
+          ]
+        },
+        {
+          "name": "redemptionConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "RedemptionConfig PDA"
+          ]
+        },
+        {
+          "name": "redemptionOperation",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "RedemptionOperation PDA (to be created). Seeds: [\"redemption_op\", operation_id]"
+          ]
+        },
+        {
+          "name": "tokenMinimum",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "TokenMinimum PDA"
+          ]
+        },
+        {
+          "name": "tokenMint",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Token-2022 Mint"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "userAddress",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "amount",
+          "type": "u64"
+        },
+        {
+          "name": "salt",
+          "type": "u64"
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 4
+      }
+    }
+  ],
+  "accounts": [
+    {
+      "name": "RedemptionConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "discriminator",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "permissionManager",
+            "type": {
+              "defined": "publicKey"
+            },
+            "attrs": [
+              "idl-type"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "TokenMinimum",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "discriminator",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "minimumAmount",
+            "type": "u64",
+            "attrs": [
+              "idl-type"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionOperation",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "discriminator",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "status",
+            "type": "u8"
+          },
+          {
+            "name": "deadline",
+            "type": "i64",
+            "attrs": [
+              "idl-type"
+            ]
+          },
+          {
+            "name": "user",
+            "type": {
+              "defined": "publicKey"
+            },
+            "attrs": [
+              "idl-type"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "origin": "shank",
+    "address": "GZEFPC74n1ifKrsH9vh67qntZ8bqpzpdDrBasGVCUPPo"
+  }
+}

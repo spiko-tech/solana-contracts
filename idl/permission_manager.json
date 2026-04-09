@@ -1,0 +1,293 @@
+{
+  "version": "0.1.0",
+  "name": "permission_manager",
+  "instructions": [
+    {
+      "name": "Initialize",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Admin / deployer (payer, becomes initial admin)"
+          ]
+        },
+        {
+          "name": "permissionConfig",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "PermissionConfig PDA (to be created). Seeds: [\"permission_config\"]"
+          ]
+        },
+        {
+          "name": "adminPermissions",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Admin's UserPermissions PDA (to be created). Seeds: [\"user_perm\", admin]"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 0
+      }
+    },
+    {
+      "name": "GrantRole",
+      "accounts": [
+        {
+          "name": "caller",
+          "isMut": true,
+          "isSigner": true,
+          "docs": [
+            "Caller (payer if target PDA needs creation)"
+          ]
+        },
+        {
+          "name": "permissionConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "PermissionConfig PDA"
+          ]
+        },
+        {
+          "name": "userPermissions",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Target user's UserPermissions PDA (created if needed). Seeds: [\"user_perm\", target_user]"
+          ]
+        },
+        {
+          "name": "systemProgram",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "System program"
+          ]
+        },
+        {
+          "name": "targetUser",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Target user address (for PDA derivation)"
+          ]
+        },
+        {
+          "name": "callerPermissions",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Caller's UserPermissions PDA (for role-hierarchy check)"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "roleId",
+          "type": "u8"
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 1
+      }
+    },
+    {
+      "name": "RevokeRole",
+      "accounts": [
+        {
+          "name": "caller",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Caller"
+          ]
+        },
+        {
+          "name": "permissionConfig",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "PermissionConfig PDA"
+          ]
+        },
+        {
+          "name": "userPermissions",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "Target user's UserPermissions PDA"
+          ]
+        },
+        {
+          "name": "targetUser",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Target user address (for PDA derivation)"
+          ]
+        },
+        {
+          "name": "callerPermissions",
+          "isMut": false,
+          "isSigner": false,
+          "docs": [
+            "Caller's UserPermissions PDA (for role-hierarchy check)"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "roleId",
+          "type": "u8"
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 2
+      }
+    },
+    {
+      "name": "TransferOwnership",
+      "accounts": [
+        {
+          "name": "admin",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "Current admin"
+          ]
+        },
+        {
+          "name": "permissionConfig",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "PermissionConfig PDA"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "newAdmin",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ],
+      "discriminant": {
+        "type": "u8",
+        "value": 3
+      }
+    },
+    {
+      "name": "AcceptOwnership",
+      "accounts": [
+        {
+          "name": "newAdmin",
+          "isMut": false,
+          "isSigner": true,
+          "docs": [
+            "New admin (must be the pending_admin)"
+          ]
+        },
+        {
+          "name": "permissionConfig",
+          "isMut": true,
+          "isSigner": false,
+          "docs": [
+            "PermissionConfig PDA"
+          ]
+        }
+      ],
+      "args": [],
+      "discriminant": {
+        "type": "u8",
+        "value": 4
+      }
+    }
+  ],
+  "accounts": [
+    {
+      "name": "PermissionConfig",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "discriminator",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "admin",
+            "type": {
+              "defined": "publicKey"
+            },
+            "attrs": [
+              "idl-type"
+            ]
+          },
+          {
+            "name": "pendingAdmin",
+            "type": {
+              "defined": "publicKey"
+            },
+            "attrs": [
+              "idl-type"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "UserPermissions",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "discriminator",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "roles",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "origin": "shank",
+    "address": "BTZTjmY3i1ZPFkUvZAwD3WzwQFxxLXeaCYYBNjHKuRoz"
+  }
+}

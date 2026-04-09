@@ -48,6 +48,28 @@ cargo build-sbf -- -p redemption
 
 Outputs land in `target/deploy/*.so`.
 
+## IDL Generation
+
+IDLs are generated from dedicated `shank_idl.rs` modules in each program using [Shank](https://github.com/metaplex-foundation/shank). Install the CLI first:
+
+```bash
+cargo install shank-cli
+```
+
+Generate all five IDLs (run from the workspace root):
+
+```bash
+shank idl -r programs/permission-manager -o idl -p BTZTjmY3i1ZPFkUvZAwD3WzwQFxxLXeaCYYBNjHKuRoz
+shank idl -r programs/spiko-token -o idl -p 2LKr4wYMkx75hCbrmRCR2iESCWmeDViuSDLxZaZnC4aP
+shank idl -r programs/minter -o idl -p 6jbcB2eNfm1qLXRFd9jJes9yYEUWYafJDjfZ1dobSQ9z
+shank idl -r programs/redemption -o idl -p GZEFPC74n1ifKrsH9vh67qntZ8bqpzpdDrBasGVCUPPo
+shank idl -r programs/spiko-transfer-hook -o idl -p GMpqabVyd98sefjUB3fLhy6HA77xTnGpWy9e7vJs2vtJ
+```
+
+Output files: `idl/permission_manager.json`, `idl/spiko_token.json`, `idl/minter.json`, `idl/redemption.json`, `idl/spiko_transfer_hook.json`.
+
+> **Note:** Delete existing IDL files before regenerating — `shank idl -o` treats the path as a directory to create and errors if a file already exists at that path.
+
 ## Test
 
 Unit tests per program:
