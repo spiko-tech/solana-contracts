@@ -1,262 +1,92 @@
 {
-  "version": "0.1.0",
-  "name": "permission_manager",
+  "address": "BTZTjmY3i1ZPFkUvZAwD3WzwQFxxLXeaCYYBNjHKuRoz",
+  "metadata": {
+    "name": "permission_manager",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
   "instructions": [
     {
-      "name": "Initialize",
+      "name": "initialize",
+      "discriminator": [0],
       "accounts": [
-        {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "Admin / deployer (payer, becomes initial admin)"
-          ]
-        },
-        {
-          "name": "permissionConfig",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "PermissionConfig PDA (to be created). Seeds: [\"permission_config\"]"
-          ]
-        },
-        {
-          "name": "adminPermissions",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Admin's UserPermissions PDA (to be created). Seeds: [\"user_perm\", admin]"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program"
-          ]
-        }
+        { "name": "admin", "writable": true, "signer": true, "docs": ["Admin / deployer (payer, becomes initial admin)"] },
+        { "name": "permissionConfig", "writable": true, "docs": ["PermissionConfig PDA. Seeds: [\"permission_config\"]"] },
+        { "name": "adminPermissions", "writable": true, "docs": ["Admin's UserPermissions PDA. Seeds: [\"user_perm\", admin]"] },
+        { "name": "systemProgram", "address": "11111111111111111111111111111111" }
       ],
-      "args": [],
-      "discriminant": {
-        "type": "u8",
-        "value": 0
-      }
+      "args": []
     },
     {
-      "name": "GrantRole",
+      "name": "grantRole",
+      "discriminator": [1],
       "accounts": [
-        {
-          "name": "caller",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "Caller (payer if target PDA needs creation)"
-          ]
-        },
-        {
-          "name": "permissionConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "PermissionConfig PDA"
-          ]
-        },
-        {
-          "name": "userPermissions",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Target user's UserPermissions PDA (created if needed). Seeds: [\"user_perm\", target_user]"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program"
-          ]
-        },
-        {
-          "name": "targetUser",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Target user address (for PDA derivation)"
-          ]
-        },
-        {
-          "name": "callerPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Caller's UserPermissions PDA (for role-hierarchy check)"
-          ]
-        }
+        { "name": "caller", "writable": true, "signer": true, "docs": ["Caller (payer if target PDA needs creation)"] },
+        { "name": "permissionConfig", "docs": ["PermissionConfig PDA"] },
+        { "name": "userPermissions", "writable": true, "docs": ["Target user's UserPermissions PDA (created if needed). Seeds: [\"user_perm\", target_user]"] },
+        { "name": "systemProgram", "address": "11111111111111111111111111111111" },
+        { "name": "targetUser", "docs": ["Target user address (for PDA derivation)"] },
+        { "name": "callerPermissions", "docs": ["Caller's UserPermissions PDA (for role-hierarchy check)"] }
       ],
       "args": [
-        {
-          "name": "roleId",
-          "type": "u8"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 1
-      }
+        { "name": "roleId", "type": "u8" }
+      ]
     },
     {
-      "name": "RevokeRole",
+      "name": "revokeRole",
+      "discriminator": [2],
       "accounts": [
-        {
-          "name": "caller",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Caller"
-          ]
-        },
-        {
-          "name": "permissionConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "PermissionConfig PDA"
-          ]
-        },
-        {
-          "name": "userPermissions",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Target user's UserPermissions PDA"
-          ]
-        },
-        {
-          "name": "targetUser",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Target user address (for PDA derivation)"
-          ]
-        },
-        {
-          "name": "callerPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Caller's UserPermissions PDA (for role-hierarchy check)"
-          ]
-        }
+        { "name": "caller", "signer": true, "docs": ["Caller"] },
+        { "name": "permissionConfig", "docs": ["PermissionConfig PDA"] },
+        { "name": "userPermissions", "writable": true, "docs": ["Target user's UserPermissions PDA"] },
+        { "name": "targetUser", "docs": ["Target user address (for PDA derivation)"] },
+        { "name": "callerPermissions", "docs": ["Caller's UserPermissions PDA (for role-hierarchy check)"] }
       ],
       "args": [
-        {
-          "name": "roleId",
-          "type": "u8"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 2
-      }
+        { "name": "roleId", "type": "u8" }
+      ]
     },
     {
-      "name": "TransferOwnership",
+      "name": "transferOwnership",
+      "discriminator": [3],
       "accounts": [
-        {
-          "name": "admin",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Current admin"
-          ]
-        },
-        {
-          "name": "permissionConfig",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "PermissionConfig PDA"
-          ]
-        }
+        { "name": "admin", "signer": true, "docs": ["Current admin"] },
+        { "name": "permissionConfig", "writable": true, "docs": ["PermissionConfig PDA"] }
       ],
       "args": [
-        {
-          "name": "newAdmin",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 3
-      }
+        { "name": "newAdmin", "type": "pubkey" }
+      ]
     },
     {
-      "name": "AcceptOwnership",
+      "name": "acceptOwnership",
+      "discriminator": [4],
       "accounts": [
-        {
-          "name": "newAdmin",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "New admin (must be the pending_admin)"
-          ]
-        },
-        {
-          "name": "permissionConfig",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "PermissionConfig PDA"
-          ]
-        }
+        { "name": "newAdmin", "signer": true, "docs": ["New admin (must be the pending_admin)"] },
+        { "name": "permissionConfig", "writable": true, "docs": ["PermissionConfig PDA"] }
       ],
-      "args": [],
-      "discriminant": {
-        "type": "u8",
-        "value": 4
-      }
+      "args": []
     }
   ],
   "accounts": [
+    { "name": "PermissionConfig", "discriminator": [1] },
+    { "name": "UserPermissions", "discriminator": [2] }
+  ],
+  "events": [
+    { "name": "PermissionManagerInitialized", "discriminator": [207, 30, 96, 56, 253, 169, 197, 15] },
+    { "name": "RoleGranted", "discriminator": [220, 183, 89, 228, 143, 63, 246, 58] },
+    { "name": "RoleRemoved", "discriminator": [133, 35, 214, 234, 203, 157, 203, 53] },
+    { "name": "OwnershipTransferStarted", "discriminator": [183, 253, 239, 246, 140, 179, 133, 105] },
+    { "name": "OwnershipTransferred", "discriminator": [172, 61, 205, 183, 250, 50, 38, 98] }
+  ],
+  "types": [
     {
       "name": "PermissionConfig",
       "type": {
         "kind": "struct",
         "fields": [
-          {
-            "name": "discriminator",
-            "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "admin",
-            "type": {
-              "defined": "publicKey"
-            },
-            "attrs": [
-              "idl-type"
-            ]
-          },
-          {
-            "name": "pendingAdmin",
-            "type": {
-              "defined": "publicKey"
-            },
-            "attrs": [
-              "idl-type"
-            ]
-          }
+          { "name": "bump", "type": "u8" },
+          { "name": "admin", "type": "pubkey" },
+          { "name": "pendingAdmin", "type": "pubkey" }
         ]
       }
     },
@@ -265,29 +95,61 @@
       "type": {
         "kind": "struct",
         "fields": [
-          {
-            "name": "discriminator",
-            "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "roles",
-            "type": {
-              "array": [
-                "u8",
-                32
-              ]
-            }
-          }
+          { "name": "bump", "type": "u8" },
+          { "name": "roles", "type": { "array": ["u8", 32] } }
+        ]
+      }
+    },
+    {
+      "name": "PermissionManagerInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "admin", "type": "pubkey" }
+        ]
+      }
+    },
+    {
+      "name": "RoleGranted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "caller", "type": "pubkey" },
+          { "name": "target", "type": "pubkey" },
+          { "name": "roleId", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "RoleRemoved",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "caller", "type": "pubkey" },
+          { "name": "target", "type": "pubkey" },
+          { "name": "roleId", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "OwnershipTransferStarted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "admin", "type": "pubkey" },
+          { "name": "newAdmin", "type": "pubkey" }
+        ]
+      }
+    },
+    {
+      "name": "OwnershipTransferred",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "newAdmin", "type": "pubkey" }
         ]
       }
     }
   ],
-  "metadata": {
-    "origin": "shank",
-    "address": "BTZTjmY3i1ZPFkUvZAwD3WzwQFxxLXeaCYYBNjHKuRoz"
-  }
+  "errors": []
 }

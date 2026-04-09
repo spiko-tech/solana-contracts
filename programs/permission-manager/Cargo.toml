@@ -13,7 +13,6 @@ pinocchio-system = { workspace = true }
 pinocchio-log = { workspace = true }
 spiko-common = { path = "../spiko-common" }
 spiko-events = { path = "../spiko-events" }
-shank = { workspace = true }
 
 [dev-dependencies]
 mollusk-svm = "0.10"

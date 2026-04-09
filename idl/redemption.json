@@ -1,495 +1,126 @@
 {
-  "version": "0.1.0",
-  "name": "redemption",
+  "address": "GZEFPC74n1ifKrsH9vh67qntZ8bqpzpdDrBasGVCUPPo",
+  "metadata": {
+    "name": "redemption",
+    "version": "0.1.0",
+    "spec": "0.1.0"
+  },
   "instructions": [
     {
-      "name": "InitializeRedemption",
+      "name": "initializeRedemption",
+      "discriminator": [0],
       "accounts": [
-        {
-          "name": "admin",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "Admin / deployer (payer for PDA creation)"
-          ]
-        },
-        {
-          "name": "redemptionConfig",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "RedemptionConfig PDA (to be created). Seeds: [\"redemption_config\"]"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program"
-          ]
-        }
+        { "name": "admin", "writable": true, "signer": true, "docs": ["Admin / deployer (payer for PDA creation)"] },
+        { "name": "redemptionConfig", "writable": true, "docs": ["RedemptionConfig PDA. Seeds: [\"redemption_config\"]"] },
+        { "name": "systemProgram", "address": "11111111111111111111111111111111" }
       ],
       "args": [
-        {
-          "name": "permissionManager",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 0
-      }
+        { "name": "permissionManager", "type": "pubkey" }
+      ]
     },
     {
-      "name": "ExecuteRedemption",
+      "name": "executeRedemption",
+      "discriminator": [1],
       "accounts": [
-        {
-          "name": "operator",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Operator (must have ROLE_REDEMPTION_EXECUTOR)"
-          ]
-        },
-        {
-          "name": "redemptionConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "RedemptionConfig PDA"
-          ]
-        },
-        {
-          "name": "redemptionOperation",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "RedemptionOperation PDA"
-          ]
-        },
-        {
-          "name": "operatorPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Operator's UserPermissions PDA (from permission_manager)"
-          ]
-        },
-        {
-          "name": "spikoTokenProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Spiko Token program (for CPI: burn)"
-          ]
-        },
-        {
-          "name": "tokenConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "TokenConfig PDA (on spiko-token)"
-          ]
-        },
-        {
-          "name": "tokenMint",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 Mint"
-          ]
-        },
-        {
-          "name": "vault",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Vault token account (source for burn)"
-          ]
-        },
-        {
-          "name": "mintAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Mint authority PDA (spiko-token)"
-          ]
-        },
-        {
-          "name": "vaultAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Vault authority PDA. Seeds: [\"vault\"]"
-          ]
-        },
-        {
-          "name": "vaultAuthorityPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Vault authority's UserPermissions PDA (ROLE_BURNER)"
-          ]
-        },
-        {
-          "name": "token2022Program",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 program"
-          ]
-        }
+        { "name": "operator", "signer": true, "docs": ["Operator (must have ROLE_REDEMPTION_EXECUTOR)"] },
+        { "name": "redemptionConfig", "docs": ["RedemptionConfig PDA"] },
+        { "name": "redemptionOperation", "writable": true, "docs": ["RedemptionOperation PDA"] },
+        { "name": "operatorPermissions", "docs": ["Operator's UserPermissions PDA (from permission_manager)"] },
+        { "name": "spikoTokenProgram", "docs": ["Spiko Token program (for CPI: burn)"] },
+        { "name": "tokenConfig", "docs": ["TokenConfig PDA (on spiko-token)"] },
+        { "name": "tokenMint", "writable": true, "docs": ["Token-2022 Mint"] },
+        { "name": "vault", "writable": true, "docs": ["Vault token account (source for burn)"] },
+        { "name": "mintAuthority", "docs": ["Mint authority PDA (spiko-token)"] },
+        { "name": "vaultAuthority", "writable": true, "docs": ["Vault authority PDA. Seeds: [\"vault\"]"] },
+        { "name": "vaultAuthorityPermissions", "docs": ["Vault authority's UserPermissions PDA (ROLE_BURNER)"] },
+        { "name": "token2022Program", "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" }
       ],
       "args": [
-        {
-          "name": "user",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "amount",
-          "type": "u64"
-        },
-        {
-          "name": "salt",
-          "type": "u64"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 1
-      }
+        { "name": "user", "type": "pubkey" },
+        { "name": "amount", "type": "u64" },
+        { "name": "salt", "type": "u64" }
+      ]
     },
     {
-      "name": "CancelRedemption",
+      "name": "cancelRedemption",
+      "discriminator": [2],
       "accounts": [
-        {
-          "name": "caller",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "Anyone (no permission check, deadline must have passed)"
-          ]
-        },
-        {
-          "name": "redemptionConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "RedemptionConfig PDA"
-          ]
-        },
-        {
-          "name": "redemptionOperation",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "RedemptionOperation PDA"
-          ]
-        },
-        {
-          "name": "vault",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "Vault token account (source for refund)"
-          ]
-        },
-        {
-          "name": "userTokenAccount",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "User's token account (destination for refund)"
-          ]
-        },
-        {
-          "name": "vaultAuthority",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Vault authority PDA. Seeds: [\"vault\"]"
-          ]
-        },
-        {
-          "name": "tokenMint",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 Mint"
-          ]
-        },
-        {
-          "name": "token2022Program",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 program"
-          ]
-        },
-        {
-          "name": "extraAccountMetaList",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "ExtraAccountMetaList PDA (Transfer Hook)"
-          ]
-        },
-        {
-          "name": "permissionManagerProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "PermissionManager program"
-          ]
-        },
-        {
-          "name": "spikoTokenProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "SpikoToken program"
-          ]
-        },
-        {
-          "name": "tokenConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "TokenConfig PDA (spiko-token)"
-          ]
-        },
-        {
-          "name": "vaultAuthorityPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Vault authority's UserPermissions PDA (sender perms)"
-          ]
-        },
-        {
-          "name": "userPermissions",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "User's UserPermissions PDA (recipient perms)"
-          ]
-        },
-        {
-          "name": "hookProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Hook program (spiko-transfer-hook)"
-          ]
-        }
+        { "name": "caller", "signer": true, "docs": ["Anyone (no permission check, deadline must have passed)"] },
+        { "name": "redemptionConfig", "docs": ["RedemptionConfig PDA"] },
+        { "name": "redemptionOperation", "writable": true, "docs": ["RedemptionOperation PDA"] },
+        { "name": "vault", "writable": true, "docs": ["Vault token account (source for refund)"] },
+        { "name": "userTokenAccount", "writable": true, "docs": ["User's token account (destination for refund)"] },
+        { "name": "vaultAuthority", "docs": ["Vault authority PDA. Seeds: [\"vault\"]"] },
+        { "name": "tokenMint", "docs": ["Token-2022 Mint"] },
+        { "name": "token2022Program", "address": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" },
+        { "name": "extraAccountMetaList", "docs": ["ExtraAccountMetaList PDA (Transfer Hook)"] },
+        { "name": "permissionManagerProgram", "docs": ["PermissionManager program"] },
+        { "name": "spikoTokenProgram", "docs": ["SpikoToken program"] },
+        { "name": "tokenConfig", "docs": ["TokenConfig PDA (spiko-token)"] },
+        { "name": "vaultAuthorityPermissions", "docs": ["Vault authority's UserPermissions PDA (sender perms)"] },
+        { "name": "userPermissions", "docs": ["User's UserPermissions PDA (recipient perms)"] },
+        { "name": "hookProgram", "docs": ["Hook program (spiko-transfer-hook)"] }
       ],
       "args": [
-        {
-          "name": "user",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "amount",
-          "type": "u64"
-        },
-        {
-          "name": "salt",
-          "type": "u64"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 2
-      }
+        { "name": "user", "type": "pubkey" },
+        { "name": "amount", "type": "u64" },
+        { "name": "salt", "type": "u64" }
+      ]
     },
     {
-      "name": "SetMinimum",
+      "name": "setMinimum",
+      "discriminator": [3],
       "accounts": [
-        {
-          "name": "caller",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "Admin caller (payer if creating TokenMinimum PDA)"
-          ]
-        },
-        {
-          "name": "redemptionConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "RedemptionConfig PDA (to read permission_manager)"
-          ]
-        },
-        {
-          "name": "permissionConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "PermissionConfig PDA (from permission_manager, for admin check)"
-          ]
-        },
-        {
-          "name": "tokenMinimum",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "TokenMinimum PDA (created if needed). Seeds: [\"minimum\", mint]"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program"
-          ]
-        }
+        { "name": "caller", "writable": true, "signer": true, "docs": ["Admin caller (payer if creating TokenMinimum PDA)"] },
+        { "name": "redemptionConfig", "docs": ["RedemptionConfig PDA (to read permission_manager)"] },
+        { "name": "permissionConfig", "docs": ["PermissionConfig PDA (from permission_manager, for admin check)"] },
+        { "name": "tokenMinimum", "writable": true, "docs": ["TokenMinimum PDA (created if needed). Seeds: [\"minimum\", mint]"] },
+        { "name": "systemProgram", "address": "11111111111111111111111111111111" }
       ],
       "args": [
-        {
-          "name": "tokenMint",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "minimum",
-          "type": "u64"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 3
-      }
+        { "name": "tokenMintArg", "type": "pubkey" },
+        { "name": "minimum", "type": "u64" }
+      ]
     },
     {
-      "name": "OnRedeem",
+      "name": "onRedeem",
+      "discriminator": [4],
       "accounts": [
-        {
-          "name": "tokenConfig",
-          "isMut": false,
-          "isSigner": true,
-          "docs": [
-            "TokenConfig PDA (from spiko_token, proves CPI origin)"
-          ]
-        },
-        {
-          "name": "user",
-          "isMut": true,
-          "isSigner": true,
-          "docs": [
-            "User (payer for PDA creation)"
-          ]
-        },
-        {
-          "name": "redemptionConfig",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "RedemptionConfig PDA"
-          ]
-        },
-        {
-          "name": "redemptionOperation",
-          "isMut": true,
-          "isSigner": false,
-          "docs": [
-            "RedemptionOperation PDA (to be created). Seeds: [\"redemption_op\", operation_id]"
-          ]
-        },
-        {
-          "name": "tokenMinimum",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "TokenMinimum PDA"
-          ]
-        },
-        {
-          "name": "tokenMint",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "Token-2022 Mint"
-          ]
-        },
-        {
-          "name": "systemProgram",
-          "isMut": false,
-          "isSigner": false,
-          "docs": [
-            "System program"
-          ]
-        }
+        { "name": "tokenConfig", "signer": true, "docs": ["TokenConfig PDA (from spiko_token, proves CPI origin)"] },
+        { "name": "user", "writable": true, "signer": true, "docs": ["User (payer for PDA creation)"] },
+        { "name": "redemptionConfig", "docs": ["RedemptionConfig PDA"] },
+        { "name": "redemptionOperation", "writable": true, "docs": ["RedemptionOperation PDA (to be created). Seeds: [\"redemption_op\", operation_id]"] },
+        { "name": "tokenMinimum", "docs": ["TokenMinimum PDA"] },
+        { "name": "tokenMint", "docs": ["Token-2022 Mint"] },
+        { "name": "systemProgram", "address": "11111111111111111111111111111111" }
       ],
       "args": [
-        {
-          "name": "userAddress",
-          "type": {
-            "array": [
-              "u8",
-              32
-            ]
-          }
-        },
-        {
-          "name": "amount",
-          "type": "u64"
-        },
-        {
-          "name": "salt",
-          "type": "u64"
-        }
-      ],
-      "discriminant": {
-        "type": "u8",
-        "value": 4
-      }
+        { "name": "userAddress", "type": "pubkey" },
+        { "name": "amount", "type": "u64" },
+        { "name": "salt", "type": "u64" }
+      ]
     }
   ],
   "accounts": [
+    { "name": "RedemptionConfig", "discriminator": [1] },
+    { "name": "TokenMinimum", "discriminator": [2] },
+    { "name": "RedemptionOperation", "discriminator": [4] }
+  ],
+  "events": [
+    { "name": "RedemptionInitialized", "discriminator": [106, 200, 100, 114, 148, 100, 38, 203] },
+    { "name": "RedemptionInitiated", "discriminator": [85, 254, 235, 14, 221, 136, 96, 222] },
+    { "name": "RedemptionExecuted", "discriminator": [174, 218, 5, 56, 36, 46, 53, 212] },
+    { "name": "RedemptionCanceled", "discriminator": [189, 244, 208, 232, 60, 104, 231, 164] },
+    { "name": "TokenMinimumUpdated", "discriminator": [235, 60, 153, 71, 97, 212, 112, 110] }
+  ],
+  "types": [
     {
       "name": "RedemptionConfig",
       "type": {
         "kind": "struct",
         "fields": [
-          {
-            "name": "discriminator",
-            "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "permissionManager",
-            "type": {
-              "defined": "publicKey"
-            },
-            "attrs": [
-              "idl-type"
-            ]
-          }
+          { "name": "bump", "type": "u8" },
+          { "name": "permissionManager", "type": "pubkey" }
         ]
       }
     },
@@ -498,21 +129,8 @@
       "type": {
         "kind": "struct",
         "fields": [
-          {
-            "name": "discriminator",
-            "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "minimumAmount",
-            "type": "u64",
-            "attrs": [
-              "idl-type"
-            ]
-          }
+          { "name": "bump", "type": "u8" },
+          { "name": "minimumAmount", "type": "u64" }
         ]
       }
     },
@@ -521,40 +139,72 @@
       "type": {
         "kind": "struct",
         "fields": [
-          {
-            "name": "discriminator",
-            "type": "u8"
-          },
-          {
-            "name": "bump",
-            "type": "u8"
-          },
-          {
-            "name": "status",
-            "type": "u8"
-          },
-          {
-            "name": "deadline",
-            "type": "i64",
-            "attrs": [
-              "idl-type"
-            ]
-          },
-          {
-            "name": "user",
-            "type": {
-              "defined": "publicKey"
-            },
-            "attrs": [
-              "idl-type"
-            ]
-          }
+          { "name": "bump", "type": "u8" },
+          { "name": "status", "type": "u8" },
+          { "name": "deadline", "type": "i64" },
+          { "name": "user", "type": "pubkey" }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionInitialized",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "admin", "type": "pubkey" }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionInitiated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "user", "type": "pubkey" },
+          { "name": "mint", "type": "pubkey" },
+          { "name": "amount", "type": "u64" },
+          { "name": "salt", "type": "u64" },
+          { "name": "deadline", "type": "i64" }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionExecuted",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "operator", "type": "pubkey" },
+          { "name": "user", "type": "pubkey" },
+          { "name": "mint", "type": "pubkey" },
+          { "name": "amount", "type": "u64" },
+          { "name": "salt", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "RedemptionCanceled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "caller", "type": "pubkey" },
+          { "name": "user", "type": "pubkey" },
+          { "name": "mint", "type": "pubkey" },
+          { "name": "amount", "type": "u64" },
+          { "name": "salt", "type": "u64" }
+        ]
+      }
+    },
+    {
+      "name": "TokenMinimumUpdated",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "caller", "type": "pubkey" },
+          { "name": "mint", "type": "pubkey" },
+          { "name": "minimum", "type": "u64" }
         ]
       }
     }
   ],
-  "metadata": {
-    "origin": "shank",
-    "address": "GZEFPC74n1ifKrsH9vh67qntZ8bqpzpdDrBasGVCUPPo"
-  }
+  "errors": []
 }
