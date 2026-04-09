@@ -133,15 +133,23 @@ export const ROLE_NAMES: Record<number, string> = {
 // Token Constants
 // =================================================================
 
-export const TOKEN_DECIMALS = 5;
-
 // Token-2022 Mint layout with fixed-size extensions
-// (TransferHook + PermanentDelegate):
-//   base_mint(82) + padding(83) + account_type(1)
+// (TransferHook + PermanentDelegate + MetadataPointer)
+// plus variable-size TokenMetadata extension:
+//   base_mint(82) + padding(83) + account_type(1) = 166
 //   + TransferHook TLV: ext_type(2) + ext_len(2) + ext_data(64) = 68
 //   + PermanentDelegate TLV: ext_type(2) + ext_len(2) + ext_data(32) = 36
-//   Total = 82 + 83 + 1 + 68 + 36 = 270
-export const MINT_ACCOUNT_SIZE = 270n;
+//   + MetadataPointer TLV: ext_type(2) + ext_len(2) + ext_data(64) = 68
+//   Fixed extensions = 166 + 68 + 36 + 68 = 338
+//   + TokenMetadata TLV: ext_type(2) + ext_len(2) + variable metadata data
+//   Metadata data = update_authority(32) + mint(32) + name(4+N) + symbol(4+S) + uri(4+U) + additional_metadata(4)
+//
+// Use mintAccountSize() to compute the exact size for a given token.
+export function mintAccountSize(name: string, symbol: string, uri: string): bigint {
+  const fixed = 338;
+  const metadataData = 32 + 32 + 4 + name.length + 4 + symbol.length + 4 + uri.length + 4;
+  return BigInt(fixed + 4 + metadataData); // +4 for TLV type+len header
+}
 
 // =================================================================
 // Deployment Parameters

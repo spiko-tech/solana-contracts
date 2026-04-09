@@ -32,7 +32,7 @@ import {
   REDEMPTION_PROGRAM_ID,
   TRANSFER_HOOK_PROGRAM_ID,
   TOKEN_2022_PROGRAM_ID,
-  MINT_ACCOUNT_SIZE,
+  mintAccountSize,
   MAX_DELAY,
   DAILY_LIMIT,
   REDEMPTION_MINIMUM,
@@ -256,6 +256,22 @@ async function main() {
   // ===============================================================
   console.log("--- Phase 2: Initialize Spiko Token (EUTBL + USTBL) ---");
 
+  // Per-fund token metadata
+  const fundMetadata: Record<string, { name: string; symbol: string; uri: string; decimals: number }> = {
+    eutbl: {
+      name: "Spiko EU T-Bill",
+      symbol: "EUTBL",
+      uri: "https://spiko.finance/metadata/eutbl.json",
+      decimals: 5,
+    },
+    ustbl: {
+      name: "Spiko US T-Bill",
+      symbol: "USTBL",
+      uri: "https://spiko.finance/metadata/ustbl.json",
+      decimals: 5,
+    },
+  };
+
   const fundNames = ["eutbl", "ustbl"] as const;
   const mintSigners: KeyPairSigner[] = [];
   const mintAddresses: Address[] = [];
@@ -263,17 +279,20 @@ async function main() {
   for (const name of fundNames) {
     console.log(`\n  [${name.toUpperCase()}]`);
 
+    const meta = fundMetadata[name];
     const mintSigner = await loadOrCreateMintKeypair(name);
     mintSigners.push(mintSigner);
     mintAddresses.push(mintSigner.address);
 
     const [tokenConfigAddr] = await tokenConfigPda(mintSigner.address);
     const [mintAuthAddr] = await mintAuthorityPda(mintSigner.address);
+    const accountSize = mintAccountSize(meta.name, meta.symbol, meta.uri);
 
     console.log(`  Mint address:       ${mintSigner.address}`);
     console.log(`  TokenConfig PDA:    ${tokenConfigAddr}`);
     console.log(`  MintAuthority PDA:  ${mintAuthAddr}`);
-    console.log(`  Mint account size:  ${MINT_ACCOUNT_SIZE} bytes`);
+    console.log(`  Mint account size:  ${accountSize} bytes`);
+    console.log(`  Metadata:           ${meta.name} (${meta.symbol}), decimals=${meta.decimals}`);
 
     if (await accountExists(rpc, tokenConfigAddr)) {
       console.log("  TokenConfig already exists. Skipping.");
@@ -282,14 +301,14 @@ async function main() {
 
     // Create the mint account (owned by Token-2022) + Initialize token in one tx
     const rentLamports = await rpc
-      .getMinimumBalanceForRentExemption(MINT_ACCOUNT_SIZE)
+      .getMinimumBalanceForRentExemption(accountSize)
       .send();
 
     const createMintIx = getCreateAccountInstruction({
       payer: admin,
       newAccount: mintSigner,
       lamports: rentLamports,
-      space: MINT_ACCOUNT_SIZE,
+      space: accountSize,
       programAddress: TOKEN_2022_PROGRAM_ID,
     });
 
@@ -297,7 +316,11 @@ async function main() {
       admin,
       tokenConfigAddr,
       mintSigner.address,
-      mintAuthAddr
+      mintAuthAddr,
+      meta.decimals,
+      meta.name,
+      meta.symbol,
+      meta.uri
     );
 
     await sendTx(

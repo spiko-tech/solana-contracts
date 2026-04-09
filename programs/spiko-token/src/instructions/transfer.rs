@@ -10,8 +10,8 @@ use permission_manager::state::ROLE_WHITELISTED;
 
 use crate::{
     error::TokenError,
-    helpers::{require_not_paused, require_permission},
-    state::{TokenConfig, TOKEN_DECIMALS},
+    helpers::{read_mint_decimals, require_not_paused, require_permission},
+    state::TokenConfig,
 };
 
 /// Transfer tokens between whitelisted accounts.
@@ -136,10 +136,11 @@ impl<'a> TransferToken<'a> {
         )?;
 
         {
+            let decimals = read_mint_decimals(self.mint)?;
             let mut ix_data = [0u8; 10];
             ix_data[0] = 12; // TransferChecked opcode
             ix_data[1..9].copy_from_slice(&self.amount.to_le_bytes());
-            ix_data[9] = TOKEN_DECIMALS;
+            ix_data[9] = decimals;
 
             let ix_accounts = [
                 // Standard TransferChecked accounts:

@@ -19,7 +19,6 @@
 
 import { address } from "@solana/kit";
 
-import { TOKEN_DECIMALS } from "./lib/constants.js";
 import {
   userPermissionsPda,
   tokenConfigPda,
@@ -31,6 +30,7 @@ import {
   sendTx,
   resolveMintAddress,
   getAssociatedTokenAddress,
+  readMintDecimals,
 } from "./lib/shared.js";
 
 async function main() {
@@ -48,17 +48,19 @@ async function main() {
 
   const sourceWallet = address(sourceArg);
   const amountShares = parseFloat(amountArg);
-  const rawAmount = BigInt(Math.round(amountShares * 10 ** TOKEN_DECIMALS));
+
+  const { rpc, rpcSub, admin } = await setup();
+
+  // Resolve mint address and read decimals from on-chain mint account
+  const mintAddr = await resolveMintAddress(tokenName);
+  const decimals = await readMintDecimals(rpc, mintAddr);
+  const rawAmount = BigInt(Math.round(amountShares * 10 ** decimals));
 
   console.log(`=== Burn Tokens ===\n`);
   console.log(`Token:   ${tokenName.toUpperCase()}`);
   console.log(`Source:  ${sourceWallet}`);
   console.log(`Amount:  ${amountShares} shares (raw: ${rawAmount})\n`);
 
-  const { rpc, rpcSub, admin } = await setup();
-
-  // Resolve mint address
-  const mintAddr = await resolveMintAddress(tokenName);
   console.log(`Mint:           ${mintAddr}`);
 
   // Derive PDAs

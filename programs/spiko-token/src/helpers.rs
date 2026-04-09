@@ -1,9 +1,20 @@
-use pinocchio::{cpi::Seed, error::ProgramError};
+use pinocchio::{account::AccountView, cpi::Seed, error::ProgramError};
 
 pub use spiko_common::{create_pda_account, verify_pda};
 pub use spiko_permission::{require_admin, require_permission};
 
 use crate::state::{MINT_AUTHORITY_SEED, TOKEN_CONFIG_SEED};
+
+/// Read the decimals value from a Token-2022 mint account.
+/// In the SPL mint layout, decimals is at byte offset 44.
+#[inline]
+pub fn read_mint_decimals(mint: &AccountView) -> Result<u8, ProgramError> {
+    let data = mint.try_borrow()?;
+    if data.len() < 45 {
+        return Err(ProgramError::InvalidAccountData);
+    }
+    Ok(data[44])
+}
 
 #[inline]
 pub fn require_not_paused(config_data: &[u8]) -> Result<(), ProgramError> {

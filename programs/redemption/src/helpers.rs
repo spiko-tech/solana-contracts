@@ -106,6 +106,15 @@ pub fn cpi_token_2022_transfer<'a>(
     let seeds = vault_authority_seeds(&bump_bytes);
     let signer = Signer::from(&seeds);
 
+    // Read decimals from the on-chain mint account (byte offset 44)
+    let decimals = {
+        let mint_data = token_mint.try_borrow()?;
+        if mint_data.len() < 45 {
+            return Err(pinocchio::error::ProgramError::InvalidAccountData);
+        }
+        mint_data[44]
+    };
+
     // Token-2022 TransferChecked (opcode 12) data:
     //   [0]    = 12 (instruction discriminator)
     //   [1..9] = amount (u64 LE)
@@ -113,7 +122,7 @@ pub fn cpi_token_2022_transfer<'a>(
     let mut ix_data = [0u8; 10];
     ix_data[0] = 12; // TransferChecked opcode
     ix_data[1..9].copy_from_slice(&amount.to_le_bytes());
-    ix_data[9] = 5; // TOKEN_DECIMALS
+    ix_data[9] = decimals;
 
     let ix_accounts = [
         // Standard TransferChecked accounts:

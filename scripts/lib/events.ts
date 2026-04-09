@@ -13,7 +13,7 @@ import {
   getAddressDecoder,
 } from "@solana/kit";
 
-import { ROLE_NAMES, TOKEN_DECIMALS } from "./constants.js";
+import { ROLE_NAMES } from "./constants.js";
 
 // =================================================================
 // Field types for event decoding
@@ -488,8 +488,10 @@ export async function parseTransactionEvents(
 
 /**
  * Format a decoded event as a human-readable string block.
+ *
+ * @param decimals - Token decimals for amount formatting (reads from chain recommended)
  */
-export function formatEvent(event: DecodedEvent): string {
+export function formatEvent(event: DecodedEvent, decimals: number = 5): string {
   const lines: string[] = [];
   lines.push(`  [${event.program}] ${event.name}`);
 
@@ -498,7 +500,7 @@ export function formatEvent(event: DecodedEvent): string {
     if (typeof value === "bigint") {
       // For amount-like fields, also show human-readable shares
       if (key === "amount" || key === "limit" || key === "minimum") {
-        const shares = Number(value) / 10 ** TOKEN_DECIMALS;
+        const shares = Number(value) / 10 ** decimals;
         display = `${value} (${shares} shares)`;
       } else if (key === "salt") {
         display = `${value}`;
