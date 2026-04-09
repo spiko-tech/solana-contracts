@@ -30,7 +30,6 @@ import {
   RD_DISC_CANCEL,
   RD_DISC_SET_MINIMUM,
   ST_DISC_REDEEM,
-  TOKEN_DECIMALS,
 } from "./constants.js";
 
 const addressEncoder = getAddressEncoder();
@@ -163,7 +162,8 @@ export function grantRole(
 /**
  * Initialize a Spiko fund token (Token-2022 mint + TokenConfig).
  *
- * The mint account must be pre-allocated (MINT_ACCOUNT_SIZE, owned by Token-2022).
+ * The mint account must be pre-allocated (use mintAccountSize() for the size, owned by Token-2022).
+ * Extensions initialized: TransferHook, PermanentDelegate, MetadataPointer, TokenMetadata.
  *
  * Accounts (8):
  *   0. [signer, writable] Admin (payer)
@@ -175,14 +175,45 @@ export function grantRole(
  *   6. []                  System program
  *   7. []                  Transfer Hook program (spiko-transfer-hook)
  *
- * Data: disc(0) only
+ * Data: disc(0) + decimals(u8) + name(4+N) + symbol(4+S) + uri(4+U)
  */
 export function initializeToken(
   admin: TransactionSigner,
   tokenConfigPda: Address,
   mint: Address,
-  mintAuthorityPda: Address
+  mintAuthorityPda: Address,
+  decimals: number,
+  name: string,
+  symbol: string,
+  uri: string
 ) {
+  const nameBytes = new TextEncoder().encode(name);
+  const symbolBytes = new TextEncoder().encode(symbol);
+  const uriBytes = new TextEncoder().encode(uri);
+
+  const dataLen = 1 + 1 + 4 + nameBytes.length + 4 + symbolBytes.length + 4 + uriBytes.length;
+  const data = new Uint8Array(dataLen);
+  let offset = 0;
+
+  // discriminator
+  data[offset++] = ST_DISC_INITIALIZE;
+  // decimals
+  data[offset++] = decimals;
+  // name (u32 LE length prefix + bytes)
+  new DataView(data.buffer).setUint32(offset, nameBytes.length, true);
+  offset += 4;
+  data.set(nameBytes, offset);
+  offset += nameBytes.length;
+  // symbol
+  new DataView(data.buffer).setUint32(offset, symbolBytes.length, true);
+  offset += 4;
+  data.set(symbolBytes, offset);
+  offset += symbolBytes.length;
+  // uri
+  new DataView(data.buffer).setUint32(offset, uriBytes.length, true);
+  offset += 4;
+  data.set(uriBytes, offset);
+
   return {
     programAddress: SPIKO_TOKEN_PROGRAM_ID,
     accounts: [
@@ -195,7 +226,7 @@ export function initializeToken(
       readonly(SYSTEM_PROGRAM_ID),
       readonly(TRANSFER_HOOK_PROGRAM_ID),
     ],
-    data: new Uint8Array([ST_DISC_INITIALIZE]) as ReadonlyUint8Array,
+    data: data as ReadonlyUint8Array,
   };
 }
 
@@ -391,14 +422,15 @@ export function buildTransferChecked(
   senderPermsPda: Address,
   recipientPermsPda: Address,
   extraAccountMetaListPda: Address,
-  amount: bigint
+  amount: bigint,
+  decimals: number
 ) {
   // TransferChecked instruction data: [12, amount(8), decimals(1)]
   const data = new Uint8Array(10);
   data[0] = 12; // TransferChecked opcode
   const amountBytes = encodeU64(amount);
   data.set(amountBytes, 1);
-  data[9] = TOKEN_DECIMALS;
+  data[9] = decimals;
 
   return {
     programAddress: TOKEN_2022_PROGRAM_ID,

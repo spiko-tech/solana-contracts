@@ -38,12 +38,16 @@ const TOKEN_2022_PROGRAM_ID: Pubkey = solana_pubkey::Pubkey::new_from_array([
 
 // Token-2022 Mint layout sizes
 const MINT_BASE_LEN: usize = 82;
-// Token-2022 Mint with extensions (TransferHook + PermanentDelegate):
+// Token-2022 Mint with fixed extensions (TransferHook + PermanentDelegate + MetadataPointer):
 //   base_mint(82) + padding(83) + account_type(1)
 //   + TransferHook TLV: ext_type(2) + ext_len(2) + ext_data(64) = 68
 //   + PermanentDelegate TLV: ext_type(2) + ext_len(2) + ext_data(32) = 36
-//   Total = 82 + 83 + 1 + 68 + 36 = 270
-const MINT_EXTENSIONS_LEN: usize = MINT_BASE_LEN + 83 + 1 + 68 + 36; // 270
+//   + MetadataPointer TLV: ext_type(2) + ext_len(2) + ext_data(64) = 68
+//   Fixed extensions total = 82 + 83 + 1 + 68 + 36 + 68 = 338
+//
+// TokenMetadata is a variable-length extension that is added via realloc
+// by the TokenMetadataInitialize instruction AFTER InitializeMint2.
+const MINT_FIXED_EXTENSIONS_LEN: usize = 338;
 
 // -------------------------------------------------------------------
 // Setup
@@ -196,18 +200,32 @@ fn ix_unpause() -> Vec<u8> {
     vec![5] // discriminator only
 }
 
-fn ix_initialize() -> Vec<u8> {
-    // discriminator(0) only
-    vec![0u8]
+fn ix_initialize(decimals: u8, name: &str, symbol: &str, uri: &str) -> Vec<u8> {
+    // discriminator(0) + decimals(1) + name(4+N) + symbol(4+S) + uri(4+U)
+    let mut data = vec![0u8]; // discriminator
+    data.push(decimals);
+
+    // name (u32 LE length prefix + bytes)
+    data.extend_from_slice(&(name.len() as u32).to_le_bytes());
+    data.extend_from_slice(name.as_bytes());
+
+    // symbol
+    data.extend_from_slice(&(symbol.len() as u32).to_le_bytes());
+    data.extend_from_slice(symbol.as_bytes());
+
+    // uri
+    data.extend_from_slice(&(uri.len() as u32).to_le_bytes());
+    data.extend_from_slice(uri.as_bytes());
+
+    data
 }
 
 /// Pre-allocated Token-2022 mint account (uninitialized, owned by Token-2022 program).
-/// Must have enough space for base mint + TransferHook + PermanentDelegate extensions.
+/// Allocated with space for fixed extensions only. TokenMetadataInitialize will realloc.
 fn uninitialized_mint_account() -> Account {
-    let space = MINT_EXTENSIONS_LEN;
     Account {
         lamports: 10_000_000, // enough for rent-exempt even after realloc
-        data: vec![0u8; space],
+        data: vec![0u8; MINT_FIXED_EXTENSIONS_LEN],
         owner: TOKEN_2022_PROGRAM_ID,
         executable: false,
         rent_epoch: u64::MAX,
@@ -478,13 +496,18 @@ fn test_initialize_success() {
     let perm_manager_id = Pubkey::new_unique();
     let transfer_hook_program = Pubkey::new_unique();
 
+    let name = "Spiko EU T-Bill";
+    let symbol = "EUTBL";
+    let uri = "https://spiko.finance/metadata/eutbl.json";
+    let decimals: u8 = 5;
+
     // Derive PDAs
     let (config_key, _) = token_config_pda(&mint, &program_id);
     let (mint_authority_key, _) = mint_authority_pda(&mint, &program_id);
 
     let instruction = Instruction::new_with_bytes(
         program_id,
-        &ix_initialize(),
+        &ix_initialize(decimals, name, symbol, uri),
         vec![
             AccountMeta::new(admin, true),                           // 0
             AccountMeta::new(config_key, false),                     // 1
@@ -537,6 +560,11 @@ fn test_initialize_double_init_fails() {
     let perm_manager_id = Pubkey::new_unique();
     let transfer_hook_program = Pubkey::new_unique();
 
+    let name = "Spiko EU T-Bill";
+    let symbol = "EUTBL";
+    let uri = "https://spiko.finance/metadata/eutbl.json";
+    let decimals: u8 = 5;
+
     let (config_key, config_bump) = token_config_pda(&mint, &program_id);
     let (mint_authority_key, _) = mint_authority_pda(&mint, &program_id);
 
@@ -546,7 +574,7 @@ fn test_initialize_double_init_fails() {
 
     let instruction = Instruction::new_with_bytes(
         program_id,
-        &ix_initialize(),
+        &ix_initialize(decimals, name, symbol, uri),
         vec![
             AccountMeta::new(admin, true),
             AccountMeta::new(config_key, false),
@@ -588,12 +616,17 @@ fn test_initialize_missing_signer_fails() {
     let perm_manager_id = Pubkey::new_unique();
     let transfer_hook_program = Pubkey::new_unique();
 
+    let name = "Spiko EU T-Bill";
+    let symbol = "EUTBL";
+    let uri = "https://spiko.finance/metadata/eutbl.json";
+    let decimals: u8 = 5;
+
     let (config_key, _) = token_config_pda(&mint, &program_id);
     let (mint_authority_key, _) = mint_authority_pda(&mint, &program_id);
 
     let instruction = Instruction::new_with_bytes(
         program_id,
-        &ix_initialize(),
+        &ix_initialize(decimals, name, symbol, uri),
         vec![
             AccountMeta::new(admin, false), // NOT a signer
             AccountMeta::new(config_key, false),

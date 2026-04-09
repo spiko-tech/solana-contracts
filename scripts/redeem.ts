@@ -19,7 +19,6 @@
  *   # Redeems 10 shares (= 1,000,000 raw) — creates a PENDING redemption operation
  */
 
-import { TOKEN_DECIMALS } from "./lib/constants.js";
 import {
   userPermissionsPda,
   tokenConfigPda,
@@ -38,6 +37,7 @@ import {
   createAssociatedTokenAccountIdempotent,
   accountExists,
   computeOperationId,
+  readMintDecimals,
 } from "./lib/shared.js";
 
 async function main() {
@@ -54,23 +54,25 @@ async function main() {
   }
 
   const amountShares = parseFloat(amountArg);
-  const rawAmount = BigInt(Math.round(amountShares * 10 ** TOKEN_DECIMALS));
   const salt = saltArg
     ? BigInt(saltArg)
     : BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
-
-  console.log(`=== Redeem Tokens ===\n`);
-  console.log(`Token:   ${tokenName.toUpperCase()}`);
-  console.log(`Amount:  ${amountShares} shares (raw: ${rawAmount})`);
-  console.log(`Salt:    ${salt}\n`);
 
   const { rpc, rpcSub, admin } = await setup();
 
   // Admin is the user for devnet testing
   const user = admin;
 
-  // Resolve mint address
+  // Resolve mint address and read decimals from on-chain mint account
   const mintAddr = await resolveMintAddress(tokenName);
+  const decimals = await readMintDecimals(rpc, mintAddr);
+  const rawAmount = BigInt(Math.round(amountShares * 10 ** decimals));
+
+  console.log(`=== Redeem Tokens ===\n`);
+  console.log(`Token:   ${tokenName.toUpperCase()}`);
+  console.log(`Amount:  ${amountShares} shares (raw: ${rawAmount})`);
+  console.log(`Salt:    ${salt}\n`);
+
   console.log(`Mint:              ${mintAddr}`);
 
   // Derive all PDAs

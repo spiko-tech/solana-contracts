@@ -5,8 +5,6 @@ pub const MINT_AUTHORITY_SEED: &[u8] = b"mint_authority";
 
 pub const DISCRIMINATOR_TOKEN_CONFIG: u8 = 1;
 
-pub const TOKEN_DECIMALS: u8 = 5;
-
 /// Configuration for a single Spiko fund token.
 ///
 /// Each fund (e.g., EUTBL, USTBL) has its own TokenConfig PDA and its

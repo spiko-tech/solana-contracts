@@ -218,6 +218,32 @@ export async function resolveMintAddress(tokenName: string): Promise<Address> {
 }
 
 // =================================================================
+// Mint account helpers
+// =================================================================
+
+/**
+ * Read the decimals byte from an on-chain Token-2022 mint account.
+ * In the SPL Token / Token-2022 mint layout, decimals is at byte offset 44.
+ */
+export async function readMintDecimals(
+  rpc: Rpc<SolanaRpcApi>,
+  mint: Address
+): Promise<number> {
+  const { value } = await rpc
+    .getAccountInfo(mint, { encoding: "base64" })
+    .send();
+  if (!value) throw new Error(`Mint account ${mint} not found on-chain`);
+  const data = Buffer.from(
+    (value.data as unknown as [string, string])[0],
+    "base64"
+  );
+  if (data.length < 45) {
+    throw new Error(`Mint account ${mint} data too short (${data.length} bytes)`);
+  }
+  return data[44];
+}
+
+// =================================================================
 // SHA-256 helper for operation_id
 // =================================================================
 

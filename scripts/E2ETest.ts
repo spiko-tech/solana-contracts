@@ -45,7 +45,6 @@ import {
 } from "@solana/kit";
 
 import {
-  TOKEN_DECIMALS,
   ROLE_WHITELISTED,
   ROLE_WHITELISTER,
   ROLE_MINT_INITIATOR,
@@ -81,6 +80,7 @@ import {
   accountExists,
   computeOperationId,
   sendTx,
+  readMintDecimals,
 } from "./lib/shared.js";
 import {
   parseTransactionEvents,
@@ -179,16 +179,18 @@ async function main() {
   const TRANSFER_A_SHARES = 5;  // Path A: direct TransferChecked
   const REDEEM_SHARES = 10;
 
-  const mintRawAmount = BigInt(Math.round(MINT_SHARES * 10 ** TOKEN_DECIMALS));
-  const transferBRawAmount = BigInt(Math.round(TRANSFER_B_SHARES * 10 ** TOKEN_DECIMALS));
-  const transferARawAmount = BigInt(Math.round(TRANSFER_A_SHARES * 10 ** TOKEN_DECIMALS));
-  const redeemRawAmount = BigInt(Math.round(REDEEM_SHARES * 10 ** TOKEN_DECIMALS));
+  // ── Resolve PDAs & addresses ───────────────────────────────
+  const mintAddr = await resolveMintAddress(TOKEN);
+  const decimals = await readMintDecimals(rpc, mintAddr);
+
+  const mintRawAmount = BigInt(Math.round(MINT_SHARES * 10 ** decimals));
+  const transferBRawAmount = BigInt(Math.round(TRANSFER_B_SHARES * 10 ** decimals));
+  const transferARawAmount = BigInt(Math.round(TRANSFER_A_SHARES * 10 ** decimals));
+  const redeemRawAmount = BigInt(Math.round(REDEEM_SHARES * 10 ** decimals));
 
   const mintSalt = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
   const redeemSalt = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
 
-  // ── Resolve PDAs & addresses ───────────────────────────────
-  const mintAddr = await resolveMintAddress(TOKEN);
   const [permConfigAddr] = await permissionConfigPda();
   const [adminPermsAddr] = await userPermissionsPda(admin.address);
   const [minterPermsAddr] = await userPermissionsPda(minter.address);
@@ -445,7 +447,8 @@ async function main() {
         user1PermsAddr,
         user2PermsAddr,
         extraMetaListAddr,
-        transferARawAmount
+        transferARawAmount,
+        decimals
       );
 
       // Admin pays fees, user1 co-signs
@@ -592,7 +595,7 @@ async function main() {
       const { value } = await rpc
         .getTokenAccountBalance(ata as Address, { commitment: "confirmed" })
         .send();
-      const shares = Number(value.amount) / 10 ** TOKEN_DECIMALS;
+      const shares = Number(value.amount) / 10 ** decimals;
       console.log(`  ${name}: ${shares} shares (${value.amount} raw)`);
     } catch {
       console.log(`  ${name}: (account not found or empty)`);

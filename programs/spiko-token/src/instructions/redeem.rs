@@ -12,8 +12,8 @@ use permission_manager::state::ROLE_WHITELISTED;
 use crate::{
     error::TokenError,
     events::emit_redeem_initiated,
-    helpers::{require_not_paused, require_permission, token_config_seeds},
-    state::{TokenConfig, TOKEN_DECIMALS},
+    helpers::{read_mint_decimals, require_not_paused, require_permission, token_config_seeds},
+    state::TokenConfig,
 };
 
 /// Redeem tokens: transfer from user to vault, then CPI to Redemption::on_redeem.
@@ -182,10 +182,11 @@ impl<'a> RedeemToken<'a> {
         )?;
 
         {
+            let decimals = read_mint_decimals(self.mint)?;
             let mut ix_data = [0u8; 10];
             ix_data[0] = 12; // TransferChecked opcode
             ix_data[1..9].copy_from_slice(&self.amount.to_le_bytes());
-            ix_data[9] = TOKEN_DECIMALS;
+            ix_data[9] = decimals;
 
             // Standard TransferChecked accounts + Transfer Hook extra accounts
             let ix_accounts = [
