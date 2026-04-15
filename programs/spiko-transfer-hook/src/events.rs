@@ -1,25 +1,30 @@
-use spiko_events::{emit_event, pack_address, pack_disc, pack_u64};
+//! Structured events for the Spiko Transfer Hook program.
+
+extern crate alloc;
+
+use alloc::vec::Vec;
+use spiko_events::{build_event_data, push_address, push_u64};
 
 // SHA256("event:Transfer")[0..8]
 const DISC_TRANSFER: [u8; 8] = [0x19, 0x12, 0x17, 0x07, 0xac, 0x74, 0x82, 0x1c];
 
+/// Build `Transfer` event data.
+/// Fields: sender (32) + mint (32) + source (32) + destination (32) + amount (8)
 #[inline]
-pub fn emit_transfer(
+pub fn build_transfer_event(
     sender: &[u8; 32],
     mint: &[u8; 32],
     source: &[u8; 32],
     destination: &[u8; 32],
     amount: u64,
-) {
-    pinocchio_log::log!("Transfer");
-    let mut buf = [0u8; 144];
-    let off = pack_disc(&mut buf, &DISC_TRANSFER);
-    let off = pack_address(&mut buf, off, sender);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_address(&mut buf, off, source);
-    let off = pack_address(&mut buf, off, destination);
-    pack_u64(&mut buf, off, amount);
-    emit_event(&buf);
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_TRANSFER, 136);
+    push_address(&mut data, sender);
+    push_address(&mut data, mint);
+    push_address(&mut data, source);
+    push_address(&mut data, destination);
+    push_u64(&mut data, amount);
+    data
 }
 
 #[cfg(test)]

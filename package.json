@@ -3,16 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {
-    "codama": "node codama.mjs"
-  },
+  "scripts": {},
   "dependencies": {
     "@solana/kit": "^2.1",
     "@solana-program/system": "^0.7"
   },
-  "devDependencies": {
-    "codama": "^1",
-    "@codama/nodes-from-anchor": "^1",
-    "@codama/renderers-js": "^1"
-  }
+  "devDependencies": {}
 }

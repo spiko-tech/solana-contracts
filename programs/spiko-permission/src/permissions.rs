@@ -1,8 +1,9 @@
 use pinocchio::{account::AccountView, address::Address, error::ProgramError};
 
+use spiko_common::AccountDeserialize;
+
 use permission_manager::state::{
-    has_role, PermissionConfig, UserPermissions, DISCRIMINATOR_PERMISSION_CONFIG,
-    DISCRIMINATOR_USER_PERMISSION, PERMISSION_CONFIG_SEED, USER_PERMISSION_SEED,
+    has_role, PermissionConfig, UserPermissions, PERMISSION_CONFIG_SEED, USER_PERMISSION_SEED,
 };
 
 use spiko_common::verify_pda;
@@ -43,9 +44,6 @@ pub fn require_permission(
     }
 
     let user_data = user_perms_account.try_borrow()?;
-    if user_data.len() < UserPermissions::LEN || user_data[0] != DISCRIMINATOR_USER_PERMISSION {
-        return Err(error_on_fail);
-    }
     let user_perms = UserPermissions::from_bytes(&user_data)?;
 
     if !has_role(&user_perms.roles, role_bit) {
@@ -83,9 +81,6 @@ pub fn require_admin(
     )?;
 
     let data = perm_config_account.try_borrow()?;
-    if data.len() < PermissionConfig::LEN || data[0] != DISCRIMINATOR_PERMISSION_CONFIG {
-        return Err(error_on_fail);
-    }
     let config = PermissionConfig::from_bytes(&data)?;
 
     if caller.address() != &config.admin {

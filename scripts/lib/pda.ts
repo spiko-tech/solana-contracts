@@ -22,6 +22,7 @@ import {
   TOKEN_MINIMUM_SEED,
   VAULT_SEED,
   REDEMPTION_OPERATION_SEED,
+  EVENT_AUTHORITY_SEED,
 } from "./constants.js";
 
 const addressEncoder = getAddressEncoder();
@@ -150,6 +151,53 @@ export async function redemptionOperationPda(
   const [addr, bump] = await getProgramDerivedAddress({
     programAddress: REDEMPTION_PROGRAM_ID,
     seeds: [REDEMPTION_OPERATION_SEED, operationId],
+  });
+  return [addr, bump];
+}
+
+// =================================================================
+// Event Authority PDAs (self-CPI event emission)
+//
+// Each program derives its event_authority PDA from seeds=["event_authority"]
+// using its own program ID.
+// =================================================================
+
+export async function permissionManagerEventAuthorityPda(): Promise<[Address, number]> {
+  const [addr, bump] = await getProgramDerivedAddress({
+    programAddress: PERMISSION_MANAGER_PROGRAM_ID,
+    seeds: [EVENT_AUTHORITY_SEED],
+  });
+  return [addr, bump];
+}
+
+export async function spikoTokenEventAuthorityPda(): Promise<[Address, number]> {
+  const [addr, bump] = await getProgramDerivedAddress({
+    programAddress: SPIKO_TOKEN_PROGRAM_ID,
+    seeds: [EVENT_AUTHORITY_SEED],
+  });
+  return [addr, bump];
+}
+
+export async function transferHookEventAuthorityPda(): Promise<[Address, number]> {
+  const [addr, bump] = await getProgramDerivedAddress({
+    programAddress: TRANSFER_HOOK_PROGRAM_ID,
+    seeds: [EVENT_AUTHORITY_SEED],
+  });
+  return [addr, bump];
+}
+
+export async function minterEventAuthorityPda(): Promise<[Address, number]> {
+  const [addr, bump] = await getProgramDerivedAddress({
+    programAddress: MINTER_PROGRAM_ID,
+    seeds: [EVENT_AUTHORITY_SEED],
+  });
+  return [addr, bump];
+}
+
+export async function redemptionEventAuthorityPda(): Promise<[Address, number]> {
+  const [addr, bump] = await getProgramDerivedAddress({
+    programAddress: REDEMPTION_PROGRAM_ID,
+    seeds: [EVENT_AUTHORITY_SEED],
   });
   return [addr, bump];
 }

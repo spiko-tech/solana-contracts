@@ -1,3 +1,3 @@
 mod permissions;
 
-pub use permissions::{require_permission, require_admin};
+pub use permissions::{require_admin, require_permission};

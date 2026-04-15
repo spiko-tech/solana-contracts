@@ -1,4 +1,9 @@
-use pinocchio::address::Address;
+use pinocchio::{account::AccountView, address::Address, error::ProgramError};
+
+use spiko_common::{
+    assert_no_padding, AccountDeserialize, AccountSize, Discriminator, PdaAccount, PdaSeeds,
+    Versioned,
+};
 
 pub const REDEMPTION_CONFIG_SEED: &[u8] = b"redemption_config";
 pub const TOKEN_MINIMUM_SEED: &[u8] = b"minimum";
@@ -21,35 +26,64 @@ pub const MAX_DELAY: i64 = 14 * 24 * 60 * 60; // 1_209_600
 ///
 /// Seeds: ["redemption_config"]
 ///
-/// Layout (total: 34 bytes):
-///   [0]       discriminator (u8)
-///   [1]       bump (u8)
-///   [2..34]   permission_manager program ID (Address / 32 bytes)
+/// On-chain layout (total: 35 bytes):
+///   [0]       discriminator (u8) -- external, trait-provided
+///   [1]       version (u8) -- external, trait-provided
+///   [2]       bump (u8)
+///   [3..35]   permission_manager program ID (Address / 32 bytes)
 #[repr(C)]
 pub struct RedemptionConfig {
-    pub discriminator: u8,
     pub bump: u8,
     pub permission_manager: Address,
 }
 
-impl RedemptionConfig {
-    pub const LEN: usize = core::mem::size_of::<Self>();
+assert_no_padding!(RedemptionConfig, 1 + 32);
 
-    pub fn from_bytes(data: &[u8]) -> Result<&Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
+impl Discriminator for RedemptionConfig {
+    const DISCRIMINATOR: u8 = DISCRIMINATOR_REDEMPTION_CONFIG;
+}
+
+impl Versioned for RedemptionConfig {
+    const VERSION: u8 = 1;
+}
+
+impl AccountSize for RedemptionConfig {
+    const DATA_LEN: usize = 1 + 32; // bump + permission_manager
+}
+
+impl AccountDeserialize for RedemptionConfig {}
+
+impl PdaSeeds for RedemptionConfig {
+    const PREFIX: &'static [u8] = REDEMPTION_CONFIG_SEED;
+
+    fn validate_pda_address(
+        &self,
+        account: &AccountView,
+        program_id: &Address,
+    ) -> Result<u8, ProgramError> {
+        let (derived, bump) = Address::find_program_address(&[Self::PREFIX], program_id);
+        if account.address() != &derived {
+            return Err(ProgramError::InvalidSeeds);
         }
-        if data[0] != DISCRIMINATOR_REDEMPTION_CONFIG {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &*(data.as_ptr() as *const Self) })
+        Ok(bump)
+    }
+}
+
+impl PdaAccount for RedemptionConfig {
+    fn bump(&self) -> u8 {
+        self.bump
     }
 
-    pub fn from_bytes_mut(data: &mut [u8]) -> Result<&mut Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
+    fn validate_self(
+        &self,
+        account: &AccountView,
+        program_id: &Address,
+    ) -> Result<(), ProgramError> {
+        let (derived, _) = Address::find_program_address(&[Self::PREFIX], program_id);
+        if account.address() != &derived {
+            return Err(ProgramError::InvalidSeeds);
         }
-        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
+        Ok(())
     }
 }
 
@@ -57,37 +91,34 @@ impl RedemptionConfig {
 ///
 /// Seeds: ["minimum", mint_pubkey]
 ///
-/// Layout (total: 10 bytes):
-///   [0]       discriminator (u8)
-///   [1]       bump (u8)
-///   [2..10]   minimum_amount (u64, little-endian)
+/// On-chain layout (total: 11 bytes):
+///   [0]       discriminator (u8) -- external, trait-provided
+///   [1]       version (u8) -- external, trait-provided
+///   [2]       bump (u8)
+///   [3..11]   minimum_amount (u64, little-endian)
 #[repr(C)]
 pub struct TokenMinimum {
-    pub discriminator: u8,
     pub bump: u8,
     minimum_amount: [u8; 8],
 }
 
+assert_no_padding!(TokenMinimum, 1 + 8);
+
+impl Discriminator for TokenMinimum {
+    const DISCRIMINATOR: u8 = DISCRIMINATOR_TOKEN_MINIMUM;
+}
+
+impl Versioned for TokenMinimum {
+    const VERSION: u8 = 1;
+}
+
+impl AccountSize for TokenMinimum {
+    const DATA_LEN: usize = 1 + 8; // bump + minimum_amount
+}
+
+impl AccountDeserialize for TokenMinimum {}
+
 impl TokenMinimum {
-    pub const LEN: usize = core::mem::size_of::<Self>();
-
-    pub fn from_bytes(data: &[u8]) -> Result<&Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        if data[0] != DISCRIMINATOR_TOKEN_MINIMUM {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &*(data.as_ptr() as *const Self) })
-    }
-
-    pub fn from_bytes_mut(data: &mut [u8]) -> Result<&mut Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
-    }
-
     pub fn minimum_amount(&self) -> u64 {
         u64::from_le_bytes(self.minimum_amount)
     }
@@ -101,16 +132,16 @@ impl TokenMinimum {
 ///
 /// Seeds: ["redemption_op", operation_id (32 bytes)]
 ///
-/// Layout (total: 44 bytes):
-///   [0]       discriminator (u8)
-///   [1]       bump (u8)
-///   [2]       status (u8): NULL=0, PENDING=1, EXECUTED=2, CANCELED=3
-///   [3]       _padding (u8)
-///   [4..12]   deadline (i64, little-endian, unix timestamp)
-///   [12..44]  user address (Address / 32 bytes, for refund on cancel)
+/// On-chain layout (total: 45 bytes):
+///   [0]       discriminator (u8) -- external, trait-provided
+///   [1]       version (u8) -- external, trait-provided
+///   [2]       bump (u8)
+///   [3]       status (u8): NULL=0, PENDING=1, EXECUTED=2, CANCELED=3
+///   [4]       _padding (u8)
+///   [5..13]   deadline (i64, little-endian, unix timestamp)
+///   [13..45]  user address (Address / 32 bytes, for refund on cancel)
 #[repr(C)]
 pub struct RedemptionOperation {
-    pub discriminator: u8,
     pub bump: u8,
     pub status: u8,
     _padding: u8,
@@ -118,26 +149,23 @@ pub struct RedemptionOperation {
     pub user: Address,
 }
 
+assert_no_padding!(RedemptionOperation, 1 + 1 + 1 + 8 + 32);
+
+impl Discriminator for RedemptionOperation {
+    const DISCRIMINATOR: u8 = DISCRIMINATOR_REDEMPTION_OPERATION;
+}
+
+impl Versioned for RedemptionOperation {
+    const VERSION: u8 = 1;
+}
+
+impl AccountSize for RedemptionOperation {
+    const DATA_LEN: usize = 1 + 1 + 1 + 8 + 32; // bump + status + _padding + deadline + user
+}
+
+impl AccountDeserialize for RedemptionOperation {}
+
 impl RedemptionOperation {
-    pub const LEN: usize = core::mem::size_of::<Self>();
-
-    pub fn from_bytes(data: &[u8]) -> Result<&Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        if data[0] != DISCRIMINATOR_REDEMPTION_OPERATION {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &*(data.as_ptr() as *const Self) })
-    }
-
-    pub fn from_bytes_mut(data: &mut [u8]) -> Result<&mut Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
-    }
-
     pub fn deadline(&self) -> i64 {
         i64::from_le_bytes(self.deadline)
     }

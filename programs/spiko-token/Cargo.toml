@@ -13,6 +13,7 @@ pinocchio-system = { workspace = true }
 pinocchio-token = { workspace = true }
 pinocchio-token-2022 = { workspace = true }
 pinocchio-log = { workspace = true }
+const-crypto = { workspace = true }
 permission-manager = { path = "../permission-manager", features = ["no-entrypoint"] }
 spiko-common = { path = "../spiko-common" }
 spiko-permission = { path = "../spiko-permission" }

@@ -37,6 +37,8 @@ pub fn cpi_spiko_token_burn<'a>(
     vault_authority_perms: &AccountView,
     token_2022_program: &AccountView,
     spiko_token_program: &AccountView,
+    st_event_authority: &AccountView,
+    st_self_program: &AccountView,
     amount: u64,
 ) -> ProgramResult {
     let mut ix_data = [0u8; 9];
@@ -51,6 +53,8 @@ pub fn cpi_spiko_token_burn<'a>(
         InstructionAccount::readonly(mint_authority.address()),         // mint authority PDA
         InstructionAccount::readonly(vault_authority_perms.address()),  // vault auth's user perms
         InstructionAccount::readonly(token_2022_program.address()),     // token-2022 program
+        InstructionAccount::readonly(st_event_authority.address()), // spiko-token event authority PDA
+        InstructionAccount::readonly(st_self_program.address()), // spiko-token program (self_program)
     ];
 
     let instruction = InstructionView {
@@ -74,6 +78,8 @@ pub fn cpi_spiko_token_burn<'a>(
             mint_authority,
             vault_authority_perms,
             token_2022_program,
+            st_event_authority,
+            st_self_program,
             spiko_token_program,
         ],
         &[signer],
@@ -99,6 +105,7 @@ pub fn cpi_token_2022_transfer<'a>(
     token_config: &AccountView,
     vault_authority_perms: &AccountView,
     user_perms: &AccountView,
+    hook_event_authority: &AccountView,
     hook_program: &AccountView,
     amount: u64,
 ) -> ProgramResult {
@@ -130,14 +137,15 @@ pub fn cpi_token_2022_transfer<'a>(
         InstructionAccount::readonly(token_mint.address()),          // mint
         InstructionAccount::writable(user_token_account.address()),  // destination (user)
         InstructionAccount::readonly_signer(vault_authority.address()), // authority (vault PDA signs)
-        // Transfer Hook extra accounts:
-        InstructionAccount::readonly(extra_account_meta_list.address()),
-        InstructionAccount::readonly(permission_manager_program.address()),
-        InstructionAccount::readonly(spiko_token_program.address()),
-        InstructionAccount::readonly(token_config.address()),
-        InstructionAccount::readonly(vault_authority_perms.address()), // sender perms (vault authority)
-        InstructionAccount::readonly(user_perms.address()),            // recipient perms (user)
-        InstructionAccount::readonly(hook_program.address()),          // hook program
+        // Transfer Hook extra accounts (must match ExtraAccountMetaList order):
+        InstructionAccount::readonly(extra_account_meta_list.address()), // [meta] ExtraAccountMetaList
+        InstructionAccount::readonly(permission_manager_program.address()), // [0] PermissionManager program
+        InstructionAccount::readonly(spiko_token_program.address()), // [1] SpikoToken program
+        InstructionAccount::readonly(token_config.address()),        // [2] TokenConfig
+        InstructionAccount::readonly(vault_authority_perms.address()), // [3] Sender perms (vault authority)
+        InstructionAccount::readonly(user_perms.address()),            // [4] Recipient perms (user)
+        InstructionAccount::readonly(hook_event_authority.address()),  // [5] Hook event authority
+        InstructionAccount::readonly(hook_program.address()),          // [6] Hook program
     ];
 
     let instruction = InstructionView {
@@ -159,6 +167,7 @@ pub fn cpi_token_2022_transfer<'a>(
             token_config,
             vault_authority_perms,
             user_perms,
+            hook_event_authority,
             hook_program,
             token_2022_program,
         ],

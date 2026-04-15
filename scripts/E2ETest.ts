@@ -63,6 +63,11 @@ import {
   tokenMinimumPda,
   vaultAuthorityPda,
   redemptionOperationPda,
+  permissionManagerEventAuthorityPda,
+  spikoTokenEventAuthorityPda,
+  transferHookEventAuthorityPda,
+  minterEventAuthorityPda,
+  redemptionEventAuthorityPda,
 } from "./lib/pda.js";
 import {
   grantRole,
@@ -208,6 +213,13 @@ async function main() {
   const [vaultAuthPermsAddr] = await userPermissionsPda(vaultAuthAddr);
   const [extraMetaListAddr] = await extraAccountMetaListPda(mintAddr);
 
+  // Event authority PDAs (for self-CPI event emission)
+  const [pmEventAuth] = await permissionManagerEventAuthorityPda();
+  const [stEventAuth] = await spikoTokenEventAuthorityPda();
+  const [thEventAuth] = await transferHookEventAuthorityPda();
+  const [mtEventAuth] = await minterEventAuthorityPda();
+  const [rdEventAuth] = await redemptionEventAuthorityPda();
+
   const user1Ata = await getAssociatedTokenAddress(user1.address, mintAddr);
   const user2Ata = await getAssociatedTokenAddress(user2.address, mintAddr);
   const vaultAta = await getAssociatedTokenAddress(vaultAuthAddr, mintAddr);
@@ -267,7 +279,8 @@ async function main() {
       minterPermsAddr,
       minter.address,
       adminPermsAddr,
-      ROLE_MINT_INITIATOR
+      ROLE_MINT_INITIATOR,
+      pmEventAuth,
     );
     return sendAndCapture(rpc, rpcSub, admin, [ix], "GrantRole(MINT_INITIATOR -> Minter)");
   });
@@ -282,7 +295,8 @@ async function main() {
       executorPermsAddr,
       executor.address,
       adminPermsAddr,
-      ROLE_REDEMPTION_EXECUTOR
+      ROLE_REDEMPTION_EXECUTOR,
+      pmEventAuth,
     );
     return sendAndCapture(rpc, rpcSub, admin, [ix], "GrantRole(REDEMPTION_EXECUTOR -> Executor)");
   });
@@ -297,7 +311,8 @@ async function main() {
       whitelisterPermsAddr,
       whitelister.address,
       adminPermsAddr,
-      ROLE_WHITELISTER
+      ROLE_WHITELISTER,
+      pmEventAuth,
     );
     return sendAndCapture(rpc, rpcSub, admin, [ix], "GrantRole(WHITELISTER -> Whitelister)");
   });
@@ -312,7 +327,8 @@ async function main() {
       user1PermsAddr,
       user1.address,
       whitelisterPermsAddr,
-      ROLE_WHITELISTED
+      ROLE_WHITELISTED,
+      pmEventAuth,
     );
     return sendAndCapture(rpc, rpcSub, whitelister, [ix], "GrantRole(WHITELISTED -> User1)");
   });
@@ -327,7 +343,8 @@ async function main() {
       user2PermsAddr,
       user2.address,
       whitelisterPermsAddr,
-      ROLE_WHITELISTED
+      ROLE_WHITELISTED,
+      pmEventAuth,
     );
     return sendAndCapture(rpc, rpcSub, whitelister, [ix], "GrantRole(WHITELISTED -> User2)");
   });
@@ -376,7 +393,9 @@ async function main() {
           user1PermsAddr,
           user1.address,
           mintRawAmount,
-          mintSalt
+          mintSalt,
+          stEventAuth,
+          mtEventAuth,
         )
       );
 
@@ -416,7 +435,8 @@ async function main() {
           user1PermsAddr,
           user2PermsAddr,
           extraMetaListAddr,
-          transferBRawAmount
+          transferBRawAmount,
+          thEventAuth,
         )
       );
 
@@ -448,7 +468,8 @@ async function main() {
         user2PermsAddr,
         extraMetaListAddr,
         transferARawAmount,
-        decimals
+        decimals,
+        thEventAuth,
       );
 
       // Admin pays fees, user1 co-signs
@@ -507,7 +528,10 @@ async function main() {
           tokenMinAddr,
           extraMetaListAddr,
           redeemRawAmount,
-          redeemSalt
+          redeemSalt,
+          thEventAuth,
+          stEventAuth,
+          rdEventAuth,
         )
       );
 
@@ -550,7 +574,9 @@ async function main() {
         vaultAuthPermsAddr,
         user2.address,
         redeemRawAmount,
-        redeemSalt
+        redeemSalt,
+        stEventAuth,
+        rdEventAuth,
       );
 
       // Admin pays fees, executor co-signs

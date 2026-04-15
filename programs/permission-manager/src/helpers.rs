@@ -1,5 +1,7 @@
 use pinocchio::{account::AccountView, address::Address, cpi::Seed, error::ProgramError};
 
+use spiko_common::AccountDeserialize;
+
 pub use spiko_common::{create_pda_account, verify_pda};
 
 use crate::state::{can_manage_role, PermissionConfig, UserPermissions, USER_PERMISSION_SEED};

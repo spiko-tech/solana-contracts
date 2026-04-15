@@ -6,6 +6,8 @@
 
 #![allow(dead_code)]
 
+use std::str::FromStr;
+
 use mollusk_svm::{program::keyed_account_for_system_program, Mollusk};
 use solana_account::Account;
 use solana_instruction::{AccountMeta, Instruction};
@@ -19,8 +21,11 @@ const PERMISSION_CONFIG_SEED: &[u8] = b"permission_config";
 const USER_PERMISSION_SEED: &[u8] = b"user_perm";
 const DISCRIMINATOR_PERMISSION_CONFIG: u8 = 1;
 const DISCRIMINATOR_USER_PERMISSION: u8 = 2;
-const PERMISSION_CONFIG_LEN: usize = 66;
-const USER_PERMISSIONS_LEN: usize = 34;
+const PERMISSION_CONFIG_LEN: usize = 67;
+const USER_PERMISSIONS_LEN: usize = 35;
+
+// Event authority (self-CPI)
+const EVENT_AUTHORITY_SEED: &[u8] = b"event_authority";
 
 // Role bits
 const ROLE_PAUSER: u8 = 1;
@@ -29,7 +34,7 @@ const ROLE_MINT_APPROVER: u8 = 6;
 // -- spiko_token --
 const TOKEN_CONFIG_SEED: &[u8] = b"token_config";
 const DISCRIMINATOR_TOKEN_CONFIG: u8 = 1;
-const TOKEN_CONFIG_LEN: usize = 100;
+const TOKEN_CONFIG_LEN: usize = 101;
 
 // -- minter --
 const MINTER_CONFIG_SEED: &[u8] = b"minter_config";
@@ -38,9 +43,9 @@ const MINT_OPERATION_SEED: &[u8] = b"mint_op";
 const DISCRIMINATOR_MINTER_CONFIG: u8 = 1;
 const DISCRIMINATOR_DAILY_LIMIT: u8 = 2;
 const DISCRIMINATOR_MINT_OPERATION: u8 = 3;
-const MINTER_CONFIG_LEN: usize = 42;
-const DAILY_LIMIT_LEN: usize = 26;
-const MINT_OPERATION_LEN: usize = 11;
+const MINTER_CONFIG_LEN: usize = 43;
+const DAILY_LIMIT_LEN: usize = 27;
+const MINT_OPERATION_LEN: usize = 12;
 const STATUS_PENDING: u8 = 1;
 
 // -- redemption --
@@ -48,8 +53,8 @@ const REDEMPTION_CONFIG_SEED: &[u8] = b"redemption_config";
 const TOKEN_MINIMUM_SEED: &[u8] = b"minimum";
 const DISCRIMINATOR_REDEMPTION_CONFIG: u8 = 1;
 const DISCRIMINATOR_TOKEN_MINIMUM: u8 = 2;
-const REDEMPTION_CONFIG_LEN: usize = 34;
-const TOKEN_MINIMUM_LEN: usize = 10;
+const REDEMPTION_CONFIG_LEN: usize = 35;
+const TOKEN_MINIMUM_LEN: usize = 11;
 
 // ===================================================================
 // Setup helpers
@@ -69,10 +74,10 @@ struct TestEnv {
 fn setup() -> TestEnv {
     std::env::set_var("SBF_OUT_DIR", "../target/deploy");
 
-    let perm_id = Pubkey::new_unique();
-    let token_id = Pubkey::new_unique();
-    let minter_id = Pubkey::new_unique();
-    let redemption_id = Pubkey::new_unique();
+    let perm_id = Pubkey::from_str("CJ6icPuFkWmvrRGVXdGqbbCoSZXsK4r6fkzT2Ndg6tzy").unwrap();
+    let token_id = Pubkey::from_str("8voshdmG84WtPK7Es3okG1tjenfPfviyV66Zmnb1924r").unwrap();
+    let minter_id = Pubkey::from_str("3Ex4bd3DeBtV6k15z1heA9TZb3otbEFErznfkC1Vdwhn").unwrap();
+    let redemption_id = Pubkey::from_str("7rwaFEEkYYHWx3U5UfidGVp5JyiB5VkPcLAxRYtkBHxi").unwrap();
 
     let perm_mollusk = Mollusk::new(&perm_id, "permission_manager");
     let token_mollusk = Mollusk::new(&token_id, "spiko_token");
@@ -127,6 +132,10 @@ fn token_minimum_pda(mint: &Pubkey, redemption_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[TOKEN_MINIMUM_SEED, mint.as_ref()], redemption_id)
 }
 
+fn event_authority_pda(program_id: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[EVENT_AUTHORITY_SEED], program_id)
+}
+
 // ===================================================================
 // Account builder helpers
 // ===================================================================
@@ -139,6 +148,17 @@ fn blank_pda_account() -> Account {
     Account::default()
 }
 
+/// Build an executable account entry for the self_program in self-CPI event pattern.
+fn executable_account(_program_id: &Pubkey) -> Account {
+    Account {
+        lamports: 1_000_000,
+        data: vec![],
+        owner: solana_sdk_ids::bpf_loader_upgradeable::ID,
+        executable: true,
+        rent_epoch: u64::MAX,
+    }
+}
+
 /// Build a pre-populated TokenConfig account (owned by spiko_token program).
 fn token_config_account(
     token_program_id: &Pubkey,
@@ -149,12 +169,13 @@ fn token_config_account(
 ) -> Account {
     let mut data = vec![0u8; TOKEN_CONFIG_LEN];
     data[0] = DISCRIMINATOR_TOKEN_CONFIG;
-    data[1] = bump;
-    data[2] = paused;
-    data[3] = 0; // mint_authority_bump (unused for pause/unpause)
-    data[4..36].copy_from_slice(perm_manager.as_ref());
-    data[36..68].copy_from_slice(spl_mint.as_ref());
-    // data[68..100] = redemption_contract, zeroed
+    data[1] = 1; // version
+    data[2] = bump;
+    data[3] = paused;
+    data[4] = 0; // mint_authority_bump (unused for pause/unpause)
+    data[5..37].copy_from_slice(perm_manager.as_ref());
+    data[37..69].copy_from_slice(spl_mint.as_ref());
+    // data[69..101] = redemption_contract, zeroed
     Account {
         lamports: 1_000_000,
         data,
@@ -173,9 +194,10 @@ fn minter_config_account(
 ) -> Account {
     let mut data = vec![0u8; MINTER_CONFIG_LEN];
     data[0] = DISCRIMINATOR_MINTER_CONFIG;
-    data[1] = bump;
-    data[2..10].copy_from_slice(&max_delay.to_le_bytes());
-    data[10..42].copy_from_slice(perm_manager.as_ref());
+    data[1] = 1; // version
+    data[2] = bump;
+    data[3..11].copy_from_slice(&max_delay.to_le_bytes());
+    data[11..43].copy_from_slice(perm_manager.as_ref());
     Account {
         lamports: 1_000_000,
         data,
@@ -193,8 +215,9 @@ fn redemption_config_account(
 ) -> Account {
     let mut data = vec![0u8; REDEMPTION_CONFIG_LEN];
     data[0] = DISCRIMINATOR_REDEMPTION_CONFIG;
-    data[1] = bump;
-    data[2..34].copy_from_slice(perm_manager.as_ref());
+    data[1] = 1; // version
+    data[2] = bump;
+    data[3..35].copy_from_slice(perm_manager.as_ref());
     Account {
         lamports: 1_000_000,
         data,
@@ -208,9 +231,10 @@ fn redemption_config_account(
 fn mint_operation_account(minter_program_id: &Pubkey, bump: u8, deadline: i64) -> Account {
     let mut data = vec![0u8; MINT_OPERATION_LEN];
     data[0] = DISCRIMINATOR_MINT_OPERATION;
-    data[1] = bump;
-    data[2] = STATUS_PENDING;
-    data[3..11].copy_from_slice(&deadline.to_le_bytes());
+    data[1] = 1; // version
+    data[2] = bump;
+    data[3] = STATUS_PENDING;
+    data[4..12].copy_from_slice(&deadline.to_le_bytes());
     Account {
         lamports: 1_000_000,
         data,
@@ -288,6 +312,7 @@ fn ix_redemption_set_minimum(token_mint: &Pubkey, minimum: u64) -> Vec<u8> {
 fn run_perm_initialize(mollusk: &Mollusk, perm_id: &Pubkey, admin: &Pubkey) -> (Account, Account) {
     let (config_key, _) = perm_config_pda(perm_id);
     let (admin_perms_key, _) = user_perm_pda(admin, perm_id);
+    let (ea_key, _) = event_authority_pda(perm_id);
 
     let ix = Instruction::new_with_bytes(
         *perm_id,
@@ -297,6 +322,8 @@ fn run_perm_initialize(mollusk: &Mollusk, perm_id: &Pubkey, admin: &Pubkey) -> (
             AccountMeta::new(config_key, false),
             AccountMeta::new(admin_perms_key, false),
             AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
+            AccountMeta::new_readonly(ea_key, false),
+            AccountMeta::new_readonly(*perm_id, false),
         ],
     );
 
@@ -307,6 +334,8 @@ fn run_perm_initialize(mollusk: &Mollusk, perm_id: &Pubkey, admin: &Pubkey) -> (
             (config_key, blank_pda_account()),
             (admin_perms_key, blank_pda_account()),
             keyed_account_for_system_program(),
+            (ea_key, Account::default()),
+            (*perm_id, executable_account(perm_id)),
         ],
     );
 
@@ -337,6 +366,7 @@ fn run_perm_grant_role(
     let (config_key, _) = perm_config_pda(perm_id);
     let (target_perms_key, _) = user_perm_pda(target_user, perm_id);
     let (admin_perms_key, _) = user_perm_pda(admin, perm_id);
+    let (ea_key, _) = event_authority_pda(perm_id);
 
     let ix = Instruction::new_with_bytes(
         *perm_id,
@@ -348,6 +378,8 @@ fn run_perm_grant_role(
             AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
             AccountMeta::new_readonly(*target_user, false),
             AccountMeta::new_readonly(admin_perms_key, false),
+            AccountMeta::new_readonly(ea_key, false),
+            AccountMeta::new_readonly(*perm_id, false),
         ],
     );
 
@@ -360,6 +392,8 @@ fn run_perm_grant_role(
             keyed_account_for_system_program(),
             (*target_user, Account::default()),
             (admin_perms_key, admin_perms_account.clone()),
+            (ea_key, Account::default()),
+            (*perm_id, executable_account(perm_id)),
         ],
     );
 
@@ -425,8 +459,8 @@ fn test_perm_to_token_pause() {
     // Sanity: verify the UserPermissions account has correct layout
     assert_eq!(pauser_perms.owner, env.perm_id);
     assert_eq!(pauser_perms.data[0], DISCRIMINATOR_USER_PERMISSION);
-    // Bit 1 (PAUSER) should be set in byte 0 of the bitmask (offset 2)
-    assert_ne!(pauser_perms.data[2] & (1 << ROLE_PAUSER), 0);
+    // Bit 1 (PAUSER) should be set in byte 0 of the bitmask (offset 3: disc+ver+bump)
+    assert_ne!(pauser_perms.data[3] & (1 << ROLE_PAUSER), 0);
 
     // Step 3: Build a TokenConfig that references this permission_manager
     let (token_config_key, token_config_bump) = token_config_pda(&spl_mint, &env.token_id);
@@ -442,6 +476,7 @@ fn test_perm_to_token_pause() {
     let (pauser_perms_key, _) = user_perm_pda(&pauser, &env.perm_id);
 
     // Step 4: Call spiko_token::pause with real permission_manager-created UserPerms
+    let (ea_key, _) = event_authority_pda(&env.token_id);
     let ix = Instruction::new_with_bytes(
         env.token_id,
         &ix_token_pause(),
@@ -449,6 +484,8 @@ fn test_perm_to_token_pause() {
             AccountMeta::new_readonly(pauser, true), // 0: caller (signer)
             AccountMeta::new(token_config_key, false), // 1: TokenConfig PDA (writable)
             AccountMeta::new_readonly(pauser_perms_key, false), // 2: caller's UserPerms
+            AccountMeta::new_readonly(ea_key, false), // 3: event_authority
+            AccountMeta::new_readonly(env.token_id, false), // 4: self_program
         ],
     );
 
@@ -458,6 +495,8 @@ fn test_perm_to_token_pause() {
             (pauser, payer_account()),
             (token_config_key, token_config.clone()),
             (pauser_perms_key, pauser_perms.clone()),
+            (ea_key, Account::default()),
+            (env.token_id, executable_account(&env.token_id)),
         ],
     );
 
@@ -469,7 +508,7 @@ fn test_perm_to_token_pause() {
 
     // Verify: TokenConfig.paused is now 1
     let resulting_config = &result.resulting_accounts[1].1;
-    assert_eq!(resulting_config.data[2], 1, "Token should be paused");
+    assert_eq!(resulting_config.data[3], 1, "Token should be paused");
 }
 
 // ===================================================================
@@ -511,6 +550,7 @@ fn test_perm_to_token_unpause() {
     let (pauser_perms_key, _) = user_perm_pda(&pauser, &env.perm_id);
 
     // Call spiko_token::unpause
+    let (ea_key, _) = event_authority_pda(&env.token_id);
     let ix = Instruction::new_with_bytes(
         env.token_id,
         &ix_token_unpause(),
@@ -518,6 +558,8 @@ fn test_perm_to_token_unpause() {
             AccountMeta::new_readonly(pauser, true),
             AccountMeta::new(token_config_key, false),
             AccountMeta::new_readonly(pauser_perms_key, false),
+            AccountMeta::new_readonly(ea_key, false),
+            AccountMeta::new_readonly(env.token_id, false),
         ],
     );
 
@@ -527,6 +569,8 @@ fn test_perm_to_token_unpause() {
             (pauser, payer_account()),
             (token_config_key, token_config.clone()),
             (pauser_perms_key, pauser_perms.clone()),
+            (ea_key, Account::default()),
+            (env.token_id, executable_account(&env.token_id)),
         ],
     );
 
@@ -538,7 +582,7 @@ fn test_perm_to_token_unpause() {
 
     // Verify: TokenConfig.paused is now 0
     let resulting_config = &result.resulting_accounts[1].1;
-    assert_eq!(resulting_config.data[2], 0, "Token should be unpaused");
+    assert_eq!(resulting_config.data[3], 0, "Token should be unpaused");
 }
 
 // ===================================================================
@@ -567,6 +611,7 @@ fn test_perm_to_token_set_redemption_contract() {
     let (perm_config_key, _) = perm_config_pda(&env.perm_id);
 
     // Step 3: Call set_redemption_contract with real PermissionConfig
+    let (ea_key, _) = event_authority_pda(&env.token_id);
     let ix = Instruction::new_with_bytes(
         env.token_id,
         &ix_token_set_redemption_contract(&redemption_contract),
@@ -574,6 +619,8 @@ fn test_perm_to_token_set_redemption_contract() {
             AccountMeta::new_readonly(admin, true),    // 0: admin (signer)
             AccountMeta::new(token_config_key, false), // 1: TokenConfig (writable)
             AccountMeta::new_readonly(perm_config_key, false), // 2: PermissionConfig
+            AccountMeta::new_readonly(ea_key, false),  // 3: event_authority
+            AccountMeta::new_readonly(env.token_id, false), // 4: self_program
         ],
     );
 
@@ -583,6 +630,8 @@ fn test_perm_to_token_set_redemption_contract() {
             (admin, payer_account()),
             (token_config_key, token_config.clone()),
             (perm_config_key, perm_config_account.clone()),
+            (ea_key, Account::default()),
+            (env.token_id, executable_account(&env.token_id)),
         ],
     );
 
@@ -592,10 +641,10 @@ fn test_perm_to_token_set_redemption_contract() {
         result.program_result
     );
 
-    // Verify: TokenConfig.redemption_contract (bytes 68..100) is set
+    // Verify: TokenConfig.redemption_contract (bytes 69..101) is set
     let resulting_config = &result.resulting_accounts[1].1;
     assert_eq!(
-        &resulting_config.data[68..100],
+        &resulting_config.data[69..101],
         redemption_contract.as_ref(),
         "Redemption contract should be set"
     );
@@ -624,6 +673,7 @@ fn test_set_redemption_contract_wrong_admin() {
     let (perm_config_key, _) = perm_config_pda(&env.perm_id);
 
     // Call with not_admin as signer — should fail
+    let (ea_key, _) = event_authority_pda(&env.token_id);
     let ix = Instruction::new_with_bytes(
         env.token_id,
         &ix_token_set_redemption_contract(&redemption_contract),
@@ -631,6 +681,8 @@ fn test_set_redemption_contract_wrong_admin() {
             AccountMeta::new_readonly(not_admin, true),
             AccountMeta::new(token_config_key, false),
             AccountMeta::new_readonly(perm_config_key, false),
+            AccountMeta::new_readonly(ea_key, false),
+            AccountMeta::new_readonly(env.token_id, false),
         ],
     );
 
@@ -640,6 +692,8 @@ fn test_set_redemption_contract_wrong_admin() {
             (not_admin, payer_account()),
             (token_config_key, token_config),
             (perm_config_key, perm_config_account),
+            (ea_key, Account::default()),
+            (env.token_id, executable_account(&env.token_id)),
         ],
     );
 
@@ -681,6 +735,7 @@ fn test_perm_to_minter_set_daily_limit() {
     let limit: u64 = 1_000_000_00000; // 1M tokens (5 decimals)
 
     // Step 3: Call minter::set_daily_limit
+    let (ea_key, _) = event_authority_pda(&env.minter_id);
     let ix = Instruction::new_with_bytes(
         env.minter_id,
         &ix_minter_set_daily_limit(&token_mint, limit),
@@ -690,6 +745,8 @@ fn test_perm_to_minter_set_daily_limit() {
             AccountMeta::new_readonly(perm_config_key, false), // 2: PermissionConfig
             AccountMeta::new(daily_limit_key, false), // 3: DailyLimit (writable)
             AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false), // 4: system
+            AccountMeta::new_readonly(ea_key, false), // 5: event_authority
+            AccountMeta::new_readonly(env.minter_id, false), // 6: self_program
         ],
     );
 
@@ -701,6 +758,8 @@ fn test_perm_to_minter_set_daily_limit() {
             (perm_config_key, perm_config_account),
             (daily_limit_key, blank_pda_account()),
             keyed_account_for_system_program(),
+            (ea_key, Account::default()),
+            (env.minter_id, executable_account(&env.minter_id)),
         ],
     );
 
@@ -714,7 +773,7 @@ fn test_perm_to_minter_set_daily_limit() {
     let dl_account = &result.resulting_accounts[3].1;
     assert_eq!(dl_account.owner, env.minter_id);
     assert_eq!(dl_account.data[0], DISCRIMINATOR_DAILY_LIMIT);
-    let stored_limit = u64::from_le_bytes(dl_account.data[2..10].try_into().unwrap());
+    let stored_limit = u64::from_le_bytes(dl_account.data[3..11].try_into().unwrap());
     assert_eq!(stored_limit, limit, "Daily limit should match");
 }
 
@@ -745,6 +804,7 @@ fn test_perm_to_minter_set_max_delay() {
     let new_max_delay: i64 = 172800; // 2 days
 
     // Step 3: Call minter::set_max_delay
+    let (ea_key, _) = event_authority_pda(&env.minter_id);
     let ix = Instruction::new_with_bytes(
         env.minter_id,
         &ix_minter_set_max_delay(new_max_delay),
@@ -752,6 +812,8 @@ fn test_perm_to_minter_set_max_delay() {
             AccountMeta::new_readonly(admin, true), // 0: admin (signer)
             AccountMeta::new(minter_config_key, false), // 1: MinterConfig (writable)
             AccountMeta::new_readonly(perm_config_key, false), // 2: PermissionConfig
+            AccountMeta::new_readonly(ea_key, false), // 3: event_authority
+            AccountMeta::new_readonly(env.minter_id, false), // 4: self_program
         ],
     );
 
@@ -761,6 +823,8 @@ fn test_perm_to_minter_set_max_delay() {
             (admin, payer_account()),
             (minter_config_key, minter_cfg),
             (perm_config_key, perm_config_account),
+            (ea_key, Account::default()),
+            (env.minter_id, executable_account(&env.minter_id)),
         ],
     );
 
@@ -770,9 +834,9 @@ fn test_perm_to_minter_set_max_delay() {
         result.program_result
     );
 
-    // Verify: MinterConfig.max_delay (bytes 2..10) is updated
+    // Verify: MinterConfig.max_delay (bytes 3..11) is updated
     let cfg_account = &result.resulting_accounts[1].1;
-    let stored_delay = i64::from_le_bytes(cfg_account.data[2..10].try_into().unwrap());
+    let stored_delay = i64::from_le_bytes(cfg_account.data[3..11].try_into().unwrap());
     assert_eq!(stored_delay, new_max_delay, "Max delay should be updated");
 }
 
@@ -793,6 +857,7 @@ fn test_minter_set_max_delay_wrong_admin() {
 
     let (perm_config_key, _) = perm_config_pda(&env.perm_id);
 
+    let (ea_key, _) = event_authority_pda(&env.minter_id);
     let ix = Instruction::new_with_bytes(
         env.minter_id,
         &ix_minter_set_max_delay(172800),
@@ -800,6 +865,8 @@ fn test_minter_set_max_delay_wrong_admin() {
             AccountMeta::new_readonly(not_admin, true),
             AccountMeta::new(minter_config_key, false),
             AccountMeta::new_readonly(perm_config_key, false),
+            AccountMeta::new_readonly(ea_key, false),
+            AccountMeta::new_readonly(env.minter_id, false),
         ],
     );
 
@@ -809,6 +876,8 @@ fn test_minter_set_max_delay_wrong_admin() {
             (not_admin, payer_account()),
             (minter_config_key, minter_cfg),
             (perm_config_key, perm_config_account),
+            (ea_key, Account::default()),
+            (env.minter_id, executable_account(&env.minter_id)),
         ],
     );
 
@@ -853,7 +922,7 @@ fn test_perm_to_minter_cancel_mint() {
     );
 
     // Sanity check: bit 6 should be set
-    assert_ne!(approver_perms.data[2] & (1 << ROLE_MINT_APPROVER), 0);
+    assert_ne!(approver_perms.data[3] & (1 << ROLE_MINT_APPROVER), 0);
 
     // Step 3: Build MinterConfig + pre-populated PENDING MintOperation
     let (minter_config_key, minter_config_bump) = minter_config_pda(&env.minter_id);
@@ -870,6 +939,7 @@ fn test_perm_to_minter_cancel_mint() {
     let (approver_perms_key, _) = user_perm_pda(&approver, &env.perm_id);
 
     // Step 4: Call minter::cancel_mint
+    let (ea_key, _) = event_authority_pda(&env.minter_id);
     let ix = Instruction::new_with_bytes(
         env.minter_id,
         &ix_minter_cancel_mint(&user, &token_mint, amount, salt),
@@ -878,6 +948,8 @@ fn test_perm_to_minter_cancel_mint() {
             AccountMeta::new_readonly(minter_config_key, false), // 1: MinterConfig
             AccountMeta::new(mint_op_key, false),      // 2: MintOperation (writable)
             AccountMeta::new_readonly(approver_perms_key, false), // 3: caller's UserPerms
+            AccountMeta::new_readonly(ea_key, false),  // 4: event_authority
+            AccountMeta::new_readonly(env.minter_id, false), // 5: self_program
         ],
     );
 
@@ -888,6 +960,8 @@ fn test_perm_to_minter_cancel_mint() {
             (minter_config_key, minter_cfg),
             (mint_op_key, mint_op),
             (approver_perms_key, approver_perms.clone()),
+            (ea_key, Account::default()),
+            (env.minter_id, executable_account(&env.minter_id)),
         ],
     );
 
@@ -897,10 +971,10 @@ fn test_perm_to_minter_cancel_mint() {
         result.program_result
     );
 
-    // Verify: MintOperation.status (byte 2) = DONE (2)
+    // Verify: MintOperation.status (byte 3) = DONE (2)
     let op_account = &result.resulting_accounts[2].1;
     assert_eq!(
-        op_account.data[2], 2,
+        op_account.data[3], 2,
         "MintOperation should be DONE after cancel"
     );
 }
@@ -943,6 +1017,7 @@ fn test_minter_cancel_mint_wrong_role() {
 
     let (pauser_perms_key, _) = user_perm_pda(&pauser, &env.perm_id);
 
+    let (ea_key, _) = event_authority_pda(&env.minter_id);
     let ix = Instruction::new_with_bytes(
         env.minter_id,
         &ix_minter_cancel_mint(&user, &token_mint, amount, salt),
@@ -951,6 +1026,8 @@ fn test_minter_cancel_mint_wrong_role() {
             AccountMeta::new_readonly(minter_config_key, false),
             AccountMeta::new(mint_op_key, false),
             AccountMeta::new_readonly(pauser_perms_key, false),
+            AccountMeta::new_readonly(ea_key, false),
+            AccountMeta::new_readonly(env.minter_id, false),
         ],
     );
 
@@ -961,6 +1038,8 @@ fn test_minter_cancel_mint_wrong_role() {
             (minter_config_key, minter_cfg),
             (mint_op_key, mint_op),
             (pauser_perms_key, pauser_perms),
+            (ea_key, Account::default()),
+            (env.minter_id, executable_account(&env.minter_id)),
         ],
     );
 
@@ -1001,6 +1080,7 @@ fn test_perm_to_redemption_set_minimum() {
     let minimum: u64 = 100_00000; // 100 tokens (5 decimals)
 
     // Step 3: Call redemption::set_minimum
+    let (ea_key, _) = event_authority_pda(&env.redemption_id);
     let ix = Instruction::new_with_bytes(
         env.redemption_id,
         &ix_redemption_set_minimum(&token_mint, minimum),
@@ -1010,6 +1090,8 @@ fn test_perm_to_redemption_set_minimum() {
             AccountMeta::new_readonly(perm_config_key, false), // 2: PermissionConfig
             AccountMeta::new(token_min_key, false), // 3: TokenMinimum (writable)
             AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false), // 4: system
+            AccountMeta::new_readonly(ea_key, false), // 5: event_authority
+            AccountMeta::new_readonly(env.redemption_id, false), // 6: self_program
         ],
     );
 
@@ -1021,6 +1103,8 @@ fn test_perm_to_redemption_set_minimum() {
             (perm_config_key, perm_config_account.clone()),
             (token_min_key, blank_pda_account()),
             keyed_account_for_system_program(),
+            (ea_key, Account::default()),
+            (env.redemption_id, executable_account(&env.redemption_id)),
         ],
     );
 
@@ -1034,7 +1118,7 @@ fn test_perm_to_redemption_set_minimum() {
     let tm_account = &result.resulting_accounts[3].1;
     assert_eq!(tm_account.owner, env.redemption_id);
     assert_eq!(tm_account.data[0], DISCRIMINATOR_TOKEN_MINIMUM);
-    let stored_min = u64::from_le_bytes(tm_account.data[2..10].try_into().unwrap());
+    let stored_min = u64::from_le_bytes(tm_account.data[3..11].try_into().unwrap());
     assert_eq!(stored_min, minimum, "TokenMinimum should match");
 }
 
@@ -1058,6 +1142,7 @@ fn test_redemption_set_minimum_wrong_admin() {
     let (perm_config_key, _) = perm_config_pda(&env.perm_id);
     let (token_min_key, _) = token_minimum_pda(&token_mint, &env.redemption_id);
 
+    let (ea_key, _) = event_authority_pda(&env.redemption_id);
     let ix = Instruction::new_with_bytes(
         env.redemption_id,
         &ix_redemption_set_minimum(&token_mint, 100_00000),
@@ -1067,6 +1152,8 @@ fn test_redemption_set_minimum_wrong_admin() {
             AccountMeta::new_readonly(perm_config_key, false),
             AccountMeta::new(token_min_key, false),
             AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
+            AccountMeta::new_readonly(ea_key, false),
+            AccountMeta::new_readonly(env.redemption_id, false),
         ],
     );
 
@@ -1078,6 +1165,8 @@ fn test_redemption_set_minimum_wrong_admin() {
             (perm_config_key, perm_config_account),
             (token_min_key, blank_pda_account()),
             keyed_account_for_system_program(),
+            (ea_key, Account::default()),
+            (env.redemption_id, executable_account(&env.redemption_id)),
         ],
     );
 
@@ -1116,8 +1205,9 @@ fn test_pause_fails_wrong_perm_owner() {
     let (pauser_perms_key, _) = user_perm_pda(&pauser, &env.perm_id);
     let mut fake_perms_data = vec![0u8; USER_PERMISSIONS_LEN];
     fake_perms_data[0] = DISCRIMINATOR_USER_PERMISSION;
-    fake_perms_data[1] = 0;
-    fake_perms_data[2] = 1 << ROLE_PAUSER; // PAUSER bit set
+    fake_perms_data[1] = 1; // version
+    fake_perms_data[2] = 0; // bump
+    fake_perms_data[3] = 1 << ROLE_PAUSER; // PAUSER bit set
     let fake_perms = Account {
         lamports: 1_000_000,
         data: fake_perms_data,
@@ -1126,6 +1216,7 @@ fn test_pause_fails_wrong_perm_owner() {
         rent_epoch: u64::MAX,
     };
 
+    let (ea_key, _) = event_authority_pda(&env.token_id);
     let ix = Instruction::new_with_bytes(
         env.token_id,
         &ix_token_pause(),
@@ -1133,6 +1224,8 @@ fn test_pause_fails_wrong_perm_owner() {
             AccountMeta::new_readonly(pauser, true),
             AccountMeta::new(token_config_key, false),
             AccountMeta::new_readonly(pauser_perms_key, false),
+            AccountMeta::new_readonly(ea_key, false),
+            AccountMeta::new_readonly(env.token_id, false),
         ],
     );
 
@@ -1142,6 +1235,8 @@ fn test_pause_fails_wrong_perm_owner() {
             (pauser, payer_account()),
             (token_config_key, token_config),
             (pauser_perms_key, fake_perms),
+            (ea_key, Account::default()),
+            (env.token_id, executable_account(&env.token_id)),
         ],
     );
 
@@ -1179,8 +1274,8 @@ fn test_pause_fails_without_pauser_role() {
     );
 
     // Sanity: MINTER bit set, PAUSER bit not set
-    assert_ne!(minter_perms.data[2] & 1, 0); // MINTER
-    assert_eq!(minter_perms.data[2] & (1 << ROLE_PAUSER), 0); // NOT PAUSER
+    assert_ne!(minter_perms.data[3] & 1, 0); // MINTER
+    assert_eq!(minter_perms.data[3] & (1 << ROLE_PAUSER), 0); // NOT PAUSER
 
     let (token_config_key, token_config_bump) = token_config_pda(&spl_mint, &env.token_id);
     let token_config =
@@ -1188,6 +1283,7 @@ fn test_pause_fails_without_pauser_role() {
 
     let (minter_perms_key, _) = user_perm_pda(&minter_user, &env.perm_id);
 
+    let (ea_key, _) = event_authority_pda(&env.token_id);
     let ix = Instruction::new_with_bytes(
         env.token_id,
         &ix_token_pause(),
@@ -1195,6 +1291,8 @@ fn test_pause_fails_without_pauser_role() {
             AccountMeta::new_readonly(minter_user, true),
             AccountMeta::new(token_config_key, false),
             AccountMeta::new_readonly(minter_perms_key, false),
+            AccountMeta::new_readonly(ea_key, false),
+            AccountMeta::new_readonly(env.token_id, false),
         ],
     );
 
@@ -1204,6 +1302,8 @@ fn test_pause_fails_without_pauser_role() {
             (minter_user, payer_account()),
             (token_config_key, token_config),
             (minter_perms_key, minter_perms),
+            (ea_key, Account::default()),
+            (env.token_id, executable_account(&env.token_id)),
         ],
     );
 
@@ -1246,6 +1346,7 @@ fn test_multi_role_grant_and_use() {
     let (user_a_perms_key, _) = user_perm_pda(&user_a, &env.perm_id);
     let (config_key, _) = perm_config_pda(&env.perm_id);
     let (admin_perms_key, _) = user_perm_pda(&admin, &env.perm_id);
+    let (ea_perm_key, _) = event_authority_pda(&env.perm_id);
 
     let ix = Instruction::new_with_bytes(
         env.perm_id,
@@ -1257,6 +1358,8 @@ fn test_multi_role_grant_and_use() {
             AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
             AccountMeta::new_readonly(user_a, false),
             AccountMeta::new_readonly(admin_perms_key, false),
+            AccountMeta::new_readonly(ea_perm_key, false),
+            AccountMeta::new_readonly(env.perm_id, false),
         ],
     );
 
@@ -1269,6 +1372,8 @@ fn test_multi_role_grant_and_use() {
             keyed_account_for_system_program(),
             (user_a, Account::default()),
             (admin_perms_key, admin_perms.clone()),
+            (ea_perm_key, Account::default()),
+            (env.perm_id, executable_account(&env.perm_id)),
         ],
     );
 
@@ -1282,12 +1387,12 @@ fn test_multi_role_grant_and_use() {
 
     // Verify both bits are set
     assert_ne!(
-        user_a_perms_v2.data[2] & 1,
+        user_a_perms_v2.data[3] & 1,
         0,
         "MINTER bit should still be set"
     );
     assert_ne!(
-        user_a_perms_v2.data[2] & (1 << ROLE_PAUSER),
+        user_a_perms_v2.data[3] & (1 << ROLE_PAUSER),
         0,
         "PAUSER bit should now be set"
     );
@@ -1297,6 +1402,7 @@ fn test_multi_role_grant_and_use() {
     let token_config =
         token_config_account(&env.token_id, token_config_bump, 0, &env.perm_id, &spl_mint);
 
+    let (ea_token_key, _) = event_authority_pda(&env.token_id);
     let ix = Instruction::new_with_bytes(
         env.token_id,
         &ix_token_pause(),
@@ -1304,6 +1410,8 @@ fn test_multi_role_grant_and_use() {
             AccountMeta::new_readonly(user_a, true),
             AccountMeta::new(token_config_key, false),
             AccountMeta::new_readonly(user_a_perms_key, false),
+            AccountMeta::new_readonly(ea_token_key, false),
+            AccountMeta::new_readonly(env.token_id, false),
         ],
     );
 
@@ -1313,6 +1421,8 @@ fn test_multi_role_grant_and_use() {
             (user_a, payer_account()),
             (token_config_key, token_config),
             (user_a_perms_key, user_a_perms_v2),
+            (ea_token_key, Account::default()),
+            (env.token_id, executable_account(&env.token_id)),
         ],
     );
 
@@ -1323,5 +1433,5 @@ fn test_multi_role_grant_and_use() {
     );
 
     let resulting_config = &result.resulting_accounts[1].1;
-    assert_eq!(resulting_config.data[2], 1, "Token should be paused");
+    assert_eq!(resulting_config.data[3], 1, "Token should be paused");
 }

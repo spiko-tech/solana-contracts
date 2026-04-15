@@ -1,8 +1,15 @@
 /**
  * Event decoder for Spiko program events.
  *
- * Decodes Anchor-compatible structured events emitted via `sol_log_data`.
- * Each event payload: discriminator(8) + LE-packed fields.
+ * Supports two emission modes:
+ *   - Legacy: `sol_log_data` → `"Program data: <base64>"` log lines.
+ *     Payload: event_discriminator(8) + LE-packed fields.
+ *   - Self-CPI: inner instruction to the program's own `EmitEvent` no-op.
+ *     CPI data on wire: [255] + EVENT_IX_TAG_LE(8) + event_discriminator(8) + fields.
+ *
+ * `parseTransactionEvents` tries inner-instruction parsing first (new format),
+ * then falls back to log-line parsing (old format) for backward compatibility.
+ *
  * Discriminator = SHA256("event:<EventName>")[0..8].
  */
 
@@ -14,6 +21,16 @@ import {
 } from "@solana/kit";
 
 import { ROLE_NAMES } from "./constants.js";
+
+// ─── Self-CPI event constants ────────────────────────────────────────────────
+
+/** EmitEvent instruction discriminator (first byte of CPI data). */
+const EMIT_EVENT_DISCRIMINATOR = 0xff;
+
+/** SHA256("anchor:event")[0..8] — little-endian tag prepended to CPI event data. */
+const EVENT_IX_TAG_LE = new Uint8Array([
+  0x1d, 0x9a, 0xcb, 0x51, 0x2e, 0xa5, 0x45, 0xe4,
+]);
 
 // =================================================================
 // Field types for event decoding
@@ -427,7 +444,7 @@ export function decodeEvent(data: Uint8Array): DecodedEvent | null {
 }
 
 /**
- * Extract and decode all Spiko events from transaction log messages.
+ * Extract and decode all Spiko events from transaction log messages (legacy mode).
  *
  * Scans for `"Program data: <base64>"` lines, base64-decodes them,
  * and matches against the 25 known event discriminators.
@@ -452,7 +469,108 @@ export function decodeEventsFromLogs(logs: string[]): DecodedEvent[] {
 }
 
 /**
+ * Check whether raw CPI data bytes match the self-CPI event envelope:
+ *   [255] + EVENT_IX_TAG_LE(8) + event_disc(8) + fields
+ *
+ * Returns the event payload starting at the event discriminator (offset 9),
+ * or null if the data does not match.
+ */
+function extractCpiEventPayload(data: Uint8Array): Uint8Array | null {
+  // Minimum: 1 (emit disc) + 8 (tag) + 8 (event disc) = 17 bytes
+  if (data.length < 17) return null;
+  if (data[0] !== EMIT_EVENT_DISCRIMINATOR) return null;
+
+  // Verify EVENT_IX_TAG_LE at bytes 1..9
+  for (let i = 0; i < 8; i++) {
+    if (data[1 + i] !== EVENT_IX_TAG_LE[i]) return null;
+  }
+
+  // Return bytes from offset 9 onward (event_disc + fields)
+  return data.slice(9);
+}
+
+/**
+ * Extract and decode all Spiko events from inner instructions (self-CPI mode).
+ *
+ * Each event is emitted as a CPI call to the program's own `EmitEvent`
+ * instruction. The CPI data layout on the wire is:
+ *   [255] + EVENT_IX_TAG_LE(8) + event_discriminator(8) + LE-packed fields
+ *
+ * @param innerInstructions - The `meta.innerInstructions` array from a
+ *   `getTransaction` RPC response. Each entry has `index` and `instructions`
+ *   (array of `{ programIdIndex, data, accounts }`).
+ * @param accountKeys - The transaction's full account key list, used to
+ *   resolve `programIdIndex` (not currently needed for decoding, but
+ *   available for future filtering).
+ */
+export function decodeEventsFromCpiInstructions(
+  innerInstructions: Array<{
+    index: number;
+    instructions: Array<{
+      programIdIndex: number;
+      data: string; // base58-encoded
+      accounts: number[];
+    }>;
+  }>,
+): DecodedEvent[] {
+  const events: DecodedEvent[] = [];
+
+  for (const group of innerInstructions) {
+    for (const ix of group.instructions) {
+      // The data comes back base58-encoded from the RPC
+      let raw: Uint8Array;
+      try {
+        raw = decodeBase58(ix.data);
+      } catch {
+        continue;
+      }
+
+      const payload = extractCpiEventPayload(raw);
+      if (!payload) continue;
+
+      const event = decodeEvent(payload);
+      if (event) {
+        events.push(event);
+      }
+    }
+  }
+
+  return events;
+}
+
+// ── base58 decoder ───────────────────────────────────────────────────────────
+
+const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+
+function decodeBase58(str: string): Uint8Array {
+  const bytes: number[] = [];
+  for (const c of str) {
+    const idx = BASE58_ALPHABET.indexOf(c);
+    if (idx < 0) throw new Error(`Invalid base58 character: ${c}`);
+    let carry = idx;
+    for (let j = 0; j < bytes.length; j++) {
+      carry += bytes[j] * 58;
+      bytes[j] = carry & 0xff;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+  // Leading '1's become leading zeros
+  for (const c of str) {
+    if (c !== "1") break;
+    bytes.push(0);
+  }
+  return new Uint8Array(bytes.reverse());
+}
+
+/**
  * Fetch a confirmed transaction by signature and decode its events.
+ *
+ * Tries self-CPI inner instruction parsing first (new format), then falls
+ * back to log-line parsing (legacy format) for backward compatibility.
  */
 export async function parseTransactionEvents(
   rpc: Rpc<SolanaRpcApi>,
@@ -470,8 +588,19 @@ export async function parseTransactionEvents(
       })
       .send();
 
-    if (tx?.meta?.logMessages) {
-      return decodeEventsFromLogs(tx.meta.logMessages as string[]);
+    if (tx?.meta) {
+      // Try inner instructions first (self-CPI events)
+      const innerIxs = (tx.meta as any).innerInstructions;
+      if (innerIxs && Array.isArray(innerIxs) && innerIxs.length > 0) {
+        const events = decodeEventsFromCpiInstructions(innerIxs);
+        if (events.length > 0) return events;
+      }
+
+      // Fall back to log-line parsing (legacy sol_log_data events)
+      if (tx.meta.logMessages) {
+        const events = decodeEventsFromLogs(tx.meta.logMessages as string[]);
+        if (events.length > 0) return events;
+      }
     }
 
     if (attempt < maxRetries) {

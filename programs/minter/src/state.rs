@@ -1,4 +1,9 @@
-use pinocchio::address::Address;
+use pinocchio::{account::AccountView, address::Address, error::ProgramError};
+
+use spiko_common::{
+    assert_no_padding, AccountDeserialize, AccountSize, Discriminator, PdaAccount, PdaSeeds,
+    Versioned,
+};
 
 pub const MINTER_CONFIG_SEED: &[u8] = b"minter_config";
 pub const DAILY_LIMIT_SEED: &[u8] = b"daily_limit";
@@ -18,41 +23,72 @@ pub const SECONDS_PER_DAY: i64 = 86_400;
 ///
 /// Seeds: ["minter_config"]
 ///
-/// Layout (total: 42 bytes):
-///   [0]       discriminator (u8)
-///   [1]       bump (u8)
-///   [2..10]   max_delay (i64, little-endian, seconds)
-///   [10..42]  permission_manager program ID (Address / 32 bytes)
+/// On-chain layout (total: 43 bytes):
+///   [0]       discriminator (u8) -- external, trait-provided
+///   [1]       version (u8) -- external, trait-provided
+///   [2]       bump (u8)
+///   [3..11]   max_delay (i64, little-endian, seconds)
+///   [11..43]  permission_manager program ID (Address / 32 bytes)
 ///
 /// Note: repr(C) with [u8;8] fields avoids alignment padding.
 #[repr(C)]
 pub struct MinterConfig {
-    pub discriminator: u8,
     pub bump: u8,
     max_delay: [u8; 8],
     pub permission_manager: Address,
 }
 
+assert_no_padding!(MinterConfig, 1 + 8 + 32);
+
+impl Discriminator for MinterConfig {
+    const DISCRIMINATOR: u8 = DISCRIMINATOR_MINTER_CONFIG;
+}
+
+impl Versioned for MinterConfig {
+    const VERSION: u8 = 1;
+}
+
+impl AccountSize for MinterConfig {
+    const DATA_LEN: usize = 1 + 8 + 32; // bump + max_delay + permission_manager
+}
+
+impl AccountDeserialize for MinterConfig {}
+
+impl PdaSeeds for MinterConfig {
+    const PREFIX: &'static [u8] = MINTER_CONFIG_SEED;
+
+    fn validate_pda_address(
+        &self,
+        account: &AccountView,
+        program_id: &Address,
+    ) -> Result<u8, ProgramError> {
+        let (derived, bump) = Address::find_program_address(&[Self::PREFIX], program_id);
+        if account.address() != &derived {
+            return Err(ProgramError::InvalidSeeds);
+        }
+        Ok(bump)
+    }
+}
+
+impl PdaAccount for MinterConfig {
+    fn bump(&self) -> u8 {
+        self.bump
+    }
+
+    fn validate_self(
+        &self,
+        account: &AccountView,
+        program_id: &Address,
+    ) -> Result<(), ProgramError> {
+        let (derived, _) = Address::find_program_address(&[Self::PREFIX], program_id);
+        if account.address() != &derived {
+            return Err(ProgramError::InvalidSeeds);
+        }
+        Ok(())
+    }
+}
+
 impl MinterConfig {
-    pub const LEN: usize = 42; // 1 + 1 + 8 + 32
-
-    pub fn from_bytes(data: &[u8]) -> Result<&Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        if data[0] != DISCRIMINATOR_MINTER_CONFIG {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &*(data.as_ptr() as *const Self) })
-    }
-
-    pub fn from_bytes_mut(data: &mut [u8]) -> Result<&mut Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
-    }
-
     pub fn max_delay(&self) -> i64 {
         i64::from_le_bytes(self.max_delay)
     }
@@ -66,41 +102,70 @@ impl MinterConfig {
 ///
 /// Seeds: ["daily_limit", mint_pubkey]
 ///
-/// Layout (total: 26 bytes):
-///   [0]       discriminator (u8)
-///   [1]       bump (u8)
-///   [2..10]   limit (u64, little-endian)
-///   [10..18]  used_amount (u64, little-endian)
-///   [18..26]  last_day (i64, little-endian) -- floor(timestamp / 86400)
+/// On-chain layout (total: 27 bytes):
+///   [0]       discriminator (u8) -- external, trait-provided
+///   [1]       version (u8) -- external, trait-provided
+///   [2]       bump (u8)
+///   [3..11]   limit (u64, little-endian)
+///   [11..19]  used_amount (u64, little-endian)
+///   [19..27]  last_day (i64, little-endian) -- floor(timestamp / 86400)
 #[repr(C)]
 pub struct DailyLimit {
-    pub discriminator: u8,
     pub bump: u8,
     limit: [u8; 8],
     used_amount: [u8; 8],
     last_day: [u8; 8],
 }
 
+assert_no_padding!(DailyLimit, 1 + 8 + 8 + 8);
+
+impl Discriminator for DailyLimit {
+    const DISCRIMINATOR: u8 = DISCRIMINATOR_DAILY_LIMIT;
+}
+
+impl Versioned for DailyLimit {
+    const VERSION: u8 = 1;
+}
+
+impl AccountSize for DailyLimit {
+    const DATA_LEN: usize = 1 + 8 + 8 + 8; // bump + limit + used_amount + last_day
+}
+
+impl AccountDeserialize for DailyLimit {}
+
+impl PdaSeeds for DailyLimit {
+    const PREFIX: &'static [u8] = DAILY_LIMIT_SEED;
+
+    fn validate_pda_address(
+        &self,
+        account: &AccountView,
+        program_id: &Address,
+    ) -> Result<u8, ProgramError> {
+        // DailyLimit requires the mint key as additional seed, but we don't store it.
+        // Validation must be done externally with verify_pda.
+        let _ = (account, program_id);
+        Err(ProgramError::InvalidSeeds)
+    }
+}
+
+impl PdaAccount for DailyLimit {
+    fn bump(&self) -> u8 {
+        self.bump
+    }
+
+    fn validate_self(
+        &self,
+        account: &AccountView,
+        program_id: &Address,
+    ) -> Result<(), ProgramError> {
+        // DailyLimit requires the mint key as additional seed, but we don't store it.
+        // Validation must be done externally with verify_pda.
+        let _ = (account, program_id);
+        Err(ProgramError::InvalidSeeds)
+    }
+}
+
 impl DailyLimit {
-    pub const LEN: usize = 26; // 1 + 1 + 8 + 8 + 8
-
-    pub fn from_bytes(data: &[u8]) -> Result<&Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        if data[0] != DISCRIMINATOR_DAILY_LIMIT {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &*(data.as_ptr() as *const Self) })
-    }
-
-    pub fn from_bytes_mut(data: &mut [u8]) -> Result<&mut Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
-    }
-
     pub fn limit(&self) -> u64 {
         u64::from_le_bytes(self.limit)
     }
@@ -130,39 +195,68 @@ impl DailyLimit {
 ///
 /// Seeds: ["mint_op", operation_id (32 bytes)]
 ///
-/// Layout (total: 11 bytes):
-///   [0]       discriminator (u8)
-///   [1]       bump (u8)
-///   [2]       status (u8): NULL=0, PENDING=1, DONE=2
-///   [3..11]   deadline (i64, little-endian, unix timestamp)
+/// On-chain layout (total: 12 bytes):
+///   [0]       discriminator (u8) -- external, trait-provided
+///   [1]       version (u8) -- external, trait-provided
+///   [2]       bump (u8)
+///   [3]       status (u8): NULL=0, PENDING=1, DONE=2
+///   [4..12]   deadline (i64, little-endian, unix timestamp)
 #[repr(C, packed)]
 pub struct MintOperation {
-    pub discriminator: u8,
     pub bump: u8,
     pub status: u8,
     deadline: [u8; 8],
 }
 
+assert_no_padding!(MintOperation, 1 + 1 + 8);
+
+impl Discriminator for MintOperation {
+    const DISCRIMINATOR: u8 = DISCRIMINATOR_MINT_OPERATION;
+}
+
+impl Versioned for MintOperation {
+    const VERSION: u8 = 1;
+}
+
+impl AccountSize for MintOperation {
+    const DATA_LEN: usize = 1 + 1 + 8; // bump + status + deadline
+}
+
+impl AccountDeserialize for MintOperation {}
+
+impl PdaSeeds for MintOperation {
+    const PREFIX: &'static [u8] = MINT_OPERATION_SEED;
+
+    fn validate_pda_address(
+        &self,
+        account: &AccountView,
+        program_id: &Address,
+    ) -> Result<u8, ProgramError> {
+        // MintOperation requires the operation_id as additional seed, but we don't store it.
+        // Validation must be done externally with verify_pda.
+        let _ = (account, program_id);
+        Err(ProgramError::InvalidSeeds)
+    }
+}
+
+impl PdaAccount for MintOperation {
+    fn bump(&self) -> u8 {
+        self.bump
+    }
+
+    fn validate_self(
+        &self,
+        account: &AccountView,
+        program_id: &Address,
+    ) -> Result<(), ProgramError> {
+        // MintOperation requires the operation_id as additional seed, but we don't store it.
+        // Validation must be done externally with verify_pda.
+        let _ = (account, program_id);
+        Err(ProgramError::InvalidSeeds)
+    }
+}
+
 impl MintOperation {
-    pub const LEN: usize = 11; // 1 + 1 + 1 + 8
-
-    pub fn from_bytes(data: &[u8]) -> Result<&Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        if data[0] != DISCRIMINATOR_MINT_OPERATION {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &*(data.as_ptr() as *const Self) })
-    }
-
-    pub fn from_bytes_mut(data: &mut [u8]) -> Result<&mut Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
-    }
-
     pub fn deadline(&self) -> i64 {
         i64::from_le_bytes(self.deadline)
     }

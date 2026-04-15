@@ -11,6 +11,7 @@ crate-type = ["cdylib", "lib"]
 pinocchio = { workspace = true }
 pinocchio-system = { workspace = true }
 pinocchio-log = { workspace = true }
+const-crypto = { workspace = true }
 permission-manager = { path = "../permission-manager", features = ["no-entrypoint"] }
 spiko-token = { path = "../spiko-token", features = ["no-entrypoint"] }
 spiko-common = { path = "../spiko-common" }

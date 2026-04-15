@@ -1,4 +1,9 @@
-use spiko_events::{emit_event, pack_address, pack_disc, pack_i64, pack_u64};
+//! Structured events for the Minter program.
+
+extern crate alloc;
+
+use alloc::vec::Vec;
+use spiko_events::{build_event_data, push_address, push_i64, push_u64};
 
 // SHA256("event:MinterInitialized")[0..8]
 const DISC_MINTER_INITIALIZED: [u8; 8] = [0xb1, 0x89, 0x62, 0xb3, 0x16, 0xce, 0x37, 0xc0];
@@ -15,111 +20,111 @@ const DISC_DAILY_LIMIT_UPDATED: [u8; 8] = [0x41, 0x08, 0xe7, 0xad, 0xd7, 0xb6, 0
 // SHA256("event:MaxDelayUpdated")[0..8]
 const DISC_MAX_DELAY_UPDATED: [u8; 8] = [0x81, 0x51, 0x91, 0x1a, 0x62, 0xd2, 0xa0, 0x0c];
 
+/// Build `MinterInitialized` event data.
+/// Fields: admin (32) + max_delay (8)
 #[inline]
-pub fn emit_minter_initialized(admin: &[u8; 32], max_delay: i64) {
-    pinocchio_log::log!("MinterInitialized");
-    let mut buf = [0u8; 48];
-    let off = pack_disc(&mut buf, &DISC_MINTER_INITIALIZED);
-    let off = pack_address(&mut buf, off, admin);
-    pack_i64(&mut buf, off, max_delay);
-    emit_event(&buf);
+pub fn build_minter_initialized_event(admin: &[u8; 32], max_delay: i64) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_MINTER_INITIALIZED, 40);
+    push_address(&mut data, admin);
+    push_i64(&mut data, max_delay);
+    data
 }
 
+/// Build `MintExecuted` event data.
+/// Fields: caller (32) + user (32) + mint (32) + amount (8) + salt (8)
 #[inline]
-pub fn emit_mint_executed(
+pub fn build_mint_executed_event(
     caller: &[u8; 32],
     user: &[u8; 32],
     mint: &[u8; 32],
     amount: u64,
     salt: u64,
-) {
-    pinocchio_log::log!("MintExecuted");
-    let mut buf = [0u8; 120];
-    let off = pack_disc(&mut buf, &DISC_MINT_EXECUTED);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, user);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_u64(&mut buf, off, amount);
-    pack_u64(&mut buf, off, salt);
-    emit_event(&buf);
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_MINT_EXECUTED, 112);
+    push_address(&mut data, caller);
+    push_address(&mut data, user);
+    push_address(&mut data, mint);
+    push_u64(&mut data, amount);
+    push_u64(&mut data, salt);
+    data
 }
 
+/// Build `MintBlocked` event data.
+/// Fields: caller (32) + user (32) + mint (32) + amount (8) + salt (8)
 #[inline]
-pub fn emit_mint_blocked(
+pub fn build_mint_blocked_event(
     caller: &[u8; 32],
     user: &[u8; 32],
     mint: &[u8; 32],
     amount: u64,
     salt: u64,
-) {
-    pinocchio_log::log!("MintBlocked");
-    let mut buf = [0u8; 120];
-    let off = pack_disc(&mut buf, &DISC_MINT_BLOCKED);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, user);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_u64(&mut buf, off, amount);
-    pack_u64(&mut buf, off, salt);
-    emit_event(&buf);
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_MINT_BLOCKED, 112);
+    push_address(&mut data, caller);
+    push_address(&mut data, user);
+    push_address(&mut data, mint);
+    push_u64(&mut data, amount);
+    push_u64(&mut data, salt);
+    data
 }
 
+/// Build `MintApproved` event data.
+/// Fields: approver (32) + user (32) + mint (32) + amount (8) + salt (8)
 #[inline]
-pub fn emit_mint_approved(
+pub fn build_mint_approved_event(
     approver: &[u8; 32],
     user: &[u8; 32],
     mint: &[u8; 32],
     amount: u64,
     salt: u64,
-) {
-    pinocchio_log::log!("MintApproved");
-    let mut buf = [0u8; 120];
-    let off = pack_disc(&mut buf, &DISC_MINT_APPROVED);
-    let off = pack_address(&mut buf, off, approver);
-    let off = pack_address(&mut buf, off, user);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_u64(&mut buf, off, amount);
-    pack_u64(&mut buf, off, salt);
-    emit_event(&buf);
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_MINT_APPROVED, 112);
+    push_address(&mut data, approver);
+    push_address(&mut data, user);
+    push_address(&mut data, mint);
+    push_u64(&mut data, amount);
+    push_u64(&mut data, salt);
+    data
 }
 
+/// Build `MintCanceled` event data.
+/// Fields: caller (32) + user (32) + mint (32) + amount (8) + salt (8)
 #[inline]
-pub fn emit_mint_canceled(
+pub fn build_mint_canceled_event(
     caller: &[u8; 32],
     user: &[u8; 32],
     mint: &[u8; 32],
     amount: u64,
     salt: u64,
-) {
-    pinocchio_log::log!("MintCanceled");
-    let mut buf = [0u8; 120];
-    let off = pack_disc(&mut buf, &DISC_MINT_CANCELED);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, user);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_u64(&mut buf, off, amount);
-    pack_u64(&mut buf, off, salt);
-    emit_event(&buf);
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_MINT_CANCELED, 112);
+    push_address(&mut data, caller);
+    push_address(&mut data, user);
+    push_address(&mut data, mint);
+    push_u64(&mut data, amount);
+    push_u64(&mut data, salt);
+    data
 }
 
+/// Build `DailyLimitUpdated` event data.
+/// Fields: caller (32) + mint (32) + limit (8)
 #[inline]
-pub fn emit_daily_limit_updated(caller: &[u8; 32], mint: &[u8; 32], limit: u64) {
-    pinocchio_log::log!("DailyLimitUpdated");
-    let mut buf = [0u8; 80];
-    let off = pack_disc(&mut buf, &DISC_DAILY_LIMIT_UPDATED);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, mint);
-    pack_u64(&mut buf, off, limit);
-    emit_event(&buf);
+pub fn build_daily_limit_updated_event(caller: &[u8; 32], mint: &[u8; 32], limit: u64) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_DAILY_LIMIT_UPDATED, 72);
+    push_address(&mut data, caller);
+    push_address(&mut data, mint);
+    push_u64(&mut data, limit);
+    data
 }
 
+/// Build `MaxDelayUpdated` event data.
+/// Fields: caller (32) + max_delay (8)
 #[inline]
-pub fn emit_max_delay_updated(caller: &[u8; 32], max_delay: i64) {
-    pinocchio_log::log!("MaxDelayUpdated");
-    let mut buf = [0u8; 48];
-    let off = pack_disc(&mut buf, &DISC_MAX_DELAY_UPDATED);
-    let off = pack_address(&mut buf, off, caller);
-    pack_i64(&mut buf, off, max_delay);
-    emit_event(&buf);
+pub fn build_max_delay_updated_event(caller: &[u8; 32], max_delay: i64) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_MAX_DELAY_UPDATED, 40);
+    push_address(&mut data, caller);
+    push_i64(&mut data, max_delay);
+    data
 }
 
 #[cfg(test)]

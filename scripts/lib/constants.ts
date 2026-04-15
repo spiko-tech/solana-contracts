@@ -5,19 +5,19 @@ import { address, type Address } from "@solana/kit";
 // =================================================================
 
 export const PERMISSION_MANAGER_PROGRAM_ID: Address =
-  address("BTZTjmY3i1ZPFkUvZAwD3WzwQFxxLXeaCYYBNjHKuRoz");
+  address("CJ6icPuFkWmvrRGVXdGqbbCoSZXsK4r6fkzT2Ndg6tzy");
 
 export const SPIKO_TOKEN_PROGRAM_ID: Address =
-  address("2LKr4wYMkx75hCbrmRCR2iESCWmeDViuSDLxZaZnC4aP");
+  address("8voshdmG84WtPK7Es3okG1tjenfPfviyV66Zmnb1924r");
 
 export const MINTER_PROGRAM_ID: Address =
-  address("6jbcB2eNfm1qLXRFd9jJes9yYEUWYafJDjfZ1dobSQ9z");
+  address("3Ex4bd3DeBtV6k15z1heA9TZb3otbEFErznfkC1Vdwhn");
 
 export const REDEMPTION_PROGRAM_ID: Address =
-  address("GZEFPC74n1ifKrsH9vh67qntZ8bqpzpdDrBasGVCUPPo");
+  address("7rwaFEEkYYHWx3U5UfidGVp5JyiB5VkPcLAxRYtkBHxi");
 
 export const TRANSFER_HOOK_PROGRAM_ID: Address =
-  address("GMpqabVyd98sefjUB3fLhy6HA77xTnGpWy9e7vJs2vtJ");
+  address("ELVnmZLEqP9GvP1pJjpVhDEFrVaK6tJJEzjfNZxLrbm5");
 
 export const TOKEN_2022_PROGRAM_ID: Address =
   address("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
@@ -57,6 +57,10 @@ export const TOKEN_MINIMUM_SEED = new TextEncoder().encode("minimum");
 export const VAULT_SEED = new TextEncoder().encode("vault");
 export const REDEMPTION_OPERATION_SEED = new TextEncoder().encode(
   "redemption_op"
+);
+
+export const EVENT_AUTHORITY_SEED = new TextEncoder().encode(
+  "event_authority"
 );
 
 // =================================================================

@@ -1,4 +1,5 @@
 use pinocchio::{account::AccountView, cpi::Seed, error::ProgramError};
+use spiko_common::AccountDeserialize;
 
 pub use spiko_common::{create_pda_account, verify_pda};
 pub use spiko_permission::{require_admin, require_permission};

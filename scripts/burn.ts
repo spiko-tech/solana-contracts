@@ -23,6 +23,7 @@ import {
   userPermissionsPda,
   tokenConfigPda,
   mintAuthorityPda,
+  spikoTokenEventAuthorityPda,
 } from "./lib/pda.js";
 import { burnToken } from "./lib/instructions.js";
 import {
@@ -67,6 +68,7 @@ async function main() {
   const [adminPermsAddr] = await userPermissionsPda(admin.address);
   const [tokenConfigAddr] = await tokenConfigPda(mintAddr);
   const [mintAuthAddr] = await mintAuthorityPda(mintAddr);
+  const [stEventAuth] = await spikoTokenEventAuthorityPda();
 
   // Derive source's Token-2022 ATA
   const sourceAta = await getAssociatedTokenAddress(sourceWallet, mintAddr);
@@ -85,7 +87,8 @@ async function main() {
     sourceAta,
     mintAuthAddr,
     adminPermsAddr,
-    rawAmount
+    rawAmount,
+    stEventAuth,
   );
 
   // Send transaction

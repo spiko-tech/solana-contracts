@@ -55,6 +55,10 @@ import {
   redemptionConfigPda,
   tokenMinimumPda,
   vaultAuthorityPda,
+  permissionManagerEventAuthorityPda,
+  spikoTokenEventAuthorityPda,
+  minterEventAuthorityPda,
+  redemptionEventAuthorityPda,
 } from "./lib/pda.js";
 
 import {
@@ -229,6 +233,11 @@ async function main() {
   const [minterConfigAddr] = await minterConfigPda();
   const [redemptionConfigAddr] = await redemptionConfigPda();
 
+  const [pmEventAuth] = await permissionManagerEventAuthorityPda();
+  const [stEventAuth] = await spikoTokenEventAuthorityPda();
+  const [mtEventAuth] = await minterEventAuthorityPda();
+  const [rdEventAuth] = await redemptionEventAuthorityPda();
+
   console.log(`  PermissionConfig PDA:  ${permConfigAddr}`);
   console.log(`  Admin UserPerms PDA:   ${adminPermsAddr}`);
   console.log(`  MinterConfig PDA:      ${minterConfigAddr}`);
@@ -246,7 +255,8 @@ async function main() {
     const ix = initializePermissionManager(
       admin,
       permConfigAddr,
-      adminPermsAddr
+      adminPermsAddr,
+      pmEventAuth
     );
     await sendTx(rpc, rpcSub, admin, [ix], "InitializePermissionManager");
     console.log("  Done.\n");
@@ -323,7 +333,8 @@ async function main() {
       meta.decimals,
       meta.name,
       meta.symbol,
-      meta.uri
+      meta.uri,
+      stEventAuth
     );
 
     await sendTx(
@@ -384,7 +395,8 @@ async function main() {
       admin,
       minterConfigAddr,
       MAX_DELAY,
-      PERMISSION_MANAGER_PROGRAM_ID
+      PERMISSION_MANAGER_PROGRAM_ID,
+      mtEventAuth
     );
     await sendTx(rpc, rpcSub, admin, [ix], "InitializeMinter");
     console.log("  Done.\n");
@@ -401,7 +413,8 @@ async function main() {
     const ix = initializeRedemption(
       admin,
       redemptionConfigAddr,
-      PERMISSION_MANAGER_PROGRAM_ID
+      PERMISSION_MANAGER_PROGRAM_ID,
+      rdEventAuth
     );
     await sendTx(rpc, rpcSub, admin, [ix], "InitializeRedemption");
     console.log("  Done.\n");
@@ -427,7 +440,8 @@ async function main() {
       admin,
       tokenConfigAddr,
       permConfigAddr,
-      REDEMPTION_PROGRAM_ID
+      REDEMPTION_PROGRAM_ID,
+      stEventAuth
     );
     await sendTx(
       rpc,
@@ -445,7 +459,8 @@ async function main() {
       permConfigAddr,
       dailyLimitAddr,
       mintAddr,
-      DAILY_LIMIT
+      DAILY_LIMIT,
+      mtEventAuth
     );
     await sendTx(
       rpc,
@@ -463,7 +478,8 @@ async function main() {
       permConfigAddr,
       tokenMinAddr,
       mintAddr,
-      REDEMPTION_MINIMUM
+      REDEMPTION_MINIMUM,
+      rdEventAuth
     );
     await sendTx(
       rpc,
@@ -490,7 +506,8 @@ async function main() {
       adminPermsAddr,
       admin.address,
       adminPermsAddr, // caller's perms = admin's perms (admin is calling)
-      roleId
+      roleId,
+      pmEventAuth
     );
 
     await sendTx(
@@ -524,7 +541,8 @@ async function main() {
       minterConfigPermsAddr,
       minterConfigAddr,
       adminPermsAddr,
-      ROLE_MINTER
+      ROLE_MINTER,
+      pmEventAuth
     );
     await sendTx(rpc, rpcSub, admin, [ix], "GrantRole(MINTER → MinterConfig)");
     console.log("  Done.\n");
@@ -556,7 +574,8 @@ async function main() {
       vaultAuthPermsAddr,
       vaultAuthAddr,
       adminPermsAddr,
-      role.id
+      role.id,
+      pmEventAuth
     );
     await sendTx(
       rpc,

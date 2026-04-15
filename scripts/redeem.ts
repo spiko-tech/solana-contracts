@@ -27,6 +27,9 @@ import {
   tokenMinimumPda,
   vaultAuthorityPda,
   redemptionOperationPda,
+  spikoTokenEventAuthorityPda,
+  redemptionEventAuthorityPda,
+  transferHookEventAuthorityPda,
 } from "./lib/pda.js";
 import { redeemToken } from "./lib/instructions.js";
 import {
@@ -83,6 +86,9 @@ async function main() {
   const [redemptionConfigAddr] = await redemptionConfigPda();
   const [tokenMinAddr] = await tokenMinimumPda(mintAddr);
   const [extraMetaListAddr] = await extraAccountMetaListPda(mintAddr);
+  const [stEventAuth] = await spikoTokenEventAuthorityPda();
+  const [rdEventAuth] = await redemptionEventAuthorityPda();
+  const [thEventAuth] = await transferHookEventAuthorityPda();
 
   // Compute operation_id for RedemptionOperation PDA
   const operationId = await computeOperationId(
@@ -140,7 +146,10 @@ async function main() {
     tokenMinAddr,
     extraMetaListAddr,
     rawAmount,
-    salt
+    salt,
+    thEventAuth,
+    stEventAuth,
+    rdEventAuth,
   );
   instructions.push(ix);
 

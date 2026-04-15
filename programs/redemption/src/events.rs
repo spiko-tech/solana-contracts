@@ -1,4 +1,9 @@
-use spiko_events::{emit_event, pack_address, pack_disc, pack_i64, pack_u64};
+//! Structured events for the Redemption program.
+
+extern crate alloc;
+
+use alloc::vec::Vec;
+use spiko_events::{build_event_data, push_address, push_i64, push_u64};
 
 // SHA256("event:RedemptionInitialized")[0..8]
 const DISC_REDEMPTION_INITIALIZED: [u8; 8] = [0x6a, 0xc8, 0x64, 0x72, 0x94, 0x64, 0x26, 0xcb];
@@ -11,81 +16,85 @@ const DISC_REDEMPTION_CANCELED: [u8; 8] = [0xbd, 0xf4, 0xd0, 0xe8, 0x3c, 0x68, 0
 // SHA256("event:TokenMinimumUpdated")[0..8]
 const DISC_TOKEN_MINIMUM_UPDATED: [u8; 8] = [0xeb, 0x3c, 0x99, 0x47, 0x61, 0xd4, 0x70, 0x6e];
 
+/// Build `RedemptionInitialized` event data.
+/// Fields: admin (32)
 #[inline]
-pub fn emit_redemption_initialized(admin: &[u8; 32]) {
-    pinocchio_log::log!("RedemptionInitialized");
-    let mut buf = [0u8; 40];
-    let off = pack_disc(&mut buf, &DISC_REDEMPTION_INITIALIZED);
-    pack_address(&mut buf, off, admin);
-    emit_event(&buf);
+pub fn build_redemption_initialized_event(admin: &[u8; 32]) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_REDEMPTION_INITIALIZED, 32);
+    push_address(&mut data, admin);
+    data
 }
 
+/// Build `RedemptionInitiated` event data.
+/// Fields: user (32) + mint (32) + amount (8) + salt (8) + deadline (8)
 #[inline]
-pub fn emit_redemption_initiated(
+pub fn build_redemption_initiated_event(
     user: &[u8; 32],
     mint: &[u8; 32],
     amount: u64,
     salt: u64,
     deadline: i64,
-) {
-    pinocchio_log::log!("RedemptionInitiated");
-    let mut buf = [0u8; 96];
-    let off = pack_disc(&mut buf, &DISC_REDEMPTION_INITIATED);
-    let off = pack_address(&mut buf, off, user);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_u64(&mut buf, off, amount);
-    let off = pack_u64(&mut buf, off, salt);
-    pack_i64(&mut buf, off, deadline);
-    emit_event(&buf);
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_REDEMPTION_INITIATED, 88);
+    push_address(&mut data, user);
+    push_address(&mut data, mint);
+    push_u64(&mut data, amount);
+    push_u64(&mut data, salt);
+    push_i64(&mut data, deadline);
+    data
 }
 
+/// Build `RedemptionExecuted` event data.
+/// Fields: operator (32) + user (32) + mint (32) + amount (8) + salt (8)
 #[inline]
-pub fn emit_redemption_executed(
+pub fn build_redemption_executed_event(
     operator: &[u8; 32],
     user: &[u8; 32],
     mint: &[u8; 32],
     amount: u64,
     salt: u64,
-) {
-    pinocchio_log::log!("RedemptionExecuted");
-    let mut buf = [0u8; 120];
-    let off = pack_disc(&mut buf, &DISC_REDEMPTION_EXECUTED);
-    let off = pack_address(&mut buf, off, operator);
-    let off = pack_address(&mut buf, off, user);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_u64(&mut buf, off, amount);
-    pack_u64(&mut buf, off, salt);
-    emit_event(&buf);
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_REDEMPTION_EXECUTED, 112);
+    push_address(&mut data, operator);
+    push_address(&mut data, user);
+    push_address(&mut data, mint);
+    push_u64(&mut data, amount);
+    push_u64(&mut data, salt);
+    data
 }
 
+/// Build `RedemptionCanceled` event data.
+/// Fields: caller (32) + user (32) + mint (32) + amount (8) + salt (8)
 #[inline]
-pub fn emit_redemption_canceled(
+pub fn build_redemption_canceled_event(
     caller: &[u8; 32],
     user: &[u8; 32],
     mint: &[u8; 32],
     amount: u64,
     salt: u64,
-) {
-    pinocchio_log::log!("RedemptionCanceled");
-    let mut buf = [0u8; 120];
-    let off = pack_disc(&mut buf, &DISC_REDEMPTION_CANCELED);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, user);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_u64(&mut buf, off, amount);
-    pack_u64(&mut buf, off, salt);
-    emit_event(&buf);
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_REDEMPTION_CANCELED, 112);
+    push_address(&mut data, caller);
+    push_address(&mut data, user);
+    push_address(&mut data, mint);
+    push_u64(&mut data, amount);
+    push_u64(&mut data, salt);
+    data
 }
 
+/// Build `TokenMinimumUpdated` event data.
+/// Fields: caller (32) + mint (32) + minimum (8)
 #[inline]
-pub fn emit_token_minimum_updated(caller: &[u8; 32], mint: &[u8; 32], minimum: u64) {
-    pinocchio_log::log!("TokenMinimumUpdated");
-    let mut buf = [0u8; 80];
-    let off = pack_disc(&mut buf, &DISC_TOKEN_MINIMUM_UPDATED);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, mint);
-    pack_u64(&mut buf, off, minimum);
-    emit_event(&buf);
+pub fn build_token_minimum_updated_event(
+    caller: &[u8; 32],
+    mint: &[u8; 32],
+    minimum: u64,
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_TOKEN_MINIMUM_UPDATED, 72);
+    push_address(&mut data, caller);
+    push_address(&mut data, mint);
+    push_u64(&mut data, minimum);
+    data
 }
 
 #[cfg(test)]
