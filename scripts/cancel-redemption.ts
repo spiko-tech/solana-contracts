@@ -29,6 +29,8 @@ import {
   redemptionConfigPda,
   vaultAuthorityPda,
   redemptionOperationPda,
+  redemptionEventAuthorityPda,
+  transferHookEventAuthorityPda,
 } from "./lib/pda.js";
 import { cancelRedemption } from "./lib/instructions.js";
 import {
@@ -82,6 +84,8 @@ async function main() {
   const [extraMetaListAddr] = await extraAccountMetaListPda(mintAddr);
   const [vaultAuthPermsAddr] = await userPermissionsPda(vaultAuthAddr);
   const [userPermsAddr] = await userPermissionsPda(userAddr);
+  const [rdEventAuth] = await redemptionEventAuthorityPda();
+  const [thEventAuth] = await transferHookEventAuthorityPda();
 
   // Compute operation_id for RedemptionOperation PDA
   const operationId = await computeOperationId(
@@ -122,7 +126,9 @@ async function main() {
     userPermsAddr,
     userAddr,
     rawAmount,
-    salt
+    salt,
+    thEventAuth,
+    rdEventAuth,
   );
 
   // Send transaction

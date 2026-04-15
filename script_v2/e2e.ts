@@ -65,6 +65,7 @@ import {
   SPIKO_TOKEN_PROGRAM_ADDRESS,
   SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS,
   REDEMPTION_PROGRAM_ADDRESS,
+  MINTER_PROGRAM_ADDRESS,
   permissionConfigPda,
   userPermissionsPda,
   tokenConfigPda,
@@ -77,6 +78,11 @@ import {
   tokenMinimumPda,
   vaultAuthorityPda,
   redemptionOperationPda,
+  permissionManagerEventAuthorityPda,
+  spikoTokenEventAuthorityPda,
+  transferHookEventAuthorityPda,
+  minterEventAuthorityPda,
+  redemptionEventAuthorityPda,
   setup,
   resolveMintAddress,
   getAssociatedTokenAddress,
@@ -211,6 +217,13 @@ async function main() {
   const [vaultAuthPermsAddr] = await userPermissionsPda(vaultAuthAddr);
   const [extraMetaListAddr] = await extraAccountMetaListPda(mintAddr);
 
+  // Event authority PDAs (for self-CPI event emission)
+  const [pmEventAuth] = await permissionManagerEventAuthorityPda();
+  const [stEventAuth] = await spikoTokenEventAuthorityPda();
+  const [thEventAuth] = await transferHookEventAuthorityPda();
+  const [mtEventAuth] = await minterEventAuthorityPda();
+  const [rdEventAuth] = await redemptionEventAuthorityPda();
+
   const user1Ata = await getAssociatedTokenAddress(user1.address, mintAddr);
   const user2Ata = await getAssociatedTokenAddress(user2.address, mintAddr);
   const vaultAta = await getAssociatedTokenAddress(vaultAuthAddr, mintAddr);
@@ -269,6 +282,8 @@ async function main() {
       targetUser: minter.address,
       callerPermissions: adminPermsAddr,
       roleId: ROLE_MINT_INITIATOR,
+      eventAuthority: pmEventAuth,
+      selfProgram: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
     });
     return sendAndCapture(rpc, rpcSub, admin, [ix], "GrantRole(MINT_INITIATOR -> Minter)");
   });
@@ -284,6 +299,8 @@ async function main() {
       targetUser: executor.address,
       callerPermissions: adminPermsAddr,
       roleId: ROLE_REDEMPTION_EXECUTOR,
+      eventAuthority: pmEventAuth,
+      selfProgram: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
     });
     return sendAndCapture(rpc, rpcSub, admin, [ix], "GrantRole(REDEMPTION_EXECUTOR -> Executor)");
   });
@@ -299,6 +316,8 @@ async function main() {
       targetUser: whitelister.address,
       callerPermissions: adminPermsAddr,
       roleId: ROLE_WHITELISTER,
+      eventAuthority: pmEventAuth,
+      selfProgram: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
     });
     return sendAndCapture(rpc, rpcSub, admin, [ix], "GrantRole(WHITELISTER -> Whitelister)");
   });
@@ -314,6 +333,8 @@ async function main() {
       targetUser: user1.address,
       callerPermissions: whitelisterPermsAddr,
       roleId: ROLE_WHITELISTED,
+      eventAuthority: pmEventAuth,
+      selfProgram: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
     });
     return sendAndCapture(rpc, rpcSub, whitelister, [ix], "GrantRole(WHITELISTED -> User1)");
   });
@@ -329,6 +350,8 @@ async function main() {
       targetUser: user2.address,
       callerPermissions: whitelisterPermsAddr,
       roleId: ROLE_WHITELISTED,
+      eventAuthority: pmEventAuth,
+      selfProgram: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
     });
     return sendAndCapture(rpc, rpcSub, whitelister, [ix], "GrantRole(WHITELISTED -> User2)");
   });
@@ -374,6 +397,10 @@ async function main() {
           user: user1.address,
           amount: mintRawAmount,
           salt: mintSalt,
+          spikoTokenEventAuthority: stEventAuth,
+          spikoTokenSelfProgram: SPIKO_TOKEN_PROGRAM_ADDRESS as Address,
+          eventAuthority: mtEventAuth,
+          selfProgram: MINTER_PROGRAM_ADDRESS as Address,
         })
       );
 
@@ -412,6 +439,8 @@ async function main() {
           spikoTokenProgram: SPIKO_TOKEN_PROGRAM_ADDRESS as Address,
           hookProgram: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address,
           amount: transferBRawAmount,
+          eventAuthority: stEventAuth,
+          selfProgram: SPIKO_TOKEN_PROGRAM_ADDRESS as Address,
         })
       );
 
@@ -443,7 +472,8 @@ async function main() {
         user2PermsAddr,
         extraMetaListAddr,
         transferARawAmount,
-        decimals
+        decimals,
+        thEventAuth,
       );
 
       // Admin pays fees, user1 co-signs
@@ -502,6 +532,10 @@ async function main() {
           hookProgram: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address,
           amount: redeemRawAmount,
           salt: redeemSalt,
+          eventAuthority: stEventAuth,
+          selfProgram: SPIKO_TOKEN_PROGRAM_ADDRESS as Address,
+          redemptionEventAuthority: rdEventAuth,
+          redemptionSelfProgram: REDEMPTION_PROGRAM_ADDRESS as Address,
         })
       );
 
@@ -546,6 +580,10 @@ async function main() {
         user: user2.address,
         amount: redeemRawAmount,
         salt: redeemSalt,
+        spikoTokenEventAuthority: stEventAuth,
+        spikoTokenSelfProgram: SPIKO_TOKEN_PROGRAM_ADDRESS as Address,
+        eventAuthority: rdEventAuth,
+        selfProgram: REDEMPTION_PROGRAM_ADDRESS as Address,
       });
 
       // Admin pays fees, executor co-signs

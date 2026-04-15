@@ -1,4 +1,12 @@
-use spiko_events::{emit_event, pack_address, pack_disc, pack_u64};
+//! Structured events for the Spiko Token program.
+//!
+//! Each function builds an Anchor-compatible CPI event payload:
+//! `EVENT_IX_TAG (8) + discriminator (8) + LE-packed fields`.
+
+extern crate alloc;
+
+use alloc::vec::Vec;
+use spiko_events::{build_event_data, push_address, push_u64};
 
 // SHA256("event:TokenInitialized")[0..8]
 const DISC_TOKEN_INITIALIZED: [u8; 8] = [0x4d, 0x46, 0xe9, 0x7c, 0xec, 0x5c, 0xcc, 0x00];
@@ -15,81 +23,100 @@ const DISC_TOKEN_UNPAUSED: [u8; 8] = [0xe1, 0x11, 0x44, 0x51, 0x81, 0x86, 0x91, 
 // SHA256("event:RedemptionContractSet")[0..8]
 const DISC_REDEMPTION_CONTRACT_SET: [u8; 8] = [0xbd, 0xb3, 0x1c, 0x22, 0xe3, 0x63, 0xf6, 0x3a];
 
+/// Build `TokenInitialized` event data.
+/// Fields: admin (32) + mint (32)
 #[inline]
-pub fn emit_token_initialized(admin: &[u8; 32], mint: &[u8; 32]) {
-    pinocchio_log::log!("TokenInitialized");
-    let mut buf = [0u8; 72];
-    let off = pack_disc(&mut buf, &DISC_TOKEN_INITIALIZED);
-    let off = pack_address(&mut buf, off, admin);
-    pack_address(&mut buf, off, mint);
-    emit_event(&buf);
+pub fn build_token_initialized_event(admin: &[u8; 32], mint: &[u8; 32]) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_TOKEN_INITIALIZED, 64);
+    push_address(&mut data, admin);
+    push_address(&mut data, mint);
+    data
 }
 
+/// Build `Mint` event data.
+/// Fields: caller (32) + mint (32) + recipient_ata (32) + amount (8)
 #[inline]
-pub fn emit_mint(caller: &[u8; 32], mint: &[u8; 32], recipient_ata: &[u8; 32], amount: u64) {
-    pinocchio_log::log!("Mint");
-    let mut buf = [0u8; 112];
-    let off = pack_disc(&mut buf, &DISC_MINT);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_address(&mut buf, off, recipient_ata);
-    pack_u64(&mut buf, off, amount);
-    emit_event(&buf);
+pub fn build_mint_event(
+    caller: &[u8; 32],
+    mint: &[u8; 32],
+    recipient_ata: &[u8; 32],
+    amount: u64,
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_MINT, 104);
+    push_address(&mut data, caller);
+    push_address(&mut data, mint);
+    push_address(&mut data, recipient_ata);
+    push_u64(&mut data, amount);
+    data
 }
 
+/// Build `Burn` event data.
+/// Fields: caller (32) + mint (32) + source_ata (32) + amount (8)
 #[inline]
-pub fn emit_burn(caller: &[u8; 32], mint: &[u8; 32], source_ata: &[u8; 32], amount: u64) {
-    pinocchio_log::log!("Burn");
-    let mut buf = [0u8; 112];
-    let off = pack_disc(&mut buf, &DISC_BURN);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_address(&mut buf, off, source_ata);
-    pack_u64(&mut buf, off, amount);
-    emit_event(&buf);
+pub fn build_burn_event(
+    caller: &[u8; 32],
+    mint: &[u8; 32],
+    source_ata: &[u8; 32],
+    amount: u64,
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_BURN, 104);
+    push_address(&mut data, caller);
+    push_address(&mut data, mint);
+    push_address(&mut data, source_ata);
+    push_u64(&mut data, amount);
+    data
 }
 
+/// Build `RedeemInitiated` event data.
+/// Fields: user (32) + mint (32) + amount (8) + salt (8)
 #[inline]
-pub fn emit_redeem_initiated(user: &[u8; 32], mint: &[u8; 32], amount: u64, salt: u64) {
-    pinocchio_log::log!("RedeemInitiated");
-    let mut buf = [0u8; 88];
-    let off = pack_disc(&mut buf, &DISC_REDEEM_INITIATED);
-    let off = pack_address(&mut buf, off, user);
-    let off = pack_address(&mut buf, off, mint);
-    let off = pack_u64(&mut buf, off, amount);
-    pack_u64(&mut buf, off, salt);
-    emit_event(&buf);
+pub fn build_redeem_initiated_event(
+    user: &[u8; 32],
+    mint: &[u8; 32],
+    amount: u64,
+    salt: u64,
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_REDEEM_INITIATED, 80);
+    push_address(&mut data, user);
+    push_address(&mut data, mint);
+    push_u64(&mut data, amount);
+    push_u64(&mut data, salt);
+    data
 }
 
+/// Build `TokenPaused` event data.
+/// Fields: caller (32) + config (32)
 #[inline]
-pub fn emit_token_paused(caller: &[u8; 32], config: &[u8; 32]) {
-    pinocchio_log::log!("TokenPaused");
-    let mut buf = [0u8; 72];
-    let off = pack_disc(&mut buf, &DISC_TOKEN_PAUSED);
-    let off = pack_address(&mut buf, off, caller);
-    pack_address(&mut buf, off, config);
-    emit_event(&buf);
+pub fn build_token_paused_event(caller: &[u8; 32], config: &[u8; 32]) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_TOKEN_PAUSED, 64);
+    push_address(&mut data, caller);
+    push_address(&mut data, config);
+    data
 }
 
+/// Build `TokenUnpaused` event data.
+/// Fields: caller (32) + config (32)
 #[inline]
-pub fn emit_token_unpaused(caller: &[u8; 32], config: &[u8; 32]) {
-    pinocchio_log::log!("TokenUnpaused");
-    let mut buf = [0u8; 72];
-    let off = pack_disc(&mut buf, &DISC_TOKEN_UNPAUSED);
-    let off = pack_address(&mut buf, off, caller);
-    pack_address(&mut buf, off, config);
-    emit_event(&buf);
+pub fn build_token_unpaused_event(caller: &[u8; 32], config: &[u8; 32]) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_TOKEN_UNPAUSED, 64);
+    push_address(&mut data, caller);
+    push_address(&mut data, config);
+    data
 }
 
+/// Build `RedemptionContractSet` event data.
+/// Fields: caller (32) + config (32) + contract (32)
 #[inline]
-pub fn emit_redemption_contract_set(caller: &[u8; 32], config: &[u8; 32], contract: &[u8; 32]) {
-    pinocchio_log::log!("RedemptionContractSet");
-    let mut buf = [0u8; 104];
-    let off = pack_disc(&mut buf, &DISC_REDEMPTION_CONTRACT_SET);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, config);
-    pack_address(&mut buf, off, contract);
-    emit_event(&buf);
+pub fn build_redemption_contract_set_event(
+    caller: &[u8; 32],
+    config: &[u8; 32],
+    contract: &[u8; 32],
+) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_REDEMPTION_CONTRACT_SET, 96);
+    push_address(&mut data, caller);
+    push_address(&mut data, config);
+    push_address(&mut data, contract);
+    data
 }
 
 #[cfg(test)]

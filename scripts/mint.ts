@@ -23,6 +23,8 @@ import {
   minterConfigPda,
   dailyLimitPda,
   mintOperationPda,
+  spikoTokenEventAuthorityPda,
+  minterEventAuthorityPda,
 } from "./lib/pda.js";
 import { initiateMint } from "./lib/instructions.js";
 import {
@@ -79,6 +81,8 @@ async function main() {
   const [mintAuthAddr] = await mintAuthorityPda(mintAddr);
   const [dailyLimitAddr] = await dailyLimitPda(mintAddr);
   const [recipientPermsAddr] = await userPermissionsPda(recipientAddr);
+  const [mtEventAuth] = await minterEventAuthorityPda();
+  const [stEventAuth] = await spikoTokenEventAuthorityPda();
 
   // Compute operation_id for MintOperation PDA
   const operationId = await computeOperationId(
@@ -133,7 +137,9 @@ async function main() {
     recipientPermsAddr,
     recipientAddr,
     rawAmount,
-    salt
+    salt,
+    stEventAuth,
+    mtEventAuth,
   );
   instructions.push(mintIx);
 

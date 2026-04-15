@@ -6,3 +6,7 @@ publish = false
 
 [dependencies]
 pinocchio = { workspace = true }
+const-crypto = { workspace = true }
+
+[dev-dependencies]
+sha2 = "0.10"

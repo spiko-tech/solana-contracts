@@ -31,3 +31,6 @@ node_modules/
 
 # Deploy script keys (mint keypairs)
 scripts/keys/
+
+# Program deploy keypairs
+deploy/

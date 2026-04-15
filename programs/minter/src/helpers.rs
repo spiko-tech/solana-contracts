@@ -44,6 +44,8 @@ use crate::state::{DAILY_LIMIT_SEED, MINTER_CONFIG_SEED, MINT_OPERATION_SEED};
 ///   5. MinterConfig's UserPermissions PDA (proving ROLE_MINTER)
 ///   6. Recipient's UserPermissions PDA (whitelist)
 ///   7. Token-2022 program
+///   8. Event authority PDA (spiko-token's)
+///   9. Self program (spiko-token program)
 pub fn cpi_spiko_token_mint<'a>(
     minter_config: &AccountView,
     minter_config_bump: u8,
@@ -55,6 +57,8 @@ pub fn cpi_spiko_token_mint<'a>(
     recipient_perms: &AccountView,
     token_2022_program: &AccountView,
     spiko_token_program: &AccountView,
+    st_event_authority: &AccountView,
+    st_self_program: &AccountView,
     amount: u64,
 ) -> ProgramResult {
     // Build instruction data: discriminator(1) + amount(8 bytes LE)
@@ -72,6 +76,8 @@ pub fn cpi_spiko_token_mint<'a>(
         InstructionAccount::readonly(minter_user_perms.address()), // minter's user perms (ROLE_MINTER)
         InstructionAccount::readonly(recipient_perms.address()), // recipient's user perms (whitelist)
         InstructionAccount::readonly(token_2022_program.address()), // token-2022 program
+        InstructionAccount::readonly(st_event_authority.address()), // spiko-token event authority PDA
+        InstructionAccount::readonly(st_self_program.address()), // spiko-token program (self_program)
     ];
 
     let instruction = InstructionView {
@@ -96,6 +102,8 @@ pub fn cpi_spiko_token_mint<'a>(
             minter_user_perms,
             recipient_perms,
             token_2022_program,
+            st_event_authority,
+            st_self_program,
             spiko_token_program,
         ],
         &[signer],

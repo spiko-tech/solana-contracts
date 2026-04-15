@@ -28,6 +28,8 @@ import {
   redemptionConfigPda,
   vaultAuthorityPda,
   redemptionOperationPda,
+  spikoTokenEventAuthorityPda,
+  redemptionEventAuthorityPda,
 } from "./lib/pda.js";
 import { executeRedemption } from "./lib/instructions.js";
 import {
@@ -96,6 +98,8 @@ async function main() {
 
   // Derive vault ATA
   const vaultAta = await getAssociatedTokenAddress(vaultAuthAddr, mintAddr);
+  const [rdEventAuth] = await redemptionEventAuthorityPda();
+  const [stEventAuth] = await spikoTokenEventAuthorityPda();
 
   console.log(`TokenConfig:       ${tokenConfigAddr}`);
   console.log(`MintAuthority:     ${mintAuthAddr}`);
@@ -121,7 +125,9 @@ async function main() {
     vaultAuthPermsAddr,
     userAddr,
     rawAmount,
-    salt
+    salt,
+    stEventAuth,
+    rdEventAuth,
   );
 
   // Send transaction

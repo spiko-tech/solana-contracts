@@ -108,6 +108,7 @@ const REDEMPTION_CONFIG_SEED = enc.encode("redemption_config");
 const TOKEN_MINIMUM_SEED = enc.encode("minimum");
 const VAULT_SEED = enc.encode("vault");
 const REDEMPTION_OPERATION_SEED = enc.encode("redemption_op");
+const EVENT_AUTHORITY_SEED = enc.encode("event_authority");
 
 // =================================================================
 // PDA Derivation
@@ -206,6 +207,43 @@ export async function redemptionOperationPda(operationId: Uint8Array): Promise<r
   return getProgramDerivedAddress({
     programAddress: REDEMPTION_PROGRAM_ADDRESS,
     seeds: [REDEMPTION_OPERATION_SEED, operationId],
+  });
+}
+
+// ── Event Authority PDAs (self-CPI event emission) ──
+
+export async function permissionManagerEventAuthorityPda(): Promise<readonly [Address, number]> {
+  return getProgramDerivedAddress({
+    programAddress: PERMISSION_MANAGER_PROGRAM_ADDRESS,
+    seeds: [EVENT_AUTHORITY_SEED],
+  });
+}
+
+export async function spikoTokenEventAuthorityPda(): Promise<readonly [Address, number]> {
+  return getProgramDerivedAddress({
+    programAddress: SPIKO_TOKEN_PROGRAM_ADDRESS,
+    seeds: [EVENT_AUTHORITY_SEED],
+  });
+}
+
+export async function transferHookEventAuthorityPda(): Promise<readonly [Address, number]> {
+  return getProgramDerivedAddress({
+    programAddress: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS,
+    seeds: [EVENT_AUTHORITY_SEED],
+  });
+}
+
+export async function minterEventAuthorityPda(): Promise<readonly [Address, number]> {
+  return getProgramDerivedAddress({
+    programAddress: MINTER_PROGRAM_ADDRESS,
+    seeds: [EVENT_AUTHORITY_SEED],
+  });
+}
+
+export async function redemptionEventAuthorityPda(): Promise<readonly [Address, number]> {
+  return getProgramDerivedAddress({
+    programAddress: REDEMPTION_PROGRAM_ADDRESS,
+    seeds: [EVENT_AUTHORITY_SEED],
   });
 }
 
@@ -449,7 +487,8 @@ export function buildTransferChecked(
   recipientPermsAddr: Address,
   extraAccountMetaListAddr: Address,
   amount: bigint,
-  decimals: number
+  decimals: number,
+  transferHookEventAuthority: Address,
 ) {
   // Data: opcode(1) + amount(u64 LE) + decimals(u8) = 10 bytes
   const data = new Uint8Array(10);
@@ -471,6 +510,7 @@ export function buildTransferChecked(
       { address: tokenConfigAddr, role: AccountRole.READONLY as const },
       { address: senderPermsAddr, role: AccountRole.READONLY as const },
       { address: recipientPermsAddr, role: AccountRole.READONLY as const },
+      { address: transferHookEventAuthority, role: AccountRole.READONLY as const },
       { address: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address, role: AccountRole.READONLY as const },
     ],
     data: data as ReadonlyUint8Array,

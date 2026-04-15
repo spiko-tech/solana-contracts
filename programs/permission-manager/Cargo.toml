@@ -11,6 +11,7 @@ crate-type = ["cdylib", "lib"]
 pinocchio = { workspace = true }
 pinocchio-system = { workspace = true }
 pinocchio-log = { workspace = true }
+const-crypto = { workspace = true }
 spiko-common = { path = "../spiko-common" }
 spiko-events = { path = "../spiko-events" }
 

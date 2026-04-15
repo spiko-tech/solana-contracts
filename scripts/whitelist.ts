@@ -7,7 +7,7 @@
 
 import { address } from "@solana/kit";
 import { ROLE_WHITELISTED, ROLE_NAMES } from "./lib/constants.js";
-import { permissionConfigPda, userPermissionsPda } from "./lib/pda.js";
+import { permissionConfigPda, userPermissionsPda, permissionManagerEventAuthorityPda } from "./lib/pda.js";
 import { grantRole } from "./lib/instructions.js";
 import { setup, sendTx } from "./lib/shared.js";
 
@@ -28,6 +28,7 @@ async function main() {
   const [permConfigAddr] = await permissionConfigPda();
   const [adminPermsAddr] = await userPermissionsPda(admin.address);
   const [targetPermsAddr] = await userPermissionsPda(userAddr);
+  const [pmEventAuth] = await permissionManagerEventAuthorityPda();
 
   console.log(`PermissionConfig: ${permConfigAddr}`);
   console.log(`Admin UserPerms:  ${adminPermsAddr}`);
@@ -42,7 +43,8 @@ async function main() {
     targetPermsAddr,
     userAddr,
     adminPermsAddr,
-    ROLE_WHITELISTED
+    ROLE_WHITELISTED,
+    pmEventAuth,
   );
 
   await sendTx(rpc, rpcSub, admin, [ix], `GrantRole(${ROLE_NAMES[ROLE_WHITELISTED]})`);

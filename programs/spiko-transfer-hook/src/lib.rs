@@ -8,7 +8,27 @@ pub mod state;
 
 pub use instructions::*;
 
-pub const ID: Address = Address::new_from_array([0; 32]);
+/// Spiko Transfer Hook program ID: ELVnmZLEqP9GvP1pJjpVhDEFrVaK6tJJEzjfNZxLrbm5
+pub const ID: Address = Address::new_from_array([
+    0xc6, 0x26, 0x84, 0x71, 0xdf, 0x9c, 0x51, 0x6d, 0xb4, 0xd7, 0x58, 0x06, 0x0a, 0x23, 0xe6, 0x9f,
+    0x8a, 0xdc, 0x39, 0xe0, 0x4b, 0x16, 0xef, 0x67, 0xa8, 0x48, 0xd6, 0x52, 0xa2, 0x83, 0x32, 0x7c,
+]);
+
+/// Event authority PDA derived at compile time from the program ID.
+pub mod event_authority_pda {
+    use const_crypto::ed25519;
+    use pinocchio::address::Address;
+    use spiko_events::EVENT_AUTHORITY_SEED;
+
+    const RESULT: ([u8; 32], u8) =
+        ed25519::derive_program_address(&[EVENT_AUTHORITY_SEED], crate::ID.as_array());
+
+    pub const ID: Address = Address::new_from_array(RESULT.0);
+    pub const BUMP: u8 = RESULT.1;
+}
+
+/// Discriminator for the EmitEvent instruction.
+pub const EMIT_EVENT_DISCRIMINATOR: u8 = 255;
 
 /// Transfer Hook Execute sighash: SHA256("spl-transfer-hook-interface:execute")[0..8]
 #[cfg(not(feature = "no-entrypoint"))]
@@ -36,8 +56,11 @@ fn process_instruction(
         .split_first()
         .ok_or(pinocchio::error::ProgramError::InvalidInstructionData)?;
 
-    match discriminator {
+    match *discriminator {
         0 => InitExtraAccountMetas::try_from((data, accounts))?.process(program_id),
+        EMIT_EVENT_DISCRIMINATOR => {
+            spiko_events::process_emit_event(accounts, &event_authority_pda::ID)
+        }
         _ => Err(pinocchio::error::ProgramError::InvalidInstructionData),
     }
 }

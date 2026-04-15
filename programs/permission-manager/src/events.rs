@@ -1,9 +1,14 @@
 //! Structured events for the Permission Manager program.
 //!
-//! Each function emits an Anchor-compatible event via `sol_log_data`:
-//! discriminator (8 bytes) = SHA256("event:<EventName>")[0..8], then LE-packed fields.
+//! Each function builds an Anchor-compatible CPI event payload:
+//! `EVENT_IX_TAG (8) + discriminator (8) + LE-packed fields`.
+//!
+//! Discriminator = SHA256("event:<EventName>")[0..8].
 
-use spiko_events::{emit_event, pack_address, pack_disc, pack_u8};
+extern crate alloc;
+
+use alloc::vec::Vec;
+use spiko_events::{build_event_data, push_address, push_u8};
 
 // SHA256("event:PermissionManagerInitialized")[0..8]
 const DISC_PERMISSION_MANAGER_INITIALIZED: [u8; 8] =
@@ -17,54 +22,54 @@ const DISC_OWNERSHIP_TRANSFER_STARTED: [u8; 8] = [0xb7, 0xfd, 0xef, 0xf6, 0x8c, 
 // SHA256("event:OwnershipTransferred")[0..8]
 const DISC_OWNERSHIP_TRANSFERRED: [u8; 8] = [0xac, 0x3d, 0xcd, 0xb7, 0xfa, 0x32, 0x26, 0x62];
 
+/// Build `PermissionManagerInitialized` event data.
+/// Fields: admin (32 bytes)
 #[inline]
-pub fn emit_permission_manager_initialized(admin: &[u8; 32]) {
-    pinocchio_log::log!("PermissionManagerInitialized");
-    let mut buf = [0u8; 40];
-    let off = pack_disc(&mut buf, &DISC_PERMISSION_MANAGER_INITIALIZED);
-    pack_address(&mut buf, off, admin);
-    emit_event(&buf);
+pub fn build_permission_manager_initialized_event(admin: &[u8; 32]) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_PERMISSION_MANAGER_INITIALIZED, 32);
+    push_address(&mut data, admin);
+    data
 }
 
+/// Build `RoleGranted` event data.
+/// Fields: caller (32) + target (32) + role_id (1)
 #[inline]
-pub fn emit_role_granted(caller: &[u8; 32], target: &[u8; 32], role_id: u8) {
-    pinocchio_log::log!("RoleGranted");
-    let mut buf = [0u8; 73];
-    let off = pack_disc(&mut buf, &DISC_ROLE_GRANTED);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, target);
-    pack_u8(&mut buf, off, role_id);
-    emit_event(&buf);
+pub fn build_role_granted_event(caller: &[u8; 32], target: &[u8; 32], role_id: u8) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_ROLE_GRANTED, 65);
+    push_address(&mut data, caller);
+    push_address(&mut data, target);
+    push_u8(&mut data, role_id);
+    data
 }
 
+/// Build `RoleRemoved` event data.
+/// Fields: caller (32) + target (32) + role_id (1)
 #[inline]
-pub fn emit_role_removed(caller: &[u8; 32], target: &[u8; 32], role_id: u8) {
-    pinocchio_log::log!("RoleRemoved");
-    let mut buf = [0u8; 73];
-    let off = pack_disc(&mut buf, &DISC_ROLE_REMOVED);
-    let off = pack_address(&mut buf, off, caller);
-    let off = pack_address(&mut buf, off, target);
-    pack_u8(&mut buf, off, role_id);
-    emit_event(&buf);
+pub fn build_role_removed_event(caller: &[u8; 32], target: &[u8; 32], role_id: u8) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_ROLE_REMOVED, 65);
+    push_address(&mut data, caller);
+    push_address(&mut data, target);
+    push_u8(&mut data, role_id);
+    data
 }
 
+/// Build `OwnershipTransferStarted` event data.
+/// Fields: admin (32) + new_admin (32)
 #[inline]
-pub fn emit_ownership_transfer_started(admin: &[u8; 32], new_admin: &[u8; 32]) {
-    pinocchio_log::log!("OwnershipTransferStarted");
-    let mut buf = [0u8; 72];
-    let off = pack_disc(&mut buf, &DISC_OWNERSHIP_TRANSFER_STARTED);
-    let off = pack_address(&mut buf, off, admin);
-    pack_address(&mut buf, off, new_admin);
-    emit_event(&buf);
+pub fn build_ownership_transfer_started_event(admin: &[u8; 32], new_admin: &[u8; 32]) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_OWNERSHIP_TRANSFER_STARTED, 64);
+    push_address(&mut data, admin);
+    push_address(&mut data, new_admin);
+    data
 }
 
+/// Build `OwnershipTransferred` event data.
+/// Fields: new_admin (32)
 #[inline]
-pub fn emit_ownership_transferred(new_admin: &[u8; 32]) {
-    pinocchio_log::log!("OwnershipTransferred");
-    let mut buf = [0u8; 40];
-    let off = pack_disc(&mut buf, &DISC_OWNERSHIP_TRANSFERRED);
-    pack_address(&mut buf, off, new_admin);
-    emit_event(&buf);
+pub fn build_ownership_transferred_event(new_admin: &[u8; 32]) -> Vec<u8> {
+    let mut data = build_event_data(&DISC_OWNERSHIP_TRANSFERRED, 32);
+    push_address(&mut data, new_admin);
+    data
 }
 
 #[cfg(test)]

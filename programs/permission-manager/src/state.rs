@@ -1,4 +1,9 @@
-use pinocchio::address::Address;
+use pinocchio::{account::AccountView, address::Address, error::ProgramError};
+
+use spiko_common::{
+    assert_no_padding, AccountDeserialize, AccountSize, Discriminator, PdaAccount, PdaSeeds,
+    Versioned,
+};
 
 pub const ROLE_MINTER: u8 = 0;
 pub const ROLE_PAUSER: u8 = 1;
@@ -30,6 +35,7 @@ pub fn has_role(bitmask: &[u8; ROLE_BITMASK_LEN], role: u8) -> bool {
 pub const PERMISSION_CONFIG_SEED: &[u8] = b"permission_config";
 pub const USER_PERMISSION_SEED: &[u8] = b"user_perm";
 
+/// Backward-compatible discriminator constants for cross-program imports.
 pub const DISCRIMINATOR_PERMISSION_CONFIG: u8 = 1;
 pub const DISCRIMINATOR_USER_PERMISSION: u8 = 2;
 
@@ -39,39 +45,70 @@ pub const ZERO_ADDRESS: Address = Address::new_from_array([0u8; 32]);
 ///
 /// Seeds: ["permission_config"]
 ///
-/// Layout (total: 66 bytes):
-///   [0]       discriminator (u8)
-///   [1]       bump (u8)
-///   [2..34]   admin authority (Address / 32 bytes)
-///   [34..66]  pending admin (Address / 32 bytes, zero if none)
+/// On-chain layout (total: 67 bytes):
+///   [0]       discriminator (u8) — external, trait-provided
+///   [1]       version (u8) — external, trait-provided
+///   [2]       bump (u8)
+///   [3..35]   admin authority (Address / 32 bytes)
+///   [35..67]  pending admin (Address / 32 bytes, zero if none)
 #[repr(C)]
 pub struct PermissionConfig {
-    pub discriminator: u8,
     pub bump: u8,
     pub admin: Address,
     pub pending_admin: Address,
 }
 
+assert_no_padding!(PermissionConfig, 1 + 32 + 32);
+
+impl Discriminator for PermissionConfig {
+    const DISCRIMINATOR: u8 = DISCRIMINATOR_PERMISSION_CONFIG;
+}
+
+impl Versioned for PermissionConfig {
+    const VERSION: u8 = 1;
+}
+
+impl AccountSize for PermissionConfig {
+    const DATA_LEN: usize = 1 + 32 + 32; // bump + admin + pending_admin
+}
+
+impl AccountDeserialize for PermissionConfig {}
+
+impl PdaSeeds for PermissionConfig {
+    const PREFIX: &'static [u8] = PERMISSION_CONFIG_SEED;
+
+    fn validate_pda_address(
+        &self,
+        account: &AccountView,
+        program_id: &Address,
+    ) -> Result<u8, ProgramError> {
+        let (derived, bump) = Address::find_program_address(&[Self::PREFIX], program_id);
+        if account.address() != &derived {
+            return Err(ProgramError::InvalidSeeds);
+        }
+        Ok(bump)
+    }
+}
+
+impl PdaAccount for PermissionConfig {
+    fn bump(&self) -> u8 {
+        self.bump
+    }
+
+    fn validate_self(
+        &self,
+        account: &AccountView,
+        program_id: &Address,
+    ) -> Result<(), ProgramError> {
+        let (derived, _) = Address::find_program_address(&[Self::PREFIX], program_id);
+        if account.address() != &derived {
+            return Err(ProgramError::InvalidSeeds);
+        }
+        Ok(())
+    }
+}
+
 impl PermissionConfig {
-    pub const LEN: usize = core::mem::size_of::<Self>();
-
-    pub fn from_bytes(data: &[u8]) -> Result<&Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        if data[0] != DISCRIMINATOR_PERMISSION_CONFIG {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &*(data.as_ptr() as *const Self) })
-    }
-
-    pub fn from_bytes_mut(data: &mut [u8]) -> Result<&mut Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
-    }
-
     #[inline]
     pub fn has_pending_admin(&self) -> bool {
         self.pending_admin != ZERO_ADDRESS
@@ -82,37 +119,34 @@ impl PermissionConfig {
 ///
 /// Seeds: ["user_perm", user_pubkey]
 ///
-/// Layout (total: 34 bytes):
-///   [0]       discriminator (u8)
-///   [1]       bump (u8)
-///   [2..34]   roles bitmask (32 bytes = 256 bits)
+/// On-chain layout (total: 35 bytes):
+///   [0]       discriminator (u8) — external, trait-provided
+///   [1]       version (u8) — external, trait-provided
+///   [2]       bump (u8)
+///   [3..35]   roles bitmask (32 bytes = 256 bits)
 #[repr(C)]
 pub struct UserPermissions {
-    pub discriminator: u8,
     pub bump: u8,
     pub roles: [u8; ROLE_BITMASK_LEN],
 }
 
+assert_no_padding!(UserPermissions, 1 + 32);
+
+impl Discriminator for UserPermissions {
+    const DISCRIMINATOR: u8 = DISCRIMINATOR_USER_PERMISSION;
+}
+
+impl Versioned for UserPermissions {
+    const VERSION: u8 = 1;
+}
+
+impl AccountSize for UserPermissions {
+    const DATA_LEN: usize = 1 + 32; // bump + roles
+}
+
+impl AccountDeserialize for UserPermissions {}
+
 impl UserPermissions {
-    pub const LEN: usize = core::mem::size_of::<Self>();
-
-    pub fn from_bytes(data: &[u8]) -> Result<&Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        if data[0] != DISCRIMINATOR_USER_PERMISSION {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &*(data.as_ptr() as *const Self) })
-    }
-
-    pub fn from_bytes_mut(data: &mut [u8]) -> Result<&mut Self, pinocchio::error::ProgramError> {
-        if data.len() < Self::LEN {
-            return Err(pinocchio::error::ProgramError::InvalidAccountData);
-        }
-        Ok(unsafe { &mut *(data.as_mut_ptr() as *mut Self) })
-    }
-
     #[inline]
     pub fn has_role(&self, role: u8) -> bool {
         has_role(&self.roles, role)
