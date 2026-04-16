@@ -1,0 +1,205 @@
+{
+  "additionalPrograms": [],
+  "kind": "rootNode",
+  "program": {
+    "accounts": [],
+    "definedTypes": [
+      {
+        "kind": "definedTypeNode",
+        "name": "transferEvent",
+        "type": {
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "sender",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "mint",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "source",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "destination",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "amount",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            }
+          ],
+          "kind": "structTypeNode"
+        }
+      }
+    ],
+    "errors": [
+      {
+        "code": 0,
+        "kind": "errorNode",
+        "message": "Token is paused",
+        "name": "tokenPaused"
+      },
+      {
+        "code": 1,
+        "kind": "errorNode",
+        "message": "Sender is not whitelisted",
+        "name": "unauthorizedFrom"
+      },
+      {
+        "code": 2,
+        "kind": "errorNode",
+        "message": "Recipient is not whitelisted",
+        "name": "unauthorizedTo"
+      },
+      {
+        "code": 3,
+        "kind": "errorNode",
+        "message": "Unauthorized",
+        "name": "unauthorized"
+      },
+      {
+        "code": 4,
+        "kind": "errorNode",
+        "message": "Already initialized",
+        "name": "alreadyInitialized"
+      },
+      {
+        "code": 5,
+        "kind": "errorNode",
+        "message": "Not initialized",
+        "name": "notInitialized"
+      },
+      {
+        "code": 6,
+        "kind": "errorNode",
+        "message": "Invalid PDA",
+        "name": "invalidPda"
+      },
+      {
+        "code": 7,
+        "kind": "errorNode",
+        "message": "Invalid mint",
+        "name": "invalidMint"
+      }
+    ],
+    "instructions": [
+      {
+        "accounts": [
+          {
+            "docs": [
+              "Admin / deployer (payer)"
+            ],
+            "isSigner": true,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "admin"
+          },
+          {
+            "docs": [
+              "ExtraAccountMetaList PDA to be created"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "extraAccountMetaList"
+          },
+          {
+            "docs": [
+              "Token-2022 Mint"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "mint"
+          },
+          {
+            "docs": [
+              "TokenConfig PDA (owned by spiko-token)"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "tokenConfig"
+          },
+          {
+            "defaultValue": {
+              "kind": "publicKeyValueNode",
+              "publicKey": "3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd"
+            },
+            "docs": [
+              "SpikoToken program"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "spikoTokenProgram"
+          },
+          {
+            "defaultValue": {
+              "kind": "publicKeyValueNode",
+              "publicKey": "11111111111111111111111111111111"
+            },
+            "docs": [
+              "System program"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "systemProgram"
+          }
+        ],
+        "arguments": [
+          {
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 0
+            },
+            "defaultValueStrategy": "omitted",
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "type": {
+              "endian": "le",
+              "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "fieldDiscriminatorNode",
+            "name": "discriminator",
+            "offset": 0
+          }
+        ],
+        "kind": "instructionNode",
+        "name": "initExtraAccountMetas"
+      }
+    ],
+    "kind": "programNode",
+    "name": "spikoTransferHook",
+    "pdas": [],
+    "publicKey": "CKV53PkgjvoTmfpzdkbuQc9fMukqu7Qey7kLoSiTwYmY",
+    "version": "0.1.0"
+  },
+  "standard": "codama",
+  "version": "1.0.0"
+}

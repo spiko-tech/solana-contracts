@@ -1,3 +1,4 @@
+use codama::CodamaAccount;
 use pinocchio::{account::AccountView, address::Address, error::ProgramError};
 
 use spiko_common::{
@@ -31,9 +32,14 @@ pub const MAX_DELAY: i64 = 14 * 24 * 60 * 60; // 1_209_600
 ///   [1]       version (u8) -- external, trait-provided
 ///   [2]       bump (u8)
 ///   [3..35]   permission_manager program ID (Address / 32 bytes)
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[codama(field("discriminator", number(u8), default_value = 1))]
+#[codama(discriminator(field = "discriminator"))]
+#[codama(seed(type = string(utf8), value = "redemption_config"))]
 #[repr(C)]
 pub struct RedemptionConfig {
     pub bump: u8,
+    #[codama(type = public_key)]
     pub permission_manager: Address,
 }
 
@@ -96,9 +102,15 @@ impl PdaAccount for RedemptionConfig {
 ///   [1]       version (u8) -- external, trait-provided
 ///   [2]       bump (u8)
 ///   [3..11]   minimum_amount (u64, little-endian)
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[codama(field("discriminator", number(u8), default_value = 2))]
+#[codama(discriminator(field = "discriminator"))]
+#[codama(seed(type = string(utf8), value = "minimum"))]
+#[codama(seed(name = "mint", type = public_key))]
 #[repr(C)]
 pub struct TokenMinimum {
     pub bump: u8,
+    #[codama(type = number(u64))]
     minimum_amount: [u8; 8],
 }
 
@@ -140,12 +152,19 @@ impl TokenMinimum {
 ///   [4]       _padding (u8)
 ///   [5..13]   deadline (i64, little-endian, unix timestamp)
 ///   [13..45]  user address (Address / 32 bytes, for refund on cancel)
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[codama(field("discriminator", number(u8), default_value = 4))]
+#[codama(discriminator(field = "discriminator"))]
+#[codama(seed(type = string(utf8), value = "redemption_op"))]
+#[codama(seed(name = "operationId", type = bytes))]
 #[repr(C)]
 pub struct RedemptionOperation {
     pub bump: u8,
     pub status: u8,
     _padding: u8,
+    #[codama(type = number(i64))]
     deadline: [u8; 8],
+    #[codama(type = public_key)]
     pub user: Address,
 }
 

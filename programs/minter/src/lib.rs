@@ -1,8 +1,13 @@
 use pinocchio::{
-    account::AccountView, address::Address, entrypoint, error::ProgramError, ProgramResult,
+    account::AccountView,
+    address::{declare_id, Address},
+    entrypoint,
+    error::ProgramError,
+    ProgramResult,
 };
 
 pub mod error;
+pub mod event_types;
 pub mod events;
 pub mod helpers;
 pub mod instructions;
@@ -10,11 +15,7 @@ pub mod state;
 
 pub use instructions::*;
 
-/// Minter program ID: 3Ex4bd3DeBtV6k15z1heA9TZb3otbEFErznfkC1Vdwhn
-pub const ID: Address = Address::new_from_array([
-    0x21, 0x4a, 0x2e, 0xe5, 0x92, 0x86, 0x0e, 0x74, 0x40, 0xb1, 0x70, 0x5a, 0x01, 0xbb, 0xdf, 0x8b,
-    0xba, 0x5e, 0x51, 0x60, 0x9a, 0x00, 0x07, 0x5f, 0xa1, 0x2d, 0xa3, 0xbc, 0x83, 0x04, 0x86, 0x75,
-]);
+declare_id!("3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2");
 
 /// Event authority PDA derived at compile time from the program ID.
 pub mod event_authority_pda {

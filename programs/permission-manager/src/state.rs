@@ -1,3 +1,4 @@
+use codama::CodamaAccount;
 use pinocchio::{account::AccountView, address::Address, error::ProgramError};
 
 use spiko_common::{
@@ -51,6 +52,10 @@ pub const ZERO_ADDRESS: Address = Address::new_from_array([0u8; 32]);
 ///   [2]       bump (u8)
 ///   [3..35]   admin authority (Address / 32 bytes)
 ///   [35..67]  pending admin (Address / 32 bytes, zero if none)
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[codama(field("discriminator", number(u8), default_value = 1))]
+#[codama(discriminator(field = "discriminator"))]
+#[codama(seed(type = string(utf8), value = "permission_config"))]
 #[repr(C)]
 pub struct PermissionConfig {
     pub bump: u8,
@@ -124,9 +129,15 @@ impl PermissionConfig {
 ///   [1]       version (u8) — external, trait-provided
 ///   [2]       bump (u8)
 ///   [3..35]   roles bitmask (32 bytes = 256 bits)
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[codama(field("discriminator", number(u8), default_value = 2))]
+#[codama(discriminator(field = "discriminator"))]
+#[codama(seed(type = string(utf8), value = "user_perm"))]
+#[codama(seed(name = "user", type = public_key))]
 #[repr(C)]
 pub struct UserPermissions {
     pub bump: u8,
+    #[codama(type = bytes)]
     pub roles: [u8; ROLE_BITMASK_LEN],
 }
 

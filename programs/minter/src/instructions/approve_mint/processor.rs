@@ -86,11 +86,11 @@ impl<'a> ApproveMint<'a> {
             let op = MintOperation::from_bytes(&data)?;
 
             if op.status != STATUS_PENDING {
-                return Err(MinterError::NotPending.into());
+                return Err(MinterError::InvalidMintOperationStatus.into());
             }
 
             if now > op.deadline() {
-                return Err(MinterError::DeadlinePassed.into());
+                return Err(MinterError::MintDeadlinePassed.into());
             }
         }
 

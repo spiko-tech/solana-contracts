@@ -1,6 +1,7 @@
-use pinocchio::address::Address;
+use pinocchio::address::{declare_id, Address};
 
 pub mod error;
+pub mod event_types;
 pub mod events;
 pub mod helpers;
 pub mod instructions;
@@ -8,11 +9,7 @@ pub mod state;
 
 pub use instructions::*;
 
-/// Spiko Token program ID: 8voshdmG84WtPK7Es3okG1tjenfPfviyV66Zmnb1924r
-pub const ID: Address = Address::new_from_array([
-    0x75, 0xca, 0x97, 0x96, 0x10, 0x70, 0x30, 0x99, 0xeb, 0x06, 0x6d, 0xb0, 0xa2, 0xd9, 0x7f, 0xcb,
-    0x48, 0xbc, 0x34, 0x4b, 0x32, 0x01, 0x0f, 0xe8, 0x48, 0x5e, 0xc0, 0x08, 0x07, 0xda, 0x7b, 0xc3,
-]);
+declare_id!("3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd");
 
 /// Event authority PDA derived at compile time from the program ID.
 pub mod event_authority_pda {

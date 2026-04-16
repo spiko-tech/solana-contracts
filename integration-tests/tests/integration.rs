@@ -74,10 +74,10 @@ struct TestEnv {
 fn setup() -> TestEnv {
     std::env::set_var("SBF_OUT_DIR", "../target/deploy");
 
-    let perm_id = Pubkey::from_str("CJ6icPuFkWmvrRGVXdGqbbCoSZXsK4r6fkzT2Ndg6tzy").unwrap();
-    let token_id = Pubkey::from_str("8voshdmG84WtPK7Es3okG1tjenfPfviyV66Zmnb1924r").unwrap();
-    let minter_id = Pubkey::from_str("3Ex4bd3DeBtV6k15z1heA9TZb3otbEFErznfkC1Vdwhn").unwrap();
-    let redemption_id = Pubkey::from_str("7rwaFEEkYYHWx3U5UfidGVp5JyiB5VkPcLAxRYtkBHxi").unwrap();
+    let perm_id = Pubkey::from_str("2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc").unwrap();
+    let token_id = Pubkey::from_str("3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd").unwrap();
+    let minter_id = Pubkey::from_str("3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2").unwrap();
+    let redemption_id = Pubkey::from_str("8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX").unwrap();
 
     let perm_mollusk = Mollusk::new(&perm_id, "permission_manager");
     let token_mollusk = Mollusk::new(&token_id, "spiko_token");

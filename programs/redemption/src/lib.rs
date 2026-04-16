@@ -1,8 +1,13 @@
 use pinocchio::{
-    account::AccountView, address::Address, entrypoint, error::ProgramError, ProgramResult,
+    account::AccountView,
+    address::{declare_id, Address},
+    entrypoint,
+    error::ProgramError,
+    ProgramResult,
 };
 
 pub mod error;
+pub mod event_types;
 pub mod events;
 pub mod helpers;
 pub mod instructions;
@@ -10,11 +15,7 @@ pub mod state;
 
 pub use instructions::*;
 
-/// Redemption program ID: 7rwaFEEkYYHWx3U5UfidGVp5JyiB5VkPcLAxRYtkBHxi
-pub const ID: Address = Address::new_from_array([
-    0x65, 0xf1, 0x49, 0x8d, 0x39, 0xc4, 0xff, 0xdb, 0x73, 0x89, 0x2a, 0x4c, 0xc9, 0x9f, 0x93, 0xee,
-    0xf6, 0x81, 0x63, 0x37, 0x11, 0xae, 0xea, 0x3f, 0xa7, 0x3c, 0x4a, 0xea, 0xe0, 0x5c, 0xc7, 0xbf,
-]);
+declare_id!("8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX");
 
 /// Event authority PDA derived at compile time from the program ID.
 pub mod event_authority_pda {

@@ -1,0 +1,15 @@
+{
+  "name": "@spiko/redemption-client",
+  "version": "0.0.1",
+  "description": "TypeScript client for the Spiko Redemption program",
+  "private": true,
+  "type": "module",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "peerDependencies": {
+    "@solana/kit": "^2.1.0"
+  }
+}

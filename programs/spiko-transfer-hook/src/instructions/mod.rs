@@ -1,3 +1,4 @@
+pub mod definition;
 pub mod init_extra_account_metas;
 pub mod transfer_hook_execute;
 

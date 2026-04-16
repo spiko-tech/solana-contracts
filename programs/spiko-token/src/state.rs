@@ -1,3 +1,4 @@
+use codama::CodamaAccount;
 use pinocchio::{account::AccountView, address::Address, error::ProgramError};
 
 use spiko_common::{
@@ -28,6 +29,11 @@ pub const DISCRIMINATOR_TOKEN_CONFIG: u8 = 1;
 ///   [5..37]   permission_manager program ID (Address / 32 bytes)
 ///   [37..69]  spl_mint address (Address / 32 bytes)
 ///   [69..101] redemption_contract program ID (Address / 32 bytes, all zeros = not set)
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[codama(field("discriminator", number(u8), default_value = 1))]
+#[codama(discriminator(field = "discriminator"))]
+#[codama(seed(type = string(utf8), value = "token_config"))]
+#[codama(seed(name = "splMint", type = public_key))]
 #[repr(C)]
 pub struct TokenConfig {
     pub bump: u8,
@@ -88,6 +94,18 @@ impl PdaAccount for TokenConfig {
         }
         Ok(())
     }
+}
+
+/// Mint authority PDA — no on-chain data, used only as a CPI signer.
+///
+/// This struct exists solely so Codama auto-generates `findMintAuthorityPda`.
+/// Seeds: ["mint_authority", mint_pubkey]
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[codama(pda = "mintAuthority")]
+#[codama(seed(type = string(utf8), value = "mint_authority"))]
+#[codama(seed(name = "mint", type = public_key))]
+pub struct MintAuthority {
+    pub bump: u8,
 }
 
 impl TokenConfig {
