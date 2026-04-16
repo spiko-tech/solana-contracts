@@ -1,5 +1,6 @@
 pub mod approve_mint;
 pub mod cancel_mint;
+pub mod definition;
 pub mod initialize;
 pub mod initiate_mint;
 pub mod set_daily_limit;

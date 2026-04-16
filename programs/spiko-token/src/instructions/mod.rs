@@ -1,5 +1,6 @@
 pub mod burn;
 pub mod burn_from;
+pub mod definition;
 pub mod initialize;
 pub mod mint;
 pub mod pause;

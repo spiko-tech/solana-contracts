@@ -12,11 +12,17 @@ pinocchio = { workspace = true }
 pinocchio-system = { workspace = true }
 pinocchio-log = { workspace = true }
 const-crypto = { workspace = true }
+codama = { workspace = true }
+thiserror = { workspace = true }
 permission-manager = { path = "../permission-manager", features = ["no-entrypoint"] }
 spiko-token = { path = "../spiko-token", features = ["no-entrypoint"] }
 spiko-common = { path = "../spiko-common" }
 spiko-permission = { path = "../spiko-permission" }
 spiko-events = { path = "../spiko-events" }
+
+[build-dependencies]
+codama = { workspace = true }
+serde_json = { workspace = true }
 
 [dev-dependencies]
 mollusk-svm = "0.10"
@@ -31,3 +37,4 @@ sha2 = "0.10"
 default = ["perf"]
 perf = []
 no-entrypoint = []
+idl = []

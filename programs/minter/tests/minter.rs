@@ -973,6 +973,6 @@ fn test_cancel_mint_not_pending() {
             (event_authority_key, Account::default()),
             (program_id, create_program_account_loader_v3(&program_id)),
         ],
-        &[Check::err(ProgramError::Custom(3))], // NotPending = 3
+        &[Check::err(ProgramError::Custom(7))], // InvalidMintOperationStatus = 7
     );
 }

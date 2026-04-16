@@ -1,6 +1,7 @@
-use pinocchio::address::Address;
+use pinocchio::address::{declare_id, Address};
 
 pub mod error;
+pub mod event_types;
 pub mod events;
 pub mod helpers;
 pub mod instructions;
@@ -8,11 +9,7 @@ pub mod state;
 
 pub use instructions::*;
 
-/// Spiko Transfer Hook program ID: ELVnmZLEqP9GvP1pJjpVhDEFrVaK6tJJEzjfNZxLrbm5
-pub const ID: Address = Address::new_from_array([
-    0xc6, 0x26, 0x84, 0x71, 0xdf, 0x9c, 0x51, 0x6d, 0xb4, 0xd7, 0x58, 0x06, 0x0a, 0x23, 0xe6, 0x9f,
-    0x8a, 0xdc, 0x39, 0xe0, 0x4b, 0x16, 0xef, 0x67, 0xa8, 0x48, 0xd6, 0x52, 0xa2, 0x83, 0x32, 0x7c,
-]);
+declare_id!("CKV53PkgjvoTmfpzdkbuQc9fMukqu7Qey7kLoSiTwYmY");
 
 /// Event authority PDA derived at compile time from the program ID.
 pub mod event_authority_pda {

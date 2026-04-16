@@ -10,3 +10,4 @@ pinocchio-system = { workspace = true }
 
 [target.'cfg(not(target_os = "solana"))'.dependencies]
 sha2 = "0.10"
+solana-address = { version = "2.0", features = ["curve25519"] }

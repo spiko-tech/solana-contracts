@@ -1,4 +1,5 @@
 pub mod error;
+pub mod event_types;
 pub mod events;
 pub mod helpers;
 pub mod instructions;
@@ -6,11 +7,8 @@ pub mod state;
 
 pub use instructions::*;
 
-/// Permission Manager program ID: CJ6icPuFkWmvrRGVXdGqbbCoSZXsK4r6fkzT2Ndg6tzy
-pub const ID: pinocchio::address::Address = pinocchio::address::Address::new_from_array([
-    0xa7, 0xd1, 0xe5, 0x07, 0xc0, 0x5a, 0xc9, 0x51, 0x0b, 0x3c, 0x48, 0xcb, 0x3c, 0xcd, 0xe9, 0xef,
-    0x56, 0x60, 0xa5, 0xea, 0xc7, 0x84, 0x96, 0x68, 0x17, 0xf0, 0xdd, 0xfe, 0x6b, 0x09, 0xf3, 0xc6,
-]);
+use pinocchio::address::declare_id;
+declare_id!("2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc");
 
 /// Event authority PDA derived at compile time from the program ID.
 pub mod event_authority_pda {

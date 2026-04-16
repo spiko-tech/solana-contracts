@@ -1,3 +1,4 @@
+use codama::CodamaAccount;
 use pinocchio::{account::AccountView, address::Address, error::ProgramError};
 
 use spiko_common::{
@@ -31,9 +32,14 @@ pub const SECONDS_PER_DAY: i64 = 86_400;
 ///   [11..43]  permission_manager program ID (Address / 32 bytes)
 ///
 /// Note: repr(C) with [u8;8] fields avoids alignment padding.
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[codama(field("discriminator", number(u8), default_value = 1))]
+#[codama(discriminator(field = "discriminator"))]
+#[codama(seed(type = string(utf8), value = "minter_config"))]
 #[repr(C)]
 pub struct MinterConfig {
     pub bump: u8,
+    #[codama(type = number(i64))]
     max_delay: [u8; 8],
     pub permission_manager: Address,
 }
@@ -109,11 +115,19 @@ impl MinterConfig {
 ///   [3..11]   limit (u64, little-endian)
 ///   [11..19]  used_amount (u64, little-endian)
 ///   [19..27]  last_day (i64, little-endian) -- floor(timestamp / 86400)
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[codama(field("discriminator", number(u8), default_value = 2))]
+#[codama(discriminator(field = "discriminator"))]
+#[codama(seed(type = string(utf8), value = "daily_limit"))]
+#[codama(seed(name = "mint", type = public_key))]
 #[repr(C)]
 pub struct DailyLimit {
     pub bump: u8,
+    #[codama(type = number(u64))]
     limit: [u8; 8],
+    #[codama(type = number(u64))]
     used_amount: [u8; 8],
+    #[codama(type = number(i64))]
     last_day: [u8; 8],
 }
 
@@ -201,10 +215,16 @@ impl DailyLimit {
 ///   [2]       bump (u8)
 ///   [3]       status (u8): NULL=0, PENDING=1, DONE=2
 ///   [4..12]   deadline (i64, little-endian, unix timestamp)
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[codama(field("discriminator", number(u8), default_value = 3))]
+#[codama(discriminator(field = "discriminator"))]
+#[codama(seed(type = string(utf8), value = "mint_op"))]
+#[codama(seed(name = "operationId", type = bytes))]
 #[repr(C, packed)]
 pub struct MintOperation {
     pub bump: u8,
     pub status: u8,
+    #[codama(type = number(i64))]
     deadline: [u8; 8],
 }
 

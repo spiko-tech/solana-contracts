@@ -1,4 +1,5 @@
 pub mod cancel_redemption;
+pub mod definition;
 pub mod execute_redemption;
 pub mod initialize;
 pub mod on_redeem;

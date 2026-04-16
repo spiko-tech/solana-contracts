@@ -88,7 +88,7 @@ impl<'a> InitiateMint<'a> {
                 if op_data.len() >= MintOperation::LEN {
                     let op = MintOperation::from_bytes(&op_data)?;
                     if op.status != STATUS_NULL {
-                        return Err(MinterError::OperationExists.into());
+                        return Err(MinterError::MintOperationExists.into());
                     }
                 }
             }
