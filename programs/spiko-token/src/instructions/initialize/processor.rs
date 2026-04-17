@@ -7,9 +7,11 @@ use pinocchio::{
     ProgramResult,
 };
 
+use spiko_events::EventSerialize;
+
 use crate::{
     error::TokenError,
-    events::build_token_initialized_event,
+    events::TokenInitializedEvent,
     helpers::{create_pda_account, token_config_seeds, verify_pda},
     state::{TokenConfig, MINT_AUTHORITY_SEED, TOKEN_CONFIG_SEED},
 };
@@ -247,16 +249,16 @@ impl<'a> InitializeToken<'a> {
             config.redemption_contract = Address::new_from_array([0u8; 32]); // not set initially
         }
 
-        let event_data = build_token_initialized_event(
-            &self.accounts.admin.address().to_bytes(),
-            &self.accounts.mint.address().to_bytes(),
+        let event = TokenInitializedEvent::new(
+            self.accounts.admin.address().clone(),
+            self.accounts.mint.address().clone(),
         );
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

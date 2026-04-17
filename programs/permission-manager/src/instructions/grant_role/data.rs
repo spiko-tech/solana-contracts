@@ -19,3 +19,7 @@ impl<'a> TryFrom<&'a [u8]> for GrantRoleData {
         Ok(Self { role_id: data[0] })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for GrantRoleData {
+    const LEN: usize = 1;
+}

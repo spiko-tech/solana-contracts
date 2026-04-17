@@ -5,11 +5,12 @@ use pinocchio::{
 use spiko_common::{AccountDeserialize, AccountSize};
 
 use crate::error::PermissionError;
-use crate::events::build_permission_manager_initialized_event;
+use crate::events::PermissionManagerInitializedEvent;
 use crate::helpers::{config_seeds, create_pda_account, user_perm_seeds, verify_pda};
 use crate::state::{
     PermissionConfig, UserPermissions, PERMISSION_CONFIG_SEED, USER_PERMISSION_SEED, ZERO_ADDRESS,
 };
+use spiko_events::EventSerialize;
 
 use super::accounts::InitializeAccounts;
 
@@ -82,14 +83,13 @@ impl<'a> Initialize<'a> {
             perms.roles = [0u8; 32];
         }
 
-        let event_data =
-            build_permission_manager_initialized_event(&self.accounts.admin.address().to_bytes());
+        let event = PermissionManagerInitializedEvent::new(self.accounts.admin.address().clone());
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

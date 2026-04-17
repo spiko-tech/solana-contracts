@@ -46,3 +46,5 @@ impl<'a> TryFrom<&'a [AccountView]> for InitializeAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for InitializeAccounts<'a> {}

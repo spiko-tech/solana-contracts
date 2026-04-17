@@ -25,3 +25,7 @@ impl<'a> TryFrom<&'a [u8]> for RedeemTokenData {
         Ok(Self { amount, salt })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for RedeemTokenData {
+    const LEN: usize = 16;
+}

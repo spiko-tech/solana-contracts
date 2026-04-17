@@ -53,3 +53,5 @@ impl<'a> TryFrom<&'a [AccountView]> for MintTokenAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for MintTokenAccounts<'a> {}

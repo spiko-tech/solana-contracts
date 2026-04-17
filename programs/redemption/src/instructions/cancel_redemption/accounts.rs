@@ -1,5 +1,7 @@
 use pinocchio::{account::AccountView, error::ProgramError};
 
+use spiko_common::InstructionAccounts;
+
 /// Accounts for the CancelRedemption instruction.
 ///
 ///   0. `[signer]`   Anyone (no permission check)
@@ -80,3 +82,5 @@ impl<'a> TryFrom<&'a [AccountView]> for CancelRedemptionAccounts<'a> {
         })
     }
 }
+
+impl<'a> InstructionAccounts<'a> for CancelRedemptionAccounts<'a> {}

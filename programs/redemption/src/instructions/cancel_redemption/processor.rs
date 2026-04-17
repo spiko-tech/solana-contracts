@@ -10,13 +10,15 @@ use spiko_common::AccountDeserialize;
 
 use crate::{
     error::RedemptionError,
-    events::build_redemption_canceled_event,
+    events::{event_authority_pda, RedemptionCanceledEvent},
     helpers::{compute_operation_id, cpi_token_2022_transfer, verify_pda},
     state::{
         RedemptionConfig, RedemptionOperation, REDEMPTION_OPERATION_SEED, STATUS_CANCELED,
         STATUS_PENDING, VAULT_SEED,
     },
 };
+
+use spiko_events::EventSerialize;
 
 use super::accounts::CancelRedemptionAccounts;
 use super::data::CancelRedemptionData;
@@ -108,10 +110,10 @@ impl<'a> CancelRedemption<'a> {
             op.status = STATUS_CANCELED;
         }
 
-        let event_data = build_redemption_canceled_event(
-            &self.accounts.caller.address().to_bytes(),
-            &self.data.user,
-            &self.accounts.token_mint.address().to_bytes(),
+        let event = RedemptionCanceledEvent::new(
+            self.accounts.caller.address().clone(),
+            Address::new_from_array(self.data.user),
+            self.accounts.token_mint.address().clone(),
             self.data.amount,
             self.data.salt,
         );
@@ -119,8 +121,8 @@ impl<'a> CancelRedemption<'a> {
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            event_authority_pda::BUMP,
         )?;
 
         Ok(())

@@ -1,8 +1,10 @@
 use pinocchio::{account::AccountView, address::Address, error::ProgramError, ProgramResult};
 use spiko_common::AccountDeserialize;
 
+use spiko_events::EventSerialize;
+
 use crate::{
-    error::TokenError, events::build_redemption_contract_set_event, helpers::require_admin,
+    error::TokenError, events::RedemptionContractSetEvent, helpers::require_admin,
     state::TokenConfig,
 };
 
@@ -51,17 +53,17 @@ impl<'a> SetRedemptionContract<'a> {
             config.redemption_contract = Address::new_from_array(self.data.redemption_contract);
         }
 
-        let event_data = build_redemption_contract_set_event(
-            &self.accounts.caller.address().to_bytes(),
-            &self.accounts.config.address().to_bytes(),
-            &self.data.redemption_contract,
+        let event = RedemptionContractSetEvent::new(
+            self.accounts.caller.address().clone(),
+            self.accounts.config.address().clone(),
+            Address::new_from_array(self.data.redemption_contract),
         );
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

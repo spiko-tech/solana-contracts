@@ -1,5 +1,7 @@
 use pinocchio::{account::AccountView, error::ProgramError};
 
+use spiko_common::InstructionAccounts;
+
 /// Accounts for the ExecuteRedemption instruction.
 ///
 ///   0.  `[signer]`   Operator (must have ROLE_REDEMPTION_EXECUTOR)
@@ -71,3 +73,5 @@ impl<'a> TryFrom<&'a [AccountView]> for ExecuteRedemptionAccounts<'a> {
         })
     }
 }
+
+impl<'a> InstructionAccounts<'a> for ExecuteRedemptionAccounts<'a> {}

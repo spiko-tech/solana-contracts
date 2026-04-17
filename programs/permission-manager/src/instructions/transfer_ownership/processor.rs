@@ -2,9 +2,10 @@ use pinocchio::{account::AccountView, address::Address, error::ProgramError, Pro
 
 use spiko_common::AccountDeserialize;
 
-use crate::events::build_ownership_transfer_started_event;
+use crate::events::OwnershipTransferStartedEvent;
 use crate::helpers::{require_admin, verify_pda};
 use crate::state::{PermissionConfig, PERMISSION_CONFIG_SEED};
+use spiko_events::EventSerialize;
 
 use super::accounts::TransferOwnershipAccounts;
 use super::data::TransferOwnershipData;
@@ -38,16 +39,16 @@ impl<'a> TransferOwnership<'a> {
             config.pending_admin = Address::new_from_array(self.data.new_admin.to_bytes());
         }
 
-        let event_data = build_ownership_transfer_started_event(
-            &self.accounts.admin.address().to_bytes(),
-            &self.data.new_admin.to_bytes(),
+        let event = OwnershipTransferStartedEvent::new(
+            self.accounts.admin.address().clone(),
+            self.data.new_admin.clone(),
         );
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

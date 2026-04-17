@@ -50,3 +50,5 @@ impl<'a> TryFrom<&'a [AccountView]> for BurnFromAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for BurnFromAccounts<'a> {}

@@ -41,3 +41,5 @@ impl<'a> TryFrom<&'a [AccountView]> for CancelMintAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for CancelMintAccounts<'a> {}

@@ -36,3 +36,5 @@ impl<'a> TryFrom<&'a [AccountView]> for SetMaxDelayAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for SetMaxDelayAccounts<'a> {}

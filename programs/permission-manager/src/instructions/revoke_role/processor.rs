@@ -3,9 +3,10 @@ use pinocchio::{account::AccountView, address::Address, error::ProgramError, Pro
 use spiko_common::AccountDeserialize;
 
 use crate::error::PermissionError;
-use crate::events::build_role_removed_event;
+use crate::events::RoleRemovedEvent;
 use crate::helpers::{require_admin_or_role, verify_pda};
 use crate::state::{UserPermissions, PERMISSION_CONFIG_SEED, USER_PERMISSION_SEED};
+use spiko_events::EventSerialize;
 
 use super::accounts::RevokeRoleAccounts;
 use super::data::RevokeRoleData;
@@ -61,17 +62,17 @@ impl<'a> RevokeRole<'a> {
             perms.clear_role(self.data.role_id);
         }
 
-        let event_data = build_role_removed_event(
-            &self.accounts.caller.address().to_bytes(),
-            &self.accounts.target_user.address().to_bytes(),
+        let event = RoleRemovedEvent::new(
+            self.accounts.caller.address().clone(),
+            self.accounts.target_user.address().clone(),
             self.data.role_id,
         );
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

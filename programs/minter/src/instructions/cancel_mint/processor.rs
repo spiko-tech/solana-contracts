@@ -3,9 +3,11 @@ use spiko_common::AccountDeserialize;
 
 use permission_manager::state::ROLE_MINT_APPROVER;
 
+use spiko_events::EventSerialize;
+
 use crate::{
     error::MinterError,
-    events::build_mint_canceled_event,
+    events::MintCanceledEvent,
     helpers::{compute_operation_id, require_permission, verify_pda},
     state::{MintOperation, MinterConfig, MINT_OPERATION_SEED, STATUS_DONE, STATUS_PENDING},
 };
@@ -80,10 +82,10 @@ impl<'a> CancelMint<'a> {
             op.status = STATUS_DONE;
         }
 
-        let event_data = build_mint_canceled_event(
-            &self.accounts.caller.address().to_bytes(),
-            &self.data.user,
-            &self.data.token_mint_key,
+        let event = MintCanceledEvent::new(
+            self.accounts.caller.address().clone(),
+            Address::new_from_array(self.data.user),
+            Address::new_from_array(self.data.token_mint_key),
             self.data.amount,
             self.data.salt,
         );
@@ -91,8 +93,8 @@ impl<'a> CancelMint<'a> {
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

@@ -64,3 +64,5 @@ impl<'a> TryFrom<&'a [AccountView]> for TransferTokenAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for TransferTokenAccounts<'a> {}

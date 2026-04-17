@@ -20,3 +20,7 @@ impl<'a> TryFrom<&'a [u8]> for MintTokenData {
         Ok(Self { amount })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for MintTokenData {
+    const LEN: usize = 8;
+}

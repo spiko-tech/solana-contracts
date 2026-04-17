@@ -28,3 +28,7 @@ impl<'a> TryFrom<&'a [u8]> for InitializeMinterData {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for InitializeMinterData {
+    const LEN: usize = 40;
+}

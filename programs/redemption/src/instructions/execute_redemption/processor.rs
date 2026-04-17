@@ -12,13 +12,15 @@ use permission_manager::state::ROLE_REDEMPTION_EXECUTOR;
 
 use crate::{
     error::RedemptionError,
-    events::build_redemption_executed_event,
+    events::{event_authority_pda, RedemptionExecutedEvent},
     helpers::{compute_operation_id, cpi_spiko_token_burn, require_permission, verify_pda},
     state::{
         RedemptionConfig, RedemptionOperation, REDEMPTION_OPERATION_SEED, STATUS_EXECUTED,
         STATUS_PENDING, VAULT_SEED,
     },
 };
+
+use spiko_events::EventSerialize;
 
 use super::accounts::ExecuteRedemptionAccounts;
 use super::data::ExecuteRedemptionData;
@@ -115,10 +117,10 @@ impl<'a> ExecuteRedemption<'a> {
             op.status = STATUS_EXECUTED;
         }
 
-        let event_data = build_redemption_executed_event(
-            &self.accounts.operator.address().to_bytes(),
-            &self.data.user,
-            &self.accounts.token_mint.address().to_bytes(),
+        let event = RedemptionExecutedEvent::new(
+            self.accounts.operator.address().clone(),
+            Address::new_from_array(self.data.user),
+            self.accounts.token_mint.address().clone(),
             self.data.amount,
             self.data.salt,
         );
@@ -126,8 +128,8 @@ impl<'a> ExecuteRedemption<'a> {
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            event_authority_pda::BUMP,
         )?;
 
         Ok(())

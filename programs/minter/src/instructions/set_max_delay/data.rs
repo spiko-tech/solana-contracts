@@ -20,3 +20,7 @@ impl<'a> TryFrom<&'a [u8]> for SetMaxDelayData {
         Ok(Self { max_delay })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for SetMaxDelayData {
+    const LEN: usize = 8;
+}

@@ -3,9 +3,10 @@ use pinocchio::{account::AccountView, address::Address, error::ProgramError, Pro
 use spiko_common::AccountDeserialize;
 
 use crate::error::PermissionError;
-use crate::events::build_ownership_transferred_event;
+use crate::events::OwnershipTransferredEvent;
 use crate::helpers::verify_pda;
 use crate::state::{PermissionConfig, PERMISSION_CONFIG_SEED, ZERO_ADDRESS};
+use spiko_events::EventSerialize;
 
 use super::accounts::AcceptOwnershipAccounts;
 
@@ -52,14 +53,13 @@ impl<'a> AcceptOwnership<'a> {
             config.pending_admin = ZERO_ADDRESS;
         }
 
-        let event_data =
-            build_ownership_transferred_event(&self.accounts.new_admin.address().to_bytes());
+        let event = OwnershipTransferredEvent::new(self.accounts.new_admin.address().clone());
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

@@ -21,7 +21,7 @@ import {
 } from "@solana/kit";
 
 export type MintApprovedEvent = {
-  caller: Address;
+  approver: Address;
   user: Address;
   mint: Address;
   amount: bigint;
@@ -29,7 +29,7 @@ export type MintApprovedEvent = {
 };
 
 export type MintApprovedEventArgs = {
-  caller: Address;
+  approver: Address;
   user: Address;
   mint: Address;
   amount: number | bigint;
@@ -38,7 +38,7 @@ export type MintApprovedEventArgs = {
 
 export function getMintApprovedEventEncoder(): FixedSizeEncoder<MintApprovedEventArgs> {
   return getStructEncoder([
-    ["caller", getAddressEncoder()],
+    ["approver", getAddressEncoder()],
     ["user", getAddressEncoder()],
     ["mint", getAddressEncoder()],
     ["amount", getU64Encoder()],
@@ -48,7 +48,7 @@ export function getMintApprovedEventEncoder(): FixedSizeEncoder<MintApprovedEven
 
 export function getMintApprovedEventDecoder(): FixedSizeDecoder<MintApprovedEvent> {
   return getStructDecoder([
-    ["caller", getAddressDecoder()],
+    ["approver", getAddressDecoder()],
     ["user", getAddressDecoder()],
     ["mint", getAddressDecoder()],
     ["amount", getU64Decoder()],

@@ -1,5 +1,7 @@
 use pinocchio::{account::AccountView, error::ProgramError};
 
+use spiko_common::InstructionAccounts;
+
 /// Accounts for the InitializeRedemption instruction.
 ///
 ///   0. `[signer, writable]` Admin / deployer (payer for PDA creation)
@@ -36,3 +38,5 @@ impl<'a> TryFrom<&'a [AccountView]> for InitializeRedemptionAccounts<'a> {
         })
     }
 }
+
+impl<'a> InstructionAccounts<'a> for InitializeRedemptionAccounts<'a> {}

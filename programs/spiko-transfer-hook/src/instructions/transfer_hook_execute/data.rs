@@ -21,3 +21,7 @@ impl<'a> TryFrom<&'a [u8]> for TransferHookExecuteData {
         Ok(Self { amount })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for TransferHookExecuteData {
+    const LEN: usize = 8;
+}

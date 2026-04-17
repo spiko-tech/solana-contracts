@@ -41,3 +41,5 @@ impl<'a> TryFrom<&'a [AccountView]> for InitExtraAccountMetasAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for InitExtraAccountMetasAccounts<'a> {}

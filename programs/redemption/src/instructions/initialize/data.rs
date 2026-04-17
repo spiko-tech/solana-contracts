@@ -1,5 +1,7 @@
 use pinocchio::error::ProgramError;
 
+use spiko_common::InstructionData;
+
 /// Instruction data for the InitializeRedemption instruction.
 ///
 /// Data layout:
@@ -20,4 +22,8 @@ impl<'a> TryFrom<&'a [u8]> for InitializeRedemptionData {
 
         Ok(Self { permission_manager })
     }
+}
+
+impl<'a> InstructionData<'a> for InitializeRedemptionData {
+    const LEN: usize = 32;
 }

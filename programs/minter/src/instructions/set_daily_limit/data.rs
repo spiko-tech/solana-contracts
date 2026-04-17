@@ -25,3 +25,7 @@ impl<'a> TryFrom<&'a [u8]> for SetDailyLimitData {
         Ok(Self { token_mint, limit })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for SetDailyLimitData {
+    const LEN: usize = 40;
+}

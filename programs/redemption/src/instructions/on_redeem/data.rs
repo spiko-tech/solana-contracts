@@ -1,5 +1,7 @@
 use pinocchio::error::ProgramError;
 
+use spiko_common::InstructionData;
+
 /// Instruction data for the OnRedeem instruction.
 ///
 /// Data layout (48 bytes, after discriminator is stripped by dispatch):
@@ -32,4 +34,8 @@ impl<'a> TryFrom<&'a [u8]> for OnRedeemData {
             salt,
         })
     }
+}
+
+impl<'a> InstructionData<'a> for OnRedeemData {
+    const LEN: usize = 48;
 }

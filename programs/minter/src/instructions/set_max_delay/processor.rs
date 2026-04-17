@@ -1,9 +1,10 @@
 use pinocchio::{account::AccountView, address::Address, error::ProgramError, ProgramResult};
 use spiko_common::AccountDeserialize;
 
+use spiko_events::EventSerialize;
+
 use crate::{
-    error::MinterError, events::build_max_delay_updated_event, helpers::require_admin,
-    state::MinterConfig,
+    error::MinterError, events::MaxDelayUpdatedEvent, helpers::require_admin, state::MinterConfig,
 };
 
 use super::accounts::SetMaxDelayAccounts;
@@ -50,16 +51,14 @@ impl<'a> SetMaxDelay<'a> {
             config.set_max_delay(self.data.max_delay);
         }
 
-        let event_data = build_max_delay_updated_event(
-            &self.accounts.caller.address().to_bytes(),
-            self.data.max_delay,
-        );
+        let event =
+            MaxDelayUpdatedEvent::new(self.accounts.caller.address().clone(), self.data.max_delay);
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

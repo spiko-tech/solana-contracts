@@ -183,25 +183,16 @@
     "definedTypes": [
       {
         "kind": "definedTypeNode",
-        "name": "redemptionInitializedEvent",
+        "name": "redemptionCanceledEvent",
         "type": {
           "fields": [
             {
               "kind": "structFieldTypeNode",
-              "name": "admin",
+              "name": "caller",
               "type": {
                 "kind": "publicKeyTypeNode"
               }
-            }
-          ],
-          "kind": "structTypeNode"
-        }
-      },
-      {
-        "kind": "definedTypeNode",
-        "name": "redemptionInitiatedEvent",
-        "type": {
-          "fields": [
+            },
             {
               "kind": "structFieldTypeNode",
               "name": "user",
@@ -231,15 +222,6 @@
               "type": {
                 "endian": "le",
                 "format": "u64",
-                "kind": "numberTypeNode"
-              }
-            },
-            {
-              "kind": "structFieldTypeNode",
-              "name": "deadline",
-              "type": {
-                "endian": "le",
-                "format": "i64",
                 "kind": "numberTypeNode"
               }
             }
@@ -297,16 +279,25 @@
       },
       {
         "kind": "definedTypeNode",
-        "name": "redemptionCanceledEvent",
+        "name": "redemptionInitializedEvent",
         "type": {
           "fields": [
             {
               "kind": "structFieldTypeNode",
-              "name": "caller",
+              "name": "admin",
               "type": {
                 "kind": "publicKeyTypeNode"
               }
-            },
+            }
+          ],
+          "kind": "structTypeNode"
+        }
+      },
+      {
+        "kind": "definedTypeNode",
+        "name": "redemptionInitiatedEvent",
+        "type": {
+          "fields": [
             {
               "kind": "structFieldTypeNode",
               "name": "user",
@@ -336,6 +327,15 @@
               "type": {
                 "endian": "le",
                 "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "deadline",
+              "type": {
+                "endian": "le",
+                "format": "i64",
                 "kind": "numberTypeNode"
               }
             }

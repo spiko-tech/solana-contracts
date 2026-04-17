@@ -44,3 +44,5 @@ impl<'a> TryFrom<&'a [AccountView]> for SetDailyLimitAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for SetDailyLimitAccounts<'a> {}

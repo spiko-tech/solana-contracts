@@ -1,5 +1,7 @@
 use pinocchio::error::ProgramError;
 
+use spiko_common::InstructionData;
+
 /// Instruction data for the SetMinimum instruction.
 ///
 /// Data layout:
@@ -27,4 +29,8 @@ impl<'a> TryFrom<&'a [u8]> for SetMinimumData {
             minimum,
         })
     }
+}
+
+impl<'a> InstructionData<'a> for SetMinimumData {
+    const LEN: usize = 40;
 }

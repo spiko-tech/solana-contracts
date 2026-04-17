@@ -24,3 +24,7 @@ impl<'a> TryFrom<&'a [u8]> for SetRedemptionContractData {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for SetRedemptionContractData {
+    const LEN: usize = 32;
+}

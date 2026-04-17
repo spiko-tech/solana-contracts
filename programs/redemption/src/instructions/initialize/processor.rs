@@ -6,10 +6,12 @@ use spiko_common::{AccountDeserialize, AccountSize};
 
 use crate::{
     error::RedemptionError,
-    events::build_redemption_initialized_event,
+    events::{event_authority_pda, RedemptionInitializedEvent},
     helpers::{create_pda_account, redemption_config_seeds, verify_pda},
     state::{RedemptionConfig, REDEMPTION_CONFIG_SEED},
 };
+
+use spiko_events::EventSerialize;
 
 use super::accounts::InitializeRedemptionAccounts;
 use super::data::InitializeRedemptionData;
@@ -61,14 +63,13 @@ impl<'a> InitializeRedemption<'a> {
             config.permission_manager = Address::new_from_array(self.data.permission_manager);
         }
 
-        let event_data =
-            build_redemption_initialized_event(&self.accounts.admin.address().to_bytes());
+        let event = RedemptionInitializedEvent::new(self.accounts.admin.address().clone());
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            event_authority_pda::BUMP,
         )?;
 
         Ok(())

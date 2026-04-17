@@ -5,9 +5,11 @@ use spiko_common::AccountDeserialize;
 use permission_manager::state::ROLE_WHITELISTED;
 use spiko_token::state::TokenConfig;
 
+use spiko_events::EventSerialize;
+
 use crate::{
     error::TransferHookError,
-    events::build_transfer_event,
+    events::TransferEvent,
     helpers::{require_not_paused, require_permission},
 };
 
@@ -105,19 +107,19 @@ impl<'a> TransferHookExecute<'a> {
             TransferHookError::UnauthorizedTo.into(),
         )?;
 
-        let event_data = build_transfer_event(
-            &self.accounts.authority.address().to_bytes(),
-            &self.accounts.mint.address().to_bytes(),
-            &self.accounts.source.address().to_bytes(),
-            &self.accounts.destination.address().to_bytes(),
+        let event = TransferEvent::new(
+            self.accounts.authority.address().clone(),
+            self.accounts.mint.address().clone(),
+            self.accounts.source.address().clone(),
+            self.accounts.destination.address().clone(),
             self.data.amount,
         );
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

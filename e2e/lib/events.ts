@@ -5,20 +5,16 @@
  * Keeps the log-line extraction, discriminator matching, RPC retry,
  * and pretty-print logic as thin wrappers.
  *
- * Supports two emission modes:
- *   - Legacy: `sol_log_data` -> `"Program data: <base64>"` log lines.
- *     Payload: event_discriminator(8) + LE-packed fields.
- *   - Self-CPI: inner instruction to the program's own `EmitEvent` no-op.
- *     CPI data on wire: [255] + EVENT_IX_TAG_LE(8) + event_discriminator(8) + fields.
+ * Supports self-CPI event emission:
+ *   Inner instruction to the program's own `EmitEvent` no-op.
+ *   CPI data on wire: [255] + EVENT_IX_TAG_LE(8) + event_discriminator(1) + LE-packed fields.
  *
- * `parseTransactionEvents` tries inner-instruction parsing first (new format),
- * then falls back to log-line parsing (old format) for backward compatibility.
+ * `parseTransactionEvents` decodes events from inner instructions, using the
+ * program ID from the CPI target to disambiguate 1-byte discriminators.
  *
- * Discriminator = SHA256("event:<EventName>")[0..8] (Anchor convention),
- * computed dynamically at module load time using Node.js crypto.
+ * Discriminators are 1-byte sequential enums per program, defined in each
+ * program's `discriminators/event.rs`.
  */
-
-import nodeCrypto from "node:crypto";
 
 import {
   type Address,
@@ -124,6 +120,13 @@ import {
   getTokenMinimumUpdatedEventDecoder,
 } from "../../clients/ts/redemption/src/generated/types/tokenMinimumUpdatedEvent.js";
 
+// ── Program addresses (imported from Codama-generated code) ───
+import { PERMISSION_MANAGER_PROGRAM_ADDRESS } from "../../clients/ts/permission-manager/src/generated/programs/index.js";
+import { SPIKO_TOKEN_PROGRAM_ADDRESS } from "../../clients/ts/spiko-token/src/generated/programs/index.js";
+import { MINTER_PROGRAM_ADDRESS } from "../../clients/ts/minter/src/generated/programs/index.js";
+import { REDEMPTION_PROGRAM_ADDRESS } from "../../clients/ts/redemption/src/generated/programs/index.js";
+import { SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS } from "../../clients/ts/spiko-transfer-hook/src/generated/programs/index.js";
+
 // =================================================================
 // Public types
 // =================================================================
@@ -135,20 +138,7 @@ export interface DecodedEvent {
 }
 
 // =================================================================
-// Discriminator computation
-// =================================================================
-
-/**
- * Compute event discriminator: SHA256("event:<EventName>")[0..8].
- * Uses Node.js sync crypto — no async needed.
- */
-function eventDiscriminator(name: string): Uint8Array {
-  const hash = nodeCrypto.createHash("sha256").update(`event:${name}`).digest();
-  return new Uint8Array(hash.buffer, hash.byteOffset, 8);
-}
-
-// =================================================================
-// Event registry: discriminator -> name + program + decoder
+// Event registry: (programAddress, 1-byte discriminator) -> entry
 // =================================================================
 
 interface EventEntry {
@@ -158,78 +148,85 @@ interface EventEntry {
 }
 
 /**
- * All 25 events with Codama-generated decoders.
- * Discriminators are computed dynamically from event names.
+ * Per-program event discriminator maps.
+ * Keys are the 1-byte discriminator value from the enum.
  */
-const EVENT_ENTRIES: EventEntry[] = [
-  // ── Permission Manager (5) ──
-  { name: "PermissionManagerInitialized", program: "PermissionManager", decoder: getPermissionManagerInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "RoleGranted",                  program: "PermissionManager", decoder: getRoleGrantedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "RoleRemoved",                  program: "PermissionManager", decoder: getRoleRemovedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "OwnershipTransferStarted",     program: "PermissionManager", decoder: getOwnershipTransferStartedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "OwnershipTransferred",         program: "PermissionManager", decoder: getOwnershipTransferredEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+const PROGRAM_EVENT_MAPS = new Map<string, Map<number, EventEntry>>();
 
-  // ── Spiko Token (7) ──
-  { name: "TokenInitialized",       program: "SpikoToken", decoder: getTokenInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "Mint",                   program: "SpikoToken", decoder: getMintEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "Burn",                   program: "SpikoToken", decoder: getBurnEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "RedeemInitiated",        program: "SpikoToken", decoder: getRedeemInitiatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "TokenPaused",            program: "SpikoToken", decoder: getTokenPausedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "TokenUnpaused",          program: "SpikoToken", decoder: getTokenUnpausedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "RedemptionContractSet",  program: "SpikoToken", decoder: getRedemptionContractSetEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-
-  // ── Transfer Hook (1) ──
-  { name: "Transfer", program: "TransferHook", decoder: getTransferEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-
-  // ── Minter (7) ──
-  { name: "MinterInitialized",  program: "Minter", decoder: getMinterInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "MintExecuted",       program: "Minter", decoder: getMintExecutedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "MintBlocked",        program: "Minter", decoder: getMintBlockedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "MintApproved",       program: "Minter", decoder: getMintApprovedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "MintCanceled",       program: "Minter", decoder: getMintCanceledEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "DailyLimitUpdated",  program: "Minter", decoder: getDailyLimitUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "MaxDelayUpdated",    program: "Minter", decoder: getMaxDelayUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-
-  // ── Redemption (5) ──
-  { name: "RedemptionInitialized",  program: "Redemption", decoder: getRedemptionInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "RedemptionInitiated",    program: "Redemption", decoder: getRedemptionInitiatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "RedemptionExecuted",     program: "Redemption", decoder: getRedemptionExecutedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "RedemptionCanceled",     program: "Redemption", decoder: getRedemptionCanceledEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { name: "TokenMinimumUpdated",    program: "Redemption", decoder: getTokenMinimumUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-];
-
-// =================================================================
-// Discriminator lookup map (built dynamically from event names)
-// =================================================================
-
-function discKey(disc: Uint8Array): string {
-  return Array.from(disc.slice(0, 8))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+function registerEvents(programAddress: Address, entries: Array<{ disc: number } & EventEntry>) {
+  const map = new Map<number, EventEntry>();
+  for (const { disc, ...entry } of entries) {
+    map.set(disc, entry);
+  }
+  PROGRAM_EVENT_MAPS.set(programAddress as string, map);
 }
 
-const DISC_MAP = new Map<string, EventEntry>();
-for (const entry of EVENT_ENTRIES) {
-  DISC_MAP.set(discKey(eventDiscriminator(entry.name)), entry);
-}
+// ── Permission Manager (5 events) ──
+registerEvents(PERMISSION_MANAGER_PROGRAM_ADDRESS, [
+  { disc: 0, name: "PermissionManagerInitialized", program: "PermissionManager", decoder: getPermissionManagerInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 1, name: "RoleGranted",                  program: "PermissionManager", decoder: getRoleGrantedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 2, name: "RoleRemoved",                  program: "PermissionManager", decoder: getRoleRemovedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 3, name: "OwnershipTransferStarted",     program: "PermissionManager", decoder: getOwnershipTransferStartedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 4, name: "OwnershipTransferred",         program: "PermissionManager", decoder: getOwnershipTransferredEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+]);
+
+// ── Spiko Token (7 events) ──
+registerEvents(SPIKO_TOKEN_PROGRAM_ADDRESS, [
+  { disc: 0, name: "TokenInitialized",       program: "SpikoToken", decoder: getTokenInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 1, name: "Mint",                   program: "SpikoToken", decoder: getMintEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 2, name: "Burn",                   program: "SpikoToken", decoder: getBurnEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 3, name: "RedeemInitiated",        program: "SpikoToken", decoder: getRedeemInitiatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 4, name: "TokenPaused",            program: "SpikoToken", decoder: getTokenPausedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 5, name: "TokenUnpaused",          program: "SpikoToken", decoder: getTokenUnpausedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 6, name: "RedemptionContractSet",  program: "SpikoToken", decoder: getRedemptionContractSetEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+]);
+
+// ── Transfer Hook (1 event) ──
+registerEvents(SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS, [
+  { disc: 0, name: "Transfer", program: "TransferHook", decoder: getTransferEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+]);
+
+// ── Minter (7 events) ──
+registerEvents(MINTER_PROGRAM_ADDRESS, [
+  { disc: 0, name: "MinterInitialized",  program: "Minter", decoder: getMinterInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 1, name: "MintExecuted",       program: "Minter", decoder: getMintExecutedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 2, name: "MintBlocked",        program: "Minter", decoder: getMintBlockedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 3, name: "MintApproved",       program: "Minter", decoder: getMintApprovedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 4, name: "MintCanceled",       program: "Minter", decoder: getMintCanceledEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 5, name: "DailyLimitUpdated",  program: "Minter", decoder: getDailyLimitUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 6, name: "MaxDelayUpdated",    program: "Minter", decoder: getMaxDelayUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+]);
+
+// ── Redemption (5 events) ──
+registerEvents(REDEMPTION_PROGRAM_ADDRESS, [
+  { disc: 0, name: "RedemptionInitialized",  program: "Redemption", decoder: getRedemptionInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 1, name: "RedemptionInitiated",    program: "Redemption", decoder: getRedemptionInitiatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 2, name: "RedemptionExecuted",     program: "Redemption", decoder: getRedemptionExecutedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 3, name: "RedemptionCanceled",     program: "Redemption", decoder: getRedemptionCanceledEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 4, name: "TokenMinimumUpdated",    program: "Redemption", decoder: getTokenMinimumUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+]);
 
 // =================================================================
 // Core decoder
 // =================================================================
 
 /**
- * Decode a single event from raw bytes.
- * Returns null if the discriminator is not recognized.
+ * Decode a single event from raw bytes, given the program that emitted it.
+ * The payload format is: [1-byte discriminator] + [LE-packed fields].
+ * Returns null if the discriminator is not recognized for the given program.
  */
-export function decodeEvent(data: Uint8Array): DecodedEvent | null {
-  if (data.length < 8) return null;
+export function decodeEvent(data: Uint8Array, programAddress: string): DecodedEvent | null {
+  if (data.length < 1) return null;
 
-  const key = discKey(data);
-  const entry = DISC_MAP.get(key);
+  const disc = data[0];
+  const programMap = PROGRAM_EVENT_MAPS.get(programAddress);
+  if (!programMap) return null;
+
+  const entry = programMap.get(disc);
   if (!entry) return null;
 
-  // Strip 8-byte discriminator, decode struct fields with Codama decoder
-  const body = data.slice(8);
+  // Strip 1-byte discriminator, decode struct fields with Codama decoder
+  const body = data.slice(1);
   const decoded = entry.decoder.decode(body);
 
   // Flatten to Record<string, string | bigint | number>
@@ -242,37 +239,15 @@ export function decodeEvent(data: Uint8Array): DecodedEvent | null {
 }
 
 /**
- * Extract and decode all Spiko events from transaction log messages (legacy mode).
- */
-export function decodeEventsFromLogs(logs: string[]): DecodedEvent[] {
-  const events: DecodedEvent[] = [];
-
-  for (const line of logs) {
-    const match = line.match(/^Program data: (.+)$/);
-    if (!match) continue;
-
-    const base64 = match[1];
-    const data = Buffer.from(base64, "base64");
-
-    const event = decodeEvent(new Uint8Array(data));
-    if (event) {
-      events.push(event);
-    }
-  }
-
-  return events;
-}
-
-/**
  * Check whether raw CPI data bytes match the self-CPI event envelope:
- *   [255] + EVENT_IX_TAG_LE(8) + event_disc(8) + fields
+ *   [255] + EVENT_IX_TAG_LE(8) + event_disc(1) + fields
  *
  * Returns the event payload starting at the event discriminator (offset 9),
  * or null if the data does not match.
  */
 function extractCpiEventPayload(data: Uint8Array): Uint8Array | null {
-  // Minimum: 1 (emit disc) + 8 (tag) + 8 (event disc) = 17 bytes
-  if (data.length < 17) return null;
+  // Minimum: 1 (emit disc) + 8 (tag) + 1 (event disc) = 10 bytes
+  if (data.length < 10) return null;
   if (data[0] !== EMIT_EVENT_DISCRIMINATOR) return null;
 
   // Verify EVENT_IX_TAG_LE at bytes 1..9
@@ -280,7 +255,7 @@ function extractCpiEventPayload(data: Uint8Array): Uint8Array | null {
     if (data[1 + i] !== EVENT_IX_TAG_LE[i]) return null;
   }
 
-  // Return bytes from offset 9 onward (event_disc + fields)
+  // Return bytes from offset 9 onward (event_disc(1) + fields)
   return data.slice(9);
 }
 
@@ -289,7 +264,11 @@ function extractCpiEventPayload(data: Uint8Array): Uint8Array | null {
  *
  * Each event is emitted as a CPI call to the program's own `EmitEvent`
  * instruction. The CPI data layout on the wire is:
- *   [255] + EVENT_IX_TAG_LE(8) + event_discriminator(8) + LE-packed fields
+ *   [255] + EVENT_IX_TAG_LE(8) + event_discriminator(1) + LE-packed fields
+ *
+ * The `programIdIndex` in each inner instruction identifies the target program
+ * via the transaction's `accountKeys`, enabling disambiguation of 1-byte
+ * discriminators across programs.
  */
 export function decodeEventsFromCpiInstructions(
   innerInstructions: Array<{
@@ -300,6 +279,7 @@ export function decodeEventsFromCpiInstructions(
       accounts: number[];
     }>;
   }>,
+  accountKeys: string[],
 ): DecodedEvent[] {
   const events: DecodedEvent[] = [];
 
@@ -315,7 +295,10 @@ export function decodeEventsFromCpiInstructions(
       const payload = extractCpiEventPayload(raw);
       if (!payload) continue;
 
-      const event = decodeEvent(payload);
+      const programAddress = accountKeys[ix.programIdIndex];
+      if (!programAddress) continue;
+
+      const event = decodeEvent(payload, programAddress);
       if (event) {
         events.push(event);
       }
@@ -356,8 +339,8 @@ function decodeBase58(str: string): Uint8Array {
 /**
  * Fetch a confirmed transaction by signature and decode its events.
  *
- * Tries self-CPI inner instruction parsing first (new format), then falls
- * back to log-line parsing (legacy format) for backward compatibility.
+ * Uses self-CPI inner instruction parsing with program ID context
+ * for 1-byte discriminator resolution.
  */
 export async function parseTransactionEvents(
   rpc: Rpc<SolanaRpcApi>,
@@ -375,16 +358,14 @@ export async function parseTransactionEvents(
       .send();
 
     if (tx?.meta) {
-      // Try inner instructions first (self-CPI events)
+      // Extract account keys from the transaction message
+      const message = (tx as any).transaction?.message;
+      const accountKeys: string[] = message?.accountKeys ?? [];
+
+      // Try inner instructions (self-CPI events)
       const innerIxs = (tx.meta as any).innerInstructions;
       if (innerIxs && Array.isArray(innerIxs) && innerIxs.length > 0) {
-        const events = decodeEventsFromCpiInstructions(innerIxs);
-        if (events.length > 0) return events;
-      }
-
-      // Fall back to log-line parsing (legacy sol_log_data events)
-      if (tx.meta.logMessages) {
-        const events = decodeEventsFromLogs(tx.meta.logMessages as string[]);
+        const events = decodeEventsFromCpiInstructions(innerIxs, accountKeys);
         if (events.length > 0) return events;
       }
     }

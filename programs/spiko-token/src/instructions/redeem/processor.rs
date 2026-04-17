@@ -10,9 +10,11 @@ use spiko_common::AccountDeserialize;
 
 use permission_manager::state::ROLE_WHITELISTED;
 
+use spiko_events::EventSerialize;
+
 use crate::{
     error::TokenError,
-    events::build_redeem_initiated_event,
+    events::RedeemInitiatedEvent,
     helpers::{read_mint_decimals, require_not_paused, require_permission, token_config_seeds},
     state::TokenConfig,
 };
@@ -198,9 +200,9 @@ impl<'a> RedeemToken<'a> {
             &[tc_signer],
         )?;
 
-        let event_data = build_redeem_initiated_event(
-            &self.accounts.user.address().to_bytes(),
-            &self.accounts.mint.address().to_bytes(),
+        let event = RedeemInitiatedEvent::new(
+            self.accounts.user.address().clone(),
+            self.accounts.mint.address().clone(),
             self.data.amount,
             self.data.salt,
         );
@@ -208,8 +210,8 @@ impl<'a> RedeemToken<'a> {
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())
