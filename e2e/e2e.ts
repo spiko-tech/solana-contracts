@@ -48,11 +48,17 @@ import { getTransferTokenInstruction } from "../clients/ts/spiko-token/src/gener
 import { getRedeemTokenInstruction } from "../clients/ts/spiko-token/src/generated/instructions/redeemToken.js";
 import { getExecuteRedemptionInstruction } from "../clients/ts/redemption/src/generated/instructions/executeRedemption.js";
 
+// ── Codama-generated instruction builders (custodial gatekeeper) ─
+import { getInitializeInstructionAsync as getInitializeCustodialGatekeeperInstructionAsync } from "../clients/ts/custodial-gatekeeper/src/generated/instructions/initialize.js";
+import { getSetDailyLimitInstruction as getCgSetDailyLimitInstruction } from "../clients/ts/custodial-gatekeeper/src/generated/instructions/setDailyLimit.js";
+import { getCustodialWithdrawInstruction } from "../clients/ts/custodial-gatekeeper/src/generated/instructions/custodialWithdraw.js";
+
 // ── Shared helpers ────────────────────────────────────────────
 import {
   ROLE_MINTER,
   ROLE_BURNER,
   ROLE_WHITELISTED,
+  ROLE_WHITELISTED_EXT,
   ROLE_WHITELISTER,
   ROLE_MINT_INITIATOR,
   ROLE_REDEMPTION_EXECUTOR,
@@ -60,6 +66,7 @@ import {
   SPIKO_TOKEN_PROGRAM_ADDRESS,
   SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS,
   REDEMPTION_PROGRAM_ADDRESS,
+  CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
   TOKEN_2022_PROGRAM_ID,
   findPermissionConfigPda,
   findUserPermissionsPda,
@@ -70,13 +77,18 @@ import {
   findRedemptionConfigPda,
   findRedemptionOperationPda,
   findTokenMinimumPda,
+  findGatekeeperConfigPda,
+  findWithdrawalDailyLimitPda,
+  findWithdrawalOperationPda,
   mintAuthorityPda,
   extraAccountMetaListPda,
   vaultAuthorityPda,
+  custodialGatekeeperVaultAuthorityPda,
   spikoTokenEventAuthorityPda,
   transferHookEventAuthorityPda,
   minterEventAuthorityPda,
   redemptionEventAuthorityPda,
+  custodialGatekeeperEventAuthorityPda,
   setup,
   getAssociatedTokenAddress,
   createAssociatedTokenAccountIdempotent,
@@ -110,6 +122,7 @@ const MINT_SHARES = 20;
 const TRANSFER_B_SHARES = 10; // Path B: spiko-token transfer
 const TRANSFER_A_SHARES = 5; // Path A: direct TransferChecked
 const REDEEM_SHARES = 10;
+const CUSTODIAL_WITHDRAW_SHARES = 1; // Custodial gatekeeper withdraw to user3
 
 // =================================================================
 // Helpers
@@ -211,6 +224,7 @@ async function main() {
   const whitelister = await generateKeyPairSigner();
   const user1 = await generateKeyPairSigner();
   const user2 = await generateKeyPairSigner();
+  const user3 = await generateKeyPairSigner(); // self-custodial (WHITELISTED_EXT)
 
   console.log("Accounts:");
   console.log(`  Admin:       ${admin.address}`);
@@ -220,6 +234,7 @@ async function main() {
   console.log(`  Whitelister: ${whitelister.address}`);
   console.log(`  User1:       ${user1.address}`);
   console.log(`  User2:       ${user2.address}`);
+  console.log(`  User3:       ${user3.address} (self-custodial)`);
 
   // ── Pre-compute raw amounts ────────────────────────────────
   const mintRawAmount = BigInt(Math.round(MINT_SHARES * 10 ** decimals));
@@ -230,9 +245,15 @@ async function main() {
     Math.round(TRANSFER_A_SHARES * 10 ** decimals),
   );
   const redeemRawAmount = BigInt(Math.round(REDEEM_SHARES * 10 ** decimals));
+  const custodialWithdrawRawAmount = BigInt(
+    Math.round(CUSTODIAL_WITHDRAW_SHARES * 10 ** decimals),
+  );
 
   const mintSalt = BigInt(Math.floor(Math.random() * Number.MAX_SAFE_INTEGER));
   const redeemSalt = BigInt(
+    Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
+  );
+  const custodialWithdrawSalt = BigInt(
     Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
   );
 
@@ -253,16 +274,29 @@ async function main() {
   const [extraMetaListAddr] = await extraAccountMetaListPda(mintAddr);
   const [tokenMinAddr] = await findTokenMinimumPda({ mint: mintAddr });
 
+  // Custodial Gatekeeper PDAs
+  const [cgConfigAddr] = await findGatekeeperConfigPda();
+  const [cgVaultAuthAddr] = await custodialGatekeeperVaultAuthorityPda();
+  const [cgVaultAuthPermsAddr] = await findUserPermissionsPda({
+    user: cgVaultAuthAddr,
+  });
+  const [cgDailyLimitAddr] = await findWithdrawalDailyLimitPda({
+    mint: mintAddr,
+  });
+
   // Event authority PDAs
   const [stEventAuth] = await spikoTokenEventAuthorityPda();
   const [thEventAuth] = await transferHookEventAuthorityPda();
   const [mtEventAuth] = await minterEventAuthorityPda();
   const [rdEventAuth] = await redemptionEventAuthorityPda();
+  const [cgEventAuth] = await custodialGatekeeperEventAuthorityPda();
 
   // ATAs
   const user1Ata = await getAssociatedTokenAddress(user1.address, mintAddr);
   const user2Ata = await getAssociatedTokenAddress(user2.address, mintAddr);
+  const user3Ata = await getAssociatedTokenAddress(user3.address, mintAddr);
   const vaultAta = await getAssociatedTokenAddress(vaultAuthAddr, mintAddr);
+  const cgVaultAta = await getAssociatedTokenAddress(cgVaultAuthAddr, mintAddr);
 
   // ═══════════════════════════════════════════════════════════
   //  SETUP PHASE: Create all on-chain state from scratch
@@ -468,6 +502,79 @@ async function main() {
     );
   }
 
+  // ── S12: Initialize CustodialGatekeeper ────────────────────
+  console.log("\n--- S12: Initialize CustodialGatekeeper ---\n");
+  {
+    if (!(await accountExists(rpc, cgConfigAddr))) {
+      const ix = await getInitializeCustodialGatekeeperInstructionAsync({
+        admin,
+        permissionManager: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
+        maxDelay: MAX_DELAY,
+        eventAuthority: cgEventAuth,
+      });
+      await sendAndCapture(
+        rpc,
+        rpcSub,
+        admin,
+        [ix],
+        "Initialize(CustodialGatekeeper)",
+      );
+    } else {
+      console.log("  (CustodialGatekeeper already initialized — skipping)");
+    }
+  }
+
+  // ── S13: Grant WHITELISTED_EXT + WHITELISTED to CG VaultAuthority ──
+  console.log(
+    "\n--- S13: Grant WHITELISTED_EXT + WHITELISTED to CG VaultAuthority ---\n",
+  );
+  {
+    if (!(await accountExists(rpc, cgVaultAuthPermsAddr))) {
+      const ix1 = await getGrantRoleInstructionAsync({
+        caller: admin,
+        config: permConfigAddr,
+        targetUser: cgVaultAuthAddr,
+        roleId: ROLE_WHITELISTED_EXT,
+      });
+      const ix2 = await getGrantRoleInstructionAsync({
+        caller: admin,
+        config: permConfigAddr,
+        targetUser: cgVaultAuthAddr,
+        roleId: ROLE_WHITELISTED,
+      });
+      await sendAndCapture(
+        rpc,
+        rpcSub,
+        admin,
+        [ix1, ix2],
+        "GrantRole(WHITELISTED_EXT+WHITELISTED -> CG VaultAuth)",
+      );
+    } else {
+      console.log("  (CG VaultAuthority perms already exist — skipping)");
+    }
+  }
+
+  // ── S14: Set CustodialGatekeeper DailyLimit for this mint ──
+  console.log("\n--- S14: Set CustodialGatekeeper DailyLimit ---\n");
+  {
+    const ix = getCgSetDailyLimitInstruction({
+      caller: admin,
+      config: cgConfigAddr,
+      permConfig: permConfigAddr,
+      dailyLimit: cgDailyLimitAddr,
+      eventAuthority: cgEventAuth,
+      tokenMint: mintAddr,
+      limit: DAILY_LIMIT,
+    });
+    await sendAndCapture(
+      rpc,
+      rpcSub,
+      admin,
+      [ix],
+      "SetDailyLimit(CustodialGatekeeper)",
+    );
+  }
+
   console.log("\n========================================");
   console.log("  SETUP COMPLETE — Starting test flow");
   console.log("========================================\n");
@@ -477,7 +584,9 @@ async function main() {
   console.log(`Decimals:       ${decimals}`);
   console.log(`User1 ATA:      ${user1Ata}`);
   console.log(`User2 ATA:      ${user2Ata}`);
-  console.log(`Vault ATA:      ${vaultAta}\n`);
+  console.log(`User3 ATA:      ${user3Ata}`);
+  console.log(`Vault ATA:      ${vaultAta}`);
+  console.log(`CG Vault ATA:   ${cgVaultAta}\n`);
 
   // ── Fund accounts that need to sign ────────────────────────
   console.log("--- Funding accounts ---\n");
@@ -486,6 +595,7 @@ async function main() {
   await fundAccount(rpc, rpcSub, admin, whitelister.address);
   await fundAccount(rpc, rpcSub, admin, user1.address);
   await fundAccount(rpc, rpcSub, admin, user2.address);
+  await fundAccount(rpc, rpcSub, admin, user3.address);
   console.log();
 
   // ═══════════════════════════════════════════════════════════
@@ -620,6 +730,26 @@ async function main() {
         whitelister,
         [ix],
         "GrantRole(WHITELISTED -> User2)",
+      );
+    },
+  );
+
+  await step(
+    "Whitelister grants ROLE_WHITELISTED_EXT to User3 (self-custodial)",
+    ["RoleGranted"],
+    async () => {
+      const ix = await getGrantRoleInstructionAsync({
+        caller: whitelister,
+        config: permConfigAddr,
+        targetUser: user3.address,
+        roleId: ROLE_WHITELISTED_EXT,
+      });
+      return sendAndCapture(
+        rpc,
+        rpcSub,
+        whitelister,
+        [ix],
+        "GrantRole(WHITELISTED_EXT -> User3)",
       );
     },
   );
@@ -771,6 +901,149 @@ async function main() {
   );
 
   // ═══════════════════════════════════════════════════════════
+  // Step 7c: Direct transfer User1 -> User3 FAILS
+  //   (WHITELISTED sender cannot send to WHITELISTED_EXT recipient)
+  // ═══════════════════════════════════════════════════════════
+  {
+    totalSteps++;
+    console.log(
+      `\n--- Step ${totalSteps}: Direct transfer User1 -> User3 should FAIL ---\n`,
+    );
+
+    const instructions: any[] = [];
+
+    // Create User3's ATA if needed
+    if (!(await accountExists(rpc, user3Ata))) {
+      instructions.push(
+        createAssociatedTokenAccountIdempotent(
+          admin,
+          user3Ata,
+          user3.address,
+          mintAddr,
+        ),
+      );
+      // Send ATA creation separately so it doesn't fail with the transfer
+      await sendAndCapture(
+        rpc,
+        rpcSub,
+        admin,
+        instructions,
+        "CreateATA(User3)",
+      );
+    }
+
+    try {
+      const ix = getTransferTokenInstruction({
+        sender: user1,
+        config: tokenConfigAddr,
+        source: user1Ata,
+        destination: user3Ata,
+        mint: mintAddr,
+        senderPerms: (
+          await findUserPermissionsPda({ user: user1.address })
+        )[0],
+        recipientPerms: (
+          await findUserPermissionsPda({ user: user3.address })
+        )[0],
+        extraAccountMetaList: extraMetaListAddr,
+        permissionManagerProgram:
+          PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
+        spikoTokenProgram: SPIKO_TOKEN_PROGRAM_ADDRESS as Address,
+        hookEventAuthority: thEventAuth,
+        hookProgram: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address,
+        amount: custodialWithdrawRawAmount,
+      });
+      await sendAndCapture(
+        rpc,
+        rpcSub,
+        admin,
+        [ix],
+        "TransferToken(1 User1->User3, SHOULD FAIL)",
+      );
+      console.log("  ERROR: Transfer should have failed but succeeded!");
+    } catch (err: any) {
+      console.log(
+        "  OK: Direct transfer User1 -> User3 correctly rejected",
+      );
+      console.log(`  Error: ${err.message?.slice(0, 120) ?? err}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // Step 7d: Custodial withdraw User1 -> User3 via CustodialGatekeeper
+  //   (User1 WHITELISTED -> CG vault WHITELISTED, CG vault WHITELISTED_EXT -> User3 WHITELISTED_EXT)
+  // ═══════════════════════════════════════════════════════════
+  await step(
+    `User1 withdraws ${CUSTODIAL_WITHDRAW_SHARES} share to User3 via CustodialGatekeeper`,
+    ["WithdrawalInitiated", "Transfer"],
+    async () => {
+      const instructions: any[] = [];
+
+      // Create CG vault ATA if needed
+      if (!(await accountExists(rpc, cgVaultAta))) {
+        instructions.push(
+          createAssociatedTokenAccountIdempotent(
+            admin,
+            cgVaultAta,
+            cgVaultAuthAddr,
+            mintAddr,
+          ),
+        );
+      }
+
+      const operationId = await computeOperationId(
+        user3.address,
+        mintAddr,
+        custodialWithdrawRawAmount,
+        custodialWithdrawSalt,
+      );
+      const [withdrawalOpAddr] = await findWithdrawalOperationPda({
+        operationId,
+      });
+
+      instructions.push(
+        getCustodialWithdrawInstruction({
+          sender: user1,
+          config: cgConfigAddr,
+          dailyLimit: cgDailyLimitAddr,
+          withdrawalOp: withdrawalOpAddr,
+          senderTokenAccount: user1Ata,
+          vaultTokenAccount: cgVaultAta,
+          recipientTokenAccount: user3Ata,
+          vaultAuthority: cgVaultAuthAddr,
+          tokenMint: mintAddr,
+          senderPerms: (
+            await findUserPermissionsPda({ user: user1.address })
+          )[0],
+          recipientPerms: (
+            await findUserPermissionsPda({ user: user3.address })
+          )[0],
+          vaultAuthorityPerms: cgVaultAuthPermsAddr,
+          extraAccountMetaList: extraMetaListAddr,
+          permissionManagerProgram:
+            PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
+          spikoTokenProgram: SPIKO_TOKEN_PROGRAM_ADDRESS as Address,
+          tokenConfig: tokenConfigAddr,
+          hookEventAuthority: thEventAuth,
+          hookProgram: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address,
+          eventAuthority: cgEventAuth,
+          recipient: user3.address,
+          amount: custodialWithdrawRawAmount,
+          salt: custodialWithdrawSalt,
+        }),
+      );
+
+      return sendAndCapture(
+        rpc,
+        rpcSub,
+        admin,
+        instructions,
+        `CustodialWithdraw(${CUSTODIAL_WITHDRAW_SHARES} User1->User3)`,
+      );
+    },
+  );
+
+  // ═══════════════════════════════════════════════════════════
   // Step 8: User2 redeems 10 shares (tokens go to vault)
   // ═══════════════════════════════════════════════════════════
   await step(
@@ -890,13 +1163,16 @@ async function main() {
   // Summary
   // ═══════════════════════════════════════════════════════════
   // Steps 1-5: 5 x RoleGranted = 5
+  // Step 5b: RoleGranted = 1
   // Step 6: MintExecuted + Mint = 2
   // Step 7a: Transfer = 1
   // Step 7b: Transfer = 1
+  // Step 7c: (expected failure, no events)
+  // Step 7d: WithdrawalInitiated + Transfer(s) = at least 2
   // Step 8: RedeemInitiated + RedemptionInitiated + Transfer = 3
   // Step 9: RedemptionExecuted + Burn = 2
-  // Total = 14
-  const expectedTotal = 14;
+  // Total = 17 (minimum, transfer hooks may emit additional Transfer events)
+  const expectedTotal = 17;
 
   console.log(`\n\n=== E2E Test Complete ===`);
   console.log(`Steps:          ${totalSteps}`);
@@ -915,7 +1191,9 @@ async function main() {
   for (const [name, ata] of [
     ["User1", user1Ata],
     ["User2", user2Ata],
+    ["User3", user3Ata],
     ["Vault", vaultAta],
+    ["CG Vault", cgVaultAta],
   ] as const) {
     try {
       const { value } = await rpc
@@ -929,10 +1207,12 @@ async function main() {
   }
 
   // Expected final balances:
-  //   User1: 20 - 10 - 5 = 5 shares
+  //   User1: 20 - 10 - 5 - 1 = 4 shares
   //   User2: 10 + 5 - 10 = 5 shares
+  //   User3: 1 share (received via custodial gatekeeper)
   //   Vault: 10 - 10 = 0 shares (burned by executor)
-  console.log("\nExpected: User1=5, User2=5, Vault=0");
+  //   CG Vault: 0 shares (instant transfer to user3)
+  console.log("\nExpected: User1=4, User2=5, User3=1, Vault=0, CG Vault=0");
 }
 
 main().catch((err) => {

@@ -40,12 +40,14 @@ import { SPIKO_TOKEN_PROGRAM_ADDRESS } from "../../clients/ts/spiko-token/src/ge
 import { MINTER_PROGRAM_ADDRESS } from "../../clients/ts/minter/src/generated/programs/index.js";
 import { REDEMPTION_PROGRAM_ADDRESS } from "../../clients/ts/redemption/src/generated/programs/index.js";
 import { SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS } from "../../clients/ts/spiko-transfer-hook/src/generated/programs/index.js";
+import { CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS } from "../../clients/ts/custodial-gatekeeper/src/generated/programs/index.js";
 
 // ── Codama-generated PDA helpers ────────────────────────────────
 import { findPermissionConfigPda, findUserPermissionsPda } from "../../clients/ts/permission-manager/src/generated/pdas/index.js";
 import { findTokenConfigPda } from "../../clients/ts/spiko-token/src/generated/pdas/index.js";
 import { findMinterConfigPda, findDailyLimitPda, findMintOperationPda } from "../../clients/ts/minter/src/generated/pdas/index.js";
 import { findRedemptionConfigPda, findRedemptionOperationPda, findTokenMinimumPda } from "../../clients/ts/redemption/src/generated/pdas/index.js";
+import { findGatekeeperConfigPda, findWithdrawalDailyLimitPda, findWithdrawalOperationPda } from "../../clients/ts/custodial-gatekeeper/src/generated/pdas/index.js";
 
 // Re-export everything the E2E test needs
 export {
@@ -54,6 +56,7 @@ export {
   MINTER_PROGRAM_ADDRESS,
   REDEMPTION_PROGRAM_ADDRESS,
   SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS,
+  CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
   findPermissionConfigPda,
   findUserPermissionsPda,
   findTokenConfigPda,
@@ -63,6 +66,9 @@ export {
   findRedemptionConfigPda,
   findRedemptionOperationPda,
   findTokenMinimumPda,
+  findGatekeeperConfigPda,
+  findWithdrawalDailyLimitPda,
+  findWithdrawalOperationPda,
 };
 
 // =================================================================
@@ -90,6 +96,8 @@ export const ROLE_WHITELISTED = 4;
 export const ROLE_REDEMPTION_EXECUTOR = 5;
 export const ROLE_MINT_APPROVER = 6;
 export const ROLE_MINT_INITIATOR = 7;
+export const ROLE_WHITELISTED_EXT = 8;
+export const ROLE_CUSTODIAL_GATEKEEPER_APPROVER = 9;
 
 export const ROLE_NAMES: Record<number, string> = {
   [ROLE_MINTER]: "MINTER",
@@ -100,6 +108,8 @@ export const ROLE_NAMES: Record<number, string> = {
   [ROLE_REDEMPTION_EXECUTOR]: "REDEMPTION_EXECUTOR",
   [ROLE_MINT_APPROVER]: "MINT_APPROVER",
   [ROLE_MINT_INITIATOR]: "MINT_INITIATOR",
+  [ROLE_WHITELISTED_EXT]: "WHITELISTED_EXT",
+  [ROLE_CUSTODIAL_GATEKEEPER_APPROVER]: "CUSTODIAL_GATEKEEPER_APPROVER",
 };
 
 // =================================================================
@@ -169,6 +179,20 @@ export async function redemptionEventAuthorityPda(): Promise<readonly [Address, 
   return getProgramDerivedAddress({
     programAddress: REDEMPTION_PROGRAM_ADDRESS,
     seeds: [EVENT_AUTHORITY_SEED],
+  });
+}
+
+export async function custodialGatekeeperEventAuthorityPda(): Promise<readonly [Address, number]> {
+  return getProgramDerivedAddress({
+    programAddress: CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
+    seeds: [EVENT_AUTHORITY_SEED],
+  });
+}
+
+export async function custodialGatekeeperVaultAuthorityPda(): Promise<readonly [Address, number]> {
+  return getProgramDerivedAddress({
+    programAddress: CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
+    seeds: [VAULT_SEED],
   });
 }
 

@@ -8,7 +8,7 @@ pub mod state;
 pub use instructions::*;
 
 use pinocchio::address::declare_id;
-declare_id!("CGK1111111111111111111111111111111111111111");
+declare_id!("4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY");
 
 #[cfg(not(feature = "no-entrypoint"))]
 pub mod entrypoint;

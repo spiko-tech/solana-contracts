@@ -15,6 +15,7 @@ generate-idl:
     cargo check -p minter --features idl
     cargo check -p redemption --features idl
     cargo check -p spiko-transfer-hook --features idl
+    cargo check -p custodial-gatekeeper --features idl
 
 # Generate TypeScript clients from IDL files
 generate-clients: generate-idl

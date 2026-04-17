@@ -120,12 +120,33 @@ import {
   getTokenMinimumUpdatedEventDecoder,
 } from "../../clients/ts/redemption/src/generated/types/tokenMinimumUpdatedEvent.js";
 
+// ── Custodial Gatekeeper event decoders ───────────────────────
+import {
+  getGatekeeperInitializedEventDecoder,
+} from "../../clients/ts/custodial-gatekeeper/src/generated/types/gatekeeperInitializedEvent.js";
+import {
+  getWithdrawalInitiatedEventDecoder,
+} from "../../clients/ts/custodial-gatekeeper/src/generated/types/withdrawalInitiatedEvent.js";
+import {
+  getWithdrawalApprovedEventDecoder,
+} from "../../clients/ts/custodial-gatekeeper/src/generated/types/withdrawalApprovedEvent.js";
+import {
+  getWithdrawalCanceledEventDecoder,
+} from "../../clients/ts/custodial-gatekeeper/src/generated/types/withdrawalCanceledEvent.js";
+import {
+  getWithdrawalBlockedEventDecoder,
+} from "../../clients/ts/custodial-gatekeeper/src/generated/types/withdrawalBlockedEvent.js";
+import {
+  getDailyLimitUpdatedEventDecoder as getGkDailyLimitUpdatedEventDecoder,
+} from "../../clients/ts/custodial-gatekeeper/src/generated/types/dailyLimitUpdatedEvent.js";
+
 // ── Program addresses (imported from Codama-generated code) ───
 import { PERMISSION_MANAGER_PROGRAM_ADDRESS } from "../../clients/ts/permission-manager/src/generated/programs/index.js";
 import { SPIKO_TOKEN_PROGRAM_ADDRESS } from "../../clients/ts/spiko-token/src/generated/programs/index.js";
 import { MINTER_PROGRAM_ADDRESS } from "../../clients/ts/minter/src/generated/programs/index.js";
 import { REDEMPTION_PROGRAM_ADDRESS } from "../../clients/ts/redemption/src/generated/programs/index.js";
 import { SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS } from "../../clients/ts/spiko-transfer-hook/src/generated/programs/index.js";
+import { CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS } from "../../clients/ts/custodial-gatekeeper/src/generated/programs/index.js";
 
 // =================================================================
 // Public types
@@ -204,6 +225,16 @@ registerEvents(REDEMPTION_PROGRAM_ADDRESS, [
   { disc: 2, name: "RedemptionExecuted",     program: "Redemption", decoder: getRedemptionExecutedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
   { disc: 3, name: "RedemptionCanceled",     program: "Redemption", decoder: getRedemptionCanceledEventDecoder() as FixedSizeDecoder<Record<string, any>> },
   { disc: 4, name: "TokenMinimumUpdated",    program: "Redemption", decoder: getTokenMinimumUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+]);
+
+// ── Custodial Gatekeeper (6 events) ──
+registerEvents(CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS, [
+  { disc: 0, name: "GatekeeperInitialized", program: "CustodialGatekeeper", decoder: getGatekeeperInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 1, name: "WithdrawalInitiated",   program: "CustodialGatekeeper", decoder: getWithdrawalInitiatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 2, name: "WithdrawalApproved",    program: "CustodialGatekeeper", decoder: getWithdrawalApprovedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 3, name: "WithdrawalCanceled",    program: "CustodialGatekeeper", decoder: getWithdrawalCanceledEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 4, name: "WithdrawalBlocked",     program: "CustodialGatekeeper", decoder: getWithdrawalBlockedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 5, name: "DailyLimitUpdated",     program: "CustodialGatekeeper", decoder: getGkDailyLimitUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
 ]);
 
 // =================================================================
