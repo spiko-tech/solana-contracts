@@ -41,13 +41,10 @@ for (const [idlFile, clientDir] of programs) {
     const tsClientDir = path.join(clientsDir, clientDir);
     const generatedDir = path.join(tsClientDir, 'src', 'generated');
 
-    // Ensure output directory exists
     fs.mkdirSync(generatedDir, { recursive: true });
 
-    // Preserve config files during generation
     const configPreserver = preserveConfigFiles(tsClientDir);
 
-    // Generate TypeScript client
     codama.accept(
         renderJavaScriptVisitor(generatedDir, {
             deleteFolderBeforeRendering: true,
@@ -55,7 +52,6 @@ for (const [idlFile, clientDir] of programs) {
         }),
     );
 
-    // Restore config files
     configPreserver.restore();
 
     console.log(`  -> ${generatedDir}`);

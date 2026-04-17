@@ -54,12 +54,10 @@ impl<'a> RedeemToken<'a> {
             let config_data = self.accounts.config.try_borrow()?;
             let config = TokenConfig::from_bytes(&config_data)?;
 
-            // Verify redemption contract has been set
             if !config.has_redemption_contract() {
                 return Err(TokenError::RedemptionContractNotSet.into());
             }
 
-            // Verify the redemption program matches the stored contract address
             if self.accounts.redemption_program.address() != &config.redemption_contract {
                 return Err(TokenError::RedemptionContractMismatch.into());
             }
@@ -71,7 +69,6 @@ impl<'a> RedeemToken<'a> {
             )
         };
 
-        // Suppress unused variable warning — redemption_contract was validated above
         let _ = redemption_contract;
 
         require_permission(
@@ -108,9 +105,7 @@ impl<'a> RedeemToken<'a> {
             ix_data[1..9].copy_from_slice(&self.data.amount.to_le_bytes());
             ix_data[9] = decimals;
 
-            // Standard TransferChecked accounts + Transfer Hook extra accounts
             let ix_accounts = [
-                // Standard TransferChecked accounts:
                 InstructionAccount::writable(self.accounts.user_source.address()), // source
                 InstructionAccount::readonly(self.accounts.mint.address()),        // mint
                 InstructionAccount::writable(self.accounts.vault.address()),       // destination
@@ -177,7 +172,6 @@ impl<'a> RedeemToken<'a> {
             data: &ix_data,
         };
 
-        // Sign with TokenConfig PDA
         let mint_key = self.accounts.mint.address();
         let bump_bytes = [config_bump];
         let tc_seeds = token_config_seeds(mint_key.as_ref(), &bump_bytes);

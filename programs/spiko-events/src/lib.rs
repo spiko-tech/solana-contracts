@@ -9,9 +9,6 @@ use pinocchio::{
     Address, ProgramResult,
 };
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
-/// PDA seed used to derive the event authority for each program.
 pub const EVENT_AUTHORITY_SEED: &[u8] = b"event_authority";
 
 /// The 1-byte instruction discriminator for the EmitEvent no-op instruction.
@@ -29,11 +26,6 @@ pub const EVENT_IX_TAG: u64 = u64::from_le_bytes(EVENT_IX_TAG_LE);
 /// Length of event discriminator bytes (EVENT_IX_TAG_LE + discriminator byte).
 pub const EVENT_DISCRIMINATOR_LEN: usize = 8 + 1;
 
-// ─── Event traits ────────────────────────────────────────────────────────────
-
-/// Event discriminator with Anchor-compatible prefix.
-///
-/// Each event struct implements this with a unique 1-byte discriminator.
 pub trait EventDiscriminator {
     /// Event discriminator byte.
     const DISCRIMINATOR: u8;
@@ -65,8 +57,6 @@ pub trait EventSerialize: EventDiscriminator {
     }
 }
 
-// ─── EmitEvent instruction processor (no-op) ─────────────────────────────────
-
 /// Process the `EmitEvent` instruction.
 ///
 /// This is a **no-op** — the only purpose is to validate that the
@@ -91,21 +81,14 @@ pub fn process_emit_event(
     Ok(())
 }
 
-// ─── Verification ────────────────────────────────────────────────────────────
-
 /// Verify that `account` is the expected event authority PDA.
 #[inline(always)]
-fn verify_event_authority(
-    account: &AccountView,
-    expected: &Address,
-) -> Result<(), ProgramError> {
+fn verify_event_authority(account: &AccountView, expected: &Address) -> Result<(), ProgramError> {
     if account.address() != expected {
         return Err(ProgramError::InvalidSeeds);
     }
     Ok(())
 }
-
-// ─── CPI event emission ─────────────────────────────────────────────────────
 
 /// Emit an event via self-CPI to prevent log truncation.
 ///
@@ -132,7 +115,6 @@ pub fn emit_event(
         event_authority.address(),
     )];
 
-    // Prepend the EmitEvent discriminator byte (255) to the CPI data.
     let mut cpi_data = Vec::with_capacity(1 + event_data.len());
     cpi_data.push(EMIT_EVENT_DISCRIMINATOR);
     cpi_data.extend_from_slice(event_data);

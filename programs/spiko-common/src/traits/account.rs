@@ -38,7 +38,6 @@ pub trait AccountDeserialize: AccountSize {
         if data[1] != Self::VERSION {
             return Err(ProgramError::InvalidAccountData);
         }
-        // Skip discriminator (byte 0) and version (byte 1)
         unsafe { Self::from_bytes_unchecked(&data[2..]) }
     }
 
@@ -63,7 +62,6 @@ pub trait AccountDeserialize: AccountSize {
         if data[1] != Self::VERSION {
             return Err(ProgramError::InvalidAccountData);
         }
-        // Skip discriminator (byte 0) and version (byte 1)
         unsafe { Self::from_bytes_mut_unchecked(&mut data[2..]) }
     }
 
@@ -87,10 +85,8 @@ pub trait AccountDeserialize: AccountSize {
         if data.len() < Self::LEN {
             return Err(ProgramError::InvalidAccountData);
         }
-        // Write discriminator and version
         data[0] = Self::DISCRIMINATOR;
         data[1] = Self::VERSION;
-        // Skip discriminator (byte 0) and version (byte 1)
         unsafe { Self::from_bytes_mut_unchecked(&mut data[2..]) }
     }
 }

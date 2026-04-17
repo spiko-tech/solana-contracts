@@ -9,10 +9,6 @@ use solana_instruction::{AccountMeta, Instruction};
 use solana_program_error::ProgramError;
 use solana_pubkey::Pubkey;
 
-// -------------------------------------------------------------------
-// Constants matching the on-chain program (from state.rs / error.rs)
-// -------------------------------------------------------------------
-
 const EVENT_AUTHORITY_SEED: &[u8] = b"event_authority";
 const GATEKEEPER_CONFIG_SEED: &[u8] = b"gatekeeper_config";
 const WITHDRAWAL_DAILY_LIMIT_SEED: &[u8] = b"withdrawal_limit";
@@ -30,7 +26,6 @@ const GATEKEEPER_CONFIG_LEN: usize = 43; // disc(1) + ver(1) + bump(1) + max_del
 const WITHDRAWAL_DAILY_LIMIT_LEN: usize = 27; // disc(1) + ver(1) + bump(1) + limit(8) + used(8) + last_day(8)
 const WITHDRAWAL_OPERATION_LEN: usize = 84; // disc(1) + ver(1) + bump(1) + status(1) + deadline(8) + recipient(32) + mint(32) + amount(8)
 
-// Permission manager constants
 const PERMISSION_CONFIG_SEED: &[u8] = b"permission_config";
 const USER_PERMISSION_SEED: &[u8] = b"user_perm";
 const DISCRIMINATOR_PERMISSION_CONFIG: u8 = 1;
@@ -38,14 +33,9 @@ const DISCRIMINATOR_USER_PERMISSION: u8 = 2;
 const PERMISSION_CONFIG_LEN: usize = 67;
 const USER_PERMISSIONS_LEN: usize = 35;
 
-// Role bit constants
 const ROLE_WHITELISTED: u8 = 4;
 const ROLE_WHITELISTED_EXT: u8 = 8;
 const ROLE_CUSTODIAL_GATEKEEPER_APPROVER: u8 = 9;
-
-// -------------------------------------------------------------------
-// Setup
-// -------------------------------------------------------------------
 
 fn setup() -> (Mollusk, Pubkey) {
     let program_id = Pubkey::new_unique();
@@ -53,10 +43,6 @@ fn setup() -> (Mollusk, Pubkey) {
     let mollusk = Mollusk::new(&program_id, "custodial_gatekeeper");
     (mollusk, program_id)
 }
-
-// -------------------------------------------------------------------
-// PDA helpers
-// -------------------------------------------------------------------
 
 fn gatekeeper_config_pda(program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[GATEKEEPER_CONFIG_SEED], program_id)
@@ -85,10 +71,6 @@ fn perm_config_pda(perm_manager_id: &Pubkey) -> (Pubkey, u8) {
 fn user_perm_pda(user: &Pubkey, perm_manager_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[USER_PERMISSION_SEED, user.as_ref()], perm_manager_id)
 }
-
-// -------------------------------------------------------------------
-// Account helpers
-// -------------------------------------------------------------------
 
 fn payer_account() -> Account {
     Account::new(10_000_000_000, 0, &Pubkey::default())
@@ -215,10 +197,6 @@ fn withdrawal_operation_account(
     }
 }
 
-// -------------------------------------------------------------------
-// Utility helpers
-// -------------------------------------------------------------------
-
 /// Set a role bit in a 32-byte bitmask.
 fn set_role_bit(bitmask: &mut [u8; 32], role: u8) {
     let byte_index = (role / 8) as usize;
@@ -243,10 +221,6 @@ fn compute_operation_id(
     out.copy_from_slice(&result);
     out
 }
-
-// -------------------------------------------------------------------
-// Instruction data builders
-// -------------------------------------------------------------------
 
 /// Discriminator 0: Initialize
 /// Data: [0..32] permission_manager + [32..40] max_delay (i64 LE)
@@ -296,10 +270,6 @@ fn ix_cancel_withdrawal(recipient: &Pubkey, amount: u64, salt: u64) -> Vec<u8> {
     data
 }
 
-// ===================================================================
-// TEST: Initialize — happy path
-// ===================================================================
-
 #[test]
 fn test_initialize() {
     let (mollusk, program_id) = setup();
@@ -340,10 +310,6 @@ fn test_initialize() {
     assert!(result.program_result.is_err());
 }
 
-// ===================================================================
-// TEST: Initialize — already initialized (should fail)
-// ===================================================================
-
 #[test]
 fn test_initialize_already_initialized() {
     let (mollusk, program_id) = setup();
@@ -381,10 +347,6 @@ fn test_initialize_already_initialized() {
     );
 }
 
-// ===================================================================
-// TEST: Initialize — invalid max_delay (zero, should fail)
-// ===================================================================
-
 #[test]
 fn test_initialize_invalid_max_delay() {
     let (mollusk, program_id) = setup();
@@ -417,10 +379,6 @@ fn test_initialize_invalid_max_delay() {
         &[Check::err(ProgramError::Custom(7))], // InvalidMaxDelay = 7
     );
 }
-
-// ===================================================================
-// TEST: SetDailyLimit — happy path (create new)
-// ===================================================================
 
 #[test]
 fn test_set_daily_limit() {
@@ -469,10 +427,6 @@ fn test_set_daily_limit() {
     );
     assert!(result.program_result.is_err());
 }
-
-// ===================================================================
-// TEST: SetDailyLimit — update existing
-// ===================================================================
 
 #[test]
 fn test_set_daily_limit_update() {
@@ -525,10 +479,6 @@ fn test_set_daily_limit_update() {
     assert!(result.program_result.is_err());
 }
 
-// ===================================================================
-// TEST: SetDailyLimit — unauthorized (non-admin caller)
-// ===================================================================
-
 #[test]
 fn test_set_daily_limit_unauthorized() {
     let (mollusk, program_id) = setup();
@@ -575,10 +525,6 @@ fn test_set_daily_limit_unauthorized() {
         &[Check::err(ProgramError::Custom(2))], // Unauthorized = 2
     );
 }
-
-// ===================================================================
-// TEST: CustodialWithdraw — unauthorized sender (no WHITELISTED role)
-// ===================================================================
 
 #[test]
 fn test_custodial_withdraw_unauthorized_sender() {
@@ -700,10 +646,6 @@ fn test_custodial_withdraw_unauthorized_sender() {
     );
 }
 
-// ===================================================================
-// TEST: CustodialWithdraw — unauthorized recipient (no WHITELISTED_EXT)
-// ===================================================================
-
 #[test]
 fn test_custodial_withdraw_unauthorized_recipient() {
     let (mut mollusk, program_id) = setup();
@@ -822,10 +764,6 @@ fn test_custodial_withdraw_unauthorized_recipient() {
         &[Check::err(ProgramError::Custom(9))], // UnauthorizedTo = 9
     );
 }
-
-// ===================================================================
-// TEST: ApproveWithdrawal — unauthorized (no APPROVER role)
-// ===================================================================
 
 #[test]
 fn test_approve_withdrawal_unauthorized() {
@@ -947,10 +885,6 @@ fn test_approve_withdrawal_unauthorized() {
     );
 }
 
-// ===================================================================
-// TEST: ApproveWithdrawal — not pending (already DONE)
-// ===================================================================
-
 #[test]
 fn test_approve_withdrawal_not_pending() {
     let (mut mollusk, program_id) = setup();
@@ -1070,10 +1004,6 @@ fn test_approve_withdrawal_not_pending() {
         &[Check::err(ProgramError::Custom(4))], // NotPending = 4
     );
 }
-
-// ===================================================================
-// TEST: ApproveWithdrawal — deadline passed
-// ===================================================================
 
 #[test]
 fn test_approve_withdrawal_deadline_passed() {
@@ -1195,10 +1125,6 @@ fn test_approve_withdrawal_deadline_passed() {
     );
 }
 
-// ===================================================================
-// TEST: CancelWithdrawal — not pending (already DONE)
-// ===================================================================
-
 #[test]
 fn test_cancel_withdrawal_not_pending() {
     let (mut mollusk, program_id) = setup();
@@ -1311,10 +1237,6 @@ fn test_cancel_withdrawal_not_pending() {
         &[Check::err(ProgramError::Custom(4))], // NotPending = 4
     );
 }
-
-// ===================================================================
-// TEST: CancelWithdrawal — deadline not passed
-// ===================================================================
 
 #[test]
 fn test_cancel_withdrawal_deadline_not_passed() {

@@ -27,12 +27,10 @@ pub fn require_permission(
     role_bit: u8,
     error_on_fail: ProgramError,
 ) -> Result<(), ProgramError> {
-    // Verify account is owned by the permission_manager program
     if !user_perms_account.owned_by(permission_manager_id) {
         return Err(error_on_fail);
     }
 
-    // Verify the PDA is derived from the expected user's address
     if verify_pda(
         user_perms_account,
         &[USER_PERMISSION_SEED, expected_user.as_ref()],
@@ -68,12 +66,10 @@ pub fn require_admin(
     permission_manager_id: &Address,
     error_on_fail: ProgramError,
 ) -> Result<(), ProgramError> {
-    // Verify the config account is owned by the permission_manager program
     if !perm_config_account.owned_by(permission_manager_id) {
         return Err(error_on_fail);
     }
 
-    // Verify it's the actual PermissionConfig PDA
     verify_pda(
         perm_config_account,
         &[PERMISSION_CONFIG_SEED],

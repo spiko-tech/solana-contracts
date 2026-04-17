@@ -18,7 +18,6 @@ impl<'a> TryFrom<&'a [u8]> for OnRedeemData {
     type Error = ProgramError;
 
     fn try_from(data: &'a [u8]) -> Result<Self, Self::Error> {
-        // 32 + 8 + 8 = 48 bytes
         if data.len() < 48 {
             return Err(ProgramError::InvalidInstructionData);
         }

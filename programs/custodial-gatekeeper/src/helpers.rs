@@ -39,7 +39,6 @@ pub fn cpi_token_2022_transfer<'a>(
     let seeds = vault_authority_seeds(&bump_bytes);
     let signer = Signer::from(&seeds);
 
-    // Read decimals from the on-chain mint account (byte offset 44)
     let decimals = {
         let mint_data = token_mint.try_borrow()?;
         if mint_data.len() < 45 {
@@ -54,12 +53,10 @@ pub fn cpi_token_2022_transfer<'a>(
     ix_data[9] = decimals;
 
     let ix_accounts = [
-        // Standard TransferChecked accounts:
         InstructionAccount::writable(vault_token_account.address()),
         InstructionAccount::readonly(token_mint.address()),
         InstructionAccount::writable(recipient_token_account.address()),
         InstructionAccount::readonly_signer(vault_authority.address()),
-        // Transfer Hook extra accounts:
         InstructionAccount::readonly(extra_account_meta_list.address()),
         InstructionAccount::readonly(permission_manager_program.address()),
         InstructionAccount::readonly(spiko_token_program.address()),
@@ -96,10 +93,6 @@ pub fn cpi_token_2022_transfer<'a>(
         &[signer],
     )
 }
-
-// -----------------------------------------------------------------
-// Signer seeds builders
-// -----------------------------------------------------------------
 
 /// Seeds: ["gatekeeper_config", bump]
 #[inline]

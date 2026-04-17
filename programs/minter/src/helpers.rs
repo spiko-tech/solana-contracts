@@ -61,12 +61,10 @@ pub fn cpi_spiko_token_mint<'a>(
     st_self_program: &AccountView,
     amount: u64,
 ) -> ProgramResult {
-    // Build instruction data: discriminator(1) + amount(8 bytes LE)
     let mut ix_data = [0u8; 9];
     ix_data[0] = 1; // discriminator for mint
     ix_data[1..9].copy_from_slice(&amount.to_le_bytes());
 
-    // Build CPI instruction accounts
     let ix_accounts = [
         InstructionAccount::writable_signer(minter_config.address()), // caller (PDA signer)
         InstructionAccount::readonly(token_config.address()),         // token config
@@ -86,7 +84,6 @@ pub fn cpi_spiko_token_mint<'a>(
         data: &ix_data,
     };
 
-    // MinterConfig PDA signs the CPI
     let bump_bytes = [minter_config_bump];
     let seeds = minter_config_seeds(&bump_bytes);
     let signer = Signer::from(&seeds);

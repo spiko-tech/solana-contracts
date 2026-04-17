@@ -75,7 +75,6 @@ impl<'a> InitializeToken<'a> {
             program_id,
         )?;
 
-        // 1. Initialize TransferHook extension
         {
             let mut ix_data = [0u8; 66]; // 2 + 32 + 32
             ix_data[0] = 36; // ExtensionInstruction
@@ -85,7 +84,6 @@ impl<'a> InitializeToken<'a> {
             // program_id = the separate spiko-transfer-hook program (the hook handler)
             ix_data[34..66].copy_from_slice(self.accounts.transfer_hook_program.address().as_ref());
 
-            // Accounts: [writable] mint
             let account_metas = [InstructionAccount::writable(self.accounts.mint.address())];
 
             let ix = InstructionView {
@@ -97,13 +95,11 @@ impl<'a> InitializeToken<'a> {
             pinocchio::cpi::invoke::<1>(&ix, &[self.accounts.mint])?;
         }
 
-        // 2. Initialize PermanentDelegate extension
         {
             let mut ix_data = [0u8; 33]; // 1 + 32
             ix_data[0] = 35; // InitializePermanentDelegate
             ix_data[1..33].copy_from_slice(self.accounts.mint_authority.address().as_ref());
 
-            // Accounts: [writable] mint
             let account_metas = [InstructionAccount::writable(self.accounts.mint.address())];
 
             let ix = InstructionView {
@@ -114,8 +110,6 @@ impl<'a> InitializeToken<'a> {
 
             pinocchio::cpi::invoke::<1>(&ix, &[self.accounts.mint])?;
         }
-
-        // 3. Initialize MetadataPointer extension (points to the mint itself)
         {
             let mut ix_data = [0u8; 66]; // 2 + 32 + 32
             ix_data[0] = 39; // TokenInstruction::MetadataPointerExtension
@@ -136,7 +130,6 @@ impl<'a> InitializeToken<'a> {
             pinocchio::cpi::invoke::<1>(&ix, &[self.accounts.mint])?;
         }
 
-        // 4. InitializeMint2 (sets mint authority + freeze authority to PDA)
         let mint_authority_addr = self.accounts.mint_authority.address();
         pinocchio_token_2022::instructions::InitializeMint2 {
             mint: self.accounts.mint,
@@ -147,12 +140,9 @@ impl<'a> InitializeToken<'a> {
         }
         .invoke()?;
 
-        // 5. Initialize TokenMetadata on the mint (name, symbol, uri)
-        //    This must happen AFTER InitializeMint2 because it requires
-        //    the mint authority to be a signer.
+        // Must happen AFTER InitializeMint2 because it requires
+        // the mint authority to be a signer.
         {
-            // Build variable-length instruction data:
-            // disc(8) + name_len(4) + name + symbol_len(4) + symbol + uri_len(4) + uri
             let total_len =
                 8 + 4 + self.data.name.len() + 4 + self.data.symbol.len() + 4 + self.data.uri.len();
             let mut ix_data = [0u8; 512]; // max reasonable metadata size
@@ -168,13 +158,11 @@ impl<'a> InitializeToken<'a> {
             ix_data[off..off + self.data.name.len()].copy_from_slice(self.data.name);
             off += self.data.name.len();
 
-            // symbol
             ix_data[off..off + 4].copy_from_slice(&(self.data.symbol.len() as u32).to_le_bytes());
             off += 4;
             ix_data[off..off + self.data.symbol.len()].copy_from_slice(self.data.symbol);
             off += self.data.symbol.len();
 
-            // uri
             ix_data[off..off + 4].copy_from_slice(&(self.data.uri.len() as u32).to_le_bytes());
             off += 4;
             ix_data[off..off + self.data.uri.len()].copy_from_slice(self.data.uri);
@@ -201,7 +189,6 @@ impl<'a> InitializeToken<'a> {
                 data: &ix_data[..off],
             };
 
-            // Mint authority is a PDA — must sign via CPI
             let mint_auth_bump_bytes = [mint_auth_bump];
             let mint_auth_seeds: [pinocchio::cpi::Seed; 3] = [
                 pinocchio::cpi::Seed::from(MINT_AUTHORITY_SEED),
@@ -210,8 +197,6 @@ impl<'a> InitializeToken<'a> {
             ];
             let mint_auth_signer = Signer::from(&mint_auth_seeds);
 
-            // 4 account views matching the 4 instruction accounts (1:1):
-            //   mint, mint_authority, mint (dup), mint_authority (dup)
             pinocchio::cpi::invoke_signed::<4>(
                 &ix,
                 &[
@@ -224,7 +209,6 @@ impl<'a> InitializeToken<'a> {
             )?;
         }
 
-        // 6. Create TokenConfig PDA
         let config_bump_bytes = [config_bump];
         let config_seeds = token_config_seeds(mint_key.as_ref(), &config_bump_bytes);
         let config_signer = Signer::from(&config_seeds);

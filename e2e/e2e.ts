@@ -31,7 +31,6 @@ import {
   lamports,
 } from "@solana/kit";
 
-// ── Codama-generated instruction builders (setup) ─────────────
 import { getInitializeInstructionAsync } from "../clients/ts/permission-manager/src/generated/instructions/initialize.js";
 import { getInitializeTokenInstructionAsync } from "../clients/ts/spiko-token/src/generated/instructions/initializeToken.js";
 import { getInitExtraAccountMetasInstruction } from "../clients/ts/spiko-transfer-hook/src/generated/instructions/initExtraAccountMetas.js";
@@ -41,19 +40,16 @@ import { getSetRedemptionContractInstruction } from "../clients/ts/spiko-token/s
 import { getSetDailyLimitInstruction } from "../clients/ts/minter/src/generated/instructions/setDailyLimit.js";
 import { getSetMinimumInstruction } from "../clients/ts/redemption/src/generated/instructions/setMinimum.js";
 
-// ── Codama-generated instruction builders (test flow) ─────────
 import { getGrantRoleInstructionAsync } from "../clients/ts/permission-manager/src/generated/instructions/grantRole.js";
 import { getInitiateMintInstruction } from "../clients/ts/minter/src/generated/instructions/initiateMint.js";
 import { getTransferTokenInstruction } from "../clients/ts/spiko-token/src/generated/instructions/transferToken.js";
 import { getRedeemTokenInstruction } from "../clients/ts/spiko-token/src/generated/instructions/redeemToken.js";
 import { getExecuteRedemptionInstruction } from "../clients/ts/redemption/src/generated/instructions/executeRedemption.js";
 
-// ── Codama-generated instruction builders (custodial gatekeeper) ─
 import { getInitializeInstructionAsync as getInitializeCustodialGatekeeperInstructionAsync } from "../clients/ts/custodial-gatekeeper/src/generated/instructions/initialize.js";
 import { getSetDailyLimitInstruction as getCgSetDailyLimitInstruction } from "../clients/ts/custodial-gatekeeper/src/generated/instructions/setDailyLimit.js";
 import { getCustodialWithdrawInstruction } from "../clients/ts/custodial-gatekeeper/src/generated/instructions/custodialWithdraw.js";
 
-// ── Shared helpers ────────────────────────────────────────────
 import {
   ROLE_MINTER,
   ROLE_BURNER,
@@ -102,10 +98,6 @@ import {
 
 import { parseTransactionEvents, formatEvents } from "./lib/events.js";
 
-// =================================================================
-// Token Parameters
-// =================================================================
-
 const TOKEN_DECIMALS = 5;
 const TOKEN_NAME = "EUR T-Bill";
 const TOKEN_SYMBOL = "EUTBL";
@@ -114,19 +106,11 @@ const DAILY_LIMIT = 100_000_000_000n; // 1M shares at 5 decimals
 const REDEMPTION_MINIMUM = 100_000n; // 1 share at 5 decimals
 const MAX_DELAY = 86400n; // 1 day in seconds
 
-// =================================================================
-// Test Parameters
-// =================================================================
-
 const MINT_SHARES = 20;
 const TRANSFER_B_SHARES = 10; // Path B: spiko-token transfer
 const TRANSFER_A_SHARES = 5; // Path A: direct TransferChecked
 const REDEEM_SHARES = 10;
 const CUSTODIAL_WITHDRAW_SHARES = 1; // Custodial gatekeeper withdraw to user3
-
-// =================================================================
-// Helpers
-// =================================================================
 
 async function sendAndCapture(
   rpc: Rpc<SolanaRpcApi>,
@@ -204,21 +188,15 @@ async function getMinRent(
   return rent;
 }
 
-// =================================================================
-// Main
-// =================================================================
-
 async function main() {
   console.log("=== Spiko E2E Self-Contained Test ===\n");
 
   const { rpc, rpcSub, admin } = await setup();
 
-  // ── Generate fresh mint keypair ────────────────────────────
   const mintKp = await generateKeyPairSigner();
   const mintAddr = mintKp.address;
   const decimals = TOKEN_DECIMALS;
 
-  // ── Generate 5 actor keypairs ──────────────────────────────
   const minter = await generateKeyPairSigner();
   const executor = await generateKeyPairSigner();
   const whitelister = await generateKeyPairSigner();
@@ -236,7 +214,6 @@ async function main() {
   console.log(`  User2:       ${user2.address}`);
   console.log(`  User3:       ${user3.address} (self-custodial)`);
 
-  // ── Pre-compute raw amounts ────────────────────────────────
   const mintRawAmount = BigInt(Math.round(MINT_SHARES * 10 ** decimals));
   const transferBRawAmount = BigInt(
     Math.round(TRANSFER_B_SHARES * 10 ** decimals),
@@ -257,7 +234,6 @@ async function main() {
     Math.floor(Math.random() * Number.MAX_SAFE_INTEGER),
   );
 
-  // ── Pre-compute PDAs ───────────────────────────────────────
   const [permConfigAddr] = await findPermissionConfigPda();
   const [minterConfigAddr] = await findMinterConfigPda();
   const [minterConfigPermsAddr] = await findUserPermissionsPda({

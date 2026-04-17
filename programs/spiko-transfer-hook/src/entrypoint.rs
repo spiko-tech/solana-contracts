@@ -17,7 +17,6 @@ fn process_instruction(
     accounts: &[AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    // First, check for the 8-byte Transfer Hook Execute sighash.
     // Token-2022 sends this discriminator when invoking the hook.
     if instruction_data.len() >= 8 && instruction_data[0..8] == EXECUTE_SIGHASH {
         // Data after the 8-byte sighash: amount (u64 LE)
@@ -25,7 +24,6 @@ fn process_instruction(
             .process(program_id);
     }
 
-    // Otherwise, use the standard 1-byte discriminator dispatch.
     let (discriminator, data) = instruction_data
         .split_first()
         .ok_or(ProgramError::InvalidInstructionData)?;

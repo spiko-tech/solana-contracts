@@ -31,7 +31,6 @@ impl<'a> TryFrom<&'a [AccountView]> for InitializeAccounts<'a> {
             return Err(ProgramError::MissingRequiredSignature);
         }
 
-        // Verify system program
         if system_program.address() != &pinocchio_system::ID {
             return Err(ProgramError::IncorrectProgramId);
         }

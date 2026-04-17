@@ -14,7 +14,6 @@ impl<'a> TryFrom<&'a [u8]> for RedeemTokenData {
     type Error = ProgramError;
 
     fn try_from(data: &'a [u8]) -> Result<Self, Self::Error> {
-        // 8 + 8 = 16 bytes
         if data.len() < 16 {
             return Err(ProgramError::InvalidInstructionData);
         }

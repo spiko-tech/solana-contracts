@@ -9,10 +9,6 @@ use solana_instruction::{AccountMeta, Instruction};
 use solana_program_error::ProgramError;
 use solana_pubkey::Pubkey;
 
-// -------------------------------------------------------------------
-// Constants matching the on-chain program
-// -------------------------------------------------------------------
-
 const REDEMPTION_CONFIG_SEED: &[u8] = b"redemption_config";
 const TOKEN_MINIMUM_SEED: &[u8] = b"minimum";
 const REDEMPTION_OPERATION_SEED: &[u8] = b"redemption_op";
@@ -31,14 +27,9 @@ const STATUS_PENDING: u8 = 1;
 /// 14 days in seconds
 const MAX_DELAY: i64 = 14 * 24 * 60 * 60;
 
-// Permission manager constants
 const PERMISSION_CONFIG_SEED: &[u8] = b"permission_config";
 const DISCRIMINATOR_PERMISSION_CONFIG: u8 = 1;
 const PERMISSION_CONFIG_LEN: usize = 67;
-
-// -------------------------------------------------------------------
-// Setup
-// -------------------------------------------------------------------
 
 fn setup() -> (Mollusk, Pubkey) {
     let program_id = Pubkey::new_unique();
@@ -46,10 +37,6 @@ fn setup() -> (Mollusk, Pubkey) {
     let mollusk = Mollusk::new(&program_id, "redemption");
     (mollusk, program_id)
 }
-
-// -------------------------------------------------------------------
-// PDA helpers
-// -------------------------------------------------------------------
 
 fn redemption_config_pda(program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[REDEMPTION_CONFIG_SEED], program_id)
@@ -84,10 +71,6 @@ fn compute_operation_id(
     out.copy_from_slice(&result);
     out
 }
-
-// -------------------------------------------------------------------
-// Account helpers
-// -------------------------------------------------------------------
 
 fn payer_account() -> Account {
     Account::new(10_000_000_000, 0, &Pubkey::default())
@@ -179,10 +162,6 @@ fn redemption_operation_account(
     }
 }
 
-// -------------------------------------------------------------------
-// Instruction data builders
-// -------------------------------------------------------------------
-
 /// Discriminator 0: initialize
 /// Data: [0..32] permission_manager (32 bytes)
 fn ix_initialize(permission_manager: &Pubkey) -> Vec<u8> {
@@ -260,7 +239,6 @@ fn token_config_pda(mint: &Pubkey, spiko_token_program: &Pubkey) -> (Pubkey, u8)
     Pubkey::find_program_address(&[TOKEN_CONFIG_SEED, mint.as_ref()], spiko_token_program)
 }
 
-// Permission manager UserPermissions constants
 const USER_PERMS_SEED: &[u8] = b"user_perm";
 const DISCRIMINATOR_USER_PERMISSION: u8 = 2;
 const USER_PERMS_LEN: usize = 35;
@@ -295,10 +273,6 @@ const VAULT_SEED: &[u8] = b"vault";
 fn vault_authority_pda(program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[VAULT_SEED], program_id)
 }
-
-// ===================================================================
-// TEST: Initialize — happy path
-// ===================================================================
 
 #[test]
 fn test_initialize() {
@@ -338,10 +312,6 @@ fn test_initialize() {
     assert!(result.program_result.is_err());
 }
 
-// ===================================================================
-// TEST: Initialize — already initialized (should fail)
-// ===================================================================
-
 #[test]
 fn test_initialize_already_initialized() {
     let (mollusk, program_id) = setup();
@@ -377,10 +347,6 @@ fn test_initialize_already_initialized() {
         &[Check::err(ProgramError::Custom(0))], // AlreadyInitialized = 0
     );
 }
-
-// ===================================================================
-// TEST: SetMinimum — happy path (create new TokenMinimum PDA)
-// ===================================================================
 
 #[test]
 fn test_set_minimum() {
@@ -434,10 +400,6 @@ fn test_set_minimum() {
     );
     assert!(result.program_result.is_err());
 }
-
-// ===================================================================
-// TEST: SetMinimum — update existing
-// ===================================================================
 
 #[test]
 fn test_set_minimum_update() {
@@ -495,10 +457,6 @@ fn test_set_minimum_update() {
     assert!(result.program_result.is_err());
 }
 
-// ===================================================================
-// TEST: SetMinimum — unauthorized (non-admin caller)
-// ===================================================================
-
 #[test]
 fn test_set_minimum_unauthorized() {
     let (mollusk, program_id) = setup();
@@ -545,10 +503,6 @@ fn test_set_minimum_unauthorized() {
         &[Check::err(ProgramError::Custom(2))], // Unauthorized = 2
     );
 }
-
-// ===================================================================
-// TEST: OnRedeem — happy path
-// ===================================================================
 
 #[test]
 fn test_on_redeem() {
@@ -620,10 +574,6 @@ fn test_on_redeem() {
     assert!(result.program_result.is_err());
 }
 
-// ===================================================================
-// TEST: OnRedeem — below minimum (should fail)
-// ===================================================================
-
 #[test]
 fn test_on_redeem_below_minimum() {
     let (mut mollusk, program_id) = setup();
@@ -683,10 +633,6 @@ fn test_on_redeem_below_minimum() {
         &[Check::err(ProgramError::Custom(7))], // BelowMinimum = 7
     );
 }
-
-// ===================================================================
-// TEST: OnRedeem — operation already exists (should fail)
-// ===================================================================
 
 #[test]
 fn test_on_redeem_operation_exists() {
@@ -757,10 +703,6 @@ fn test_on_redeem_operation_exists() {
     );
 }
 
-// ===================================================================
-// TEST: OnRedeem — token_config not signer (should fail)
-// ===================================================================
-
 #[test]
 fn test_on_redeem_token_config_not_signer() {
     let (mut mollusk, program_id) = setup();
@@ -821,10 +763,6 @@ fn test_on_redeem_token_config_not_signer() {
         &[Check::err(ProgramError::MissingRequiredSignature)],
     );
 }
-
-// ===================================================================
-// TEST: ExecuteRedemption — not pending (should fail)
-// ===================================================================
 
 #[test]
 fn test_execute_redemption_not_pending() {
@@ -948,10 +886,6 @@ fn test_execute_redemption_not_pending() {
     );
 }
 
-// ===================================================================
-// TEST: ExecuteRedemption — deadline passed (should fail)
-// ===================================================================
-
 #[test]
 fn test_execute_redemption_deadline_passed() {
     let (mut mollusk, program_id) = setup();
@@ -1067,10 +1001,6 @@ fn test_execute_redemption_deadline_passed() {
     );
 }
 
-// ===================================================================
-// TEST: ExecuteRedemption — unauthorized (no ROLE_REDEMPTION_EXECUTOR)
-// ===================================================================
-
 #[test]
 fn test_execute_redemption_unauthorized() {
     let (mut mollusk, program_id) = setup();
@@ -1181,10 +1111,6 @@ fn test_execute_redemption_unauthorized() {
         &[Check::err(ProgramError::Custom(2))], // Unauthorized = 2
     );
 }
-
-// ===================================================================
-// TEST: CancelRedemption — not pending (should fail)
-// ===================================================================
 
 #[test]
 fn test_cancel_redemption_not_pending() {
@@ -1312,10 +1238,6 @@ fn test_cancel_redemption_not_pending() {
         &[Check::err(ProgramError::Custom(3))], // NotPending = 3
     );
 }
-
-// ===================================================================
-// TEST: CancelRedemption — deadline not passed (should fail)
-// ===================================================================
 
 #[test]
 fn test_cancel_redemption_deadline_not_passed() {
