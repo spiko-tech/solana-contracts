@@ -23,9 +23,47 @@ pub const EMIT_EVENT_DISCRIMINATOR: u8 = 255;
 /// This tag is prepended to the CPI instruction data so that Anchor-aware
 /// indexers (and the wider Solana tooling ecosystem) can recognise the CPI
 /// as an event emission.
-/// The raw first 8 bytes of SHA256("anchor:event").
 pub const EVENT_IX_TAG_LE: [u8; 8] = [0x1d, 0x9a, 0xcb, 0x51, 0x2e, 0xa5, 0x45, 0xe4];
 pub const EVENT_IX_TAG: u64 = u64::from_le_bytes(EVENT_IX_TAG_LE);
+
+/// Length of event discriminator bytes (EVENT_IX_TAG_LE + discriminator byte).
+pub const EVENT_DISCRIMINATOR_LEN: usize = 8 + 1;
+
+// ─── Event traits ────────────────────────────────────────────────────────────
+
+/// Event discriminator with Anchor-compatible prefix.
+///
+/// Each event struct implements this with a unique 1-byte discriminator.
+pub trait EventDiscriminator {
+    /// Event discriminator byte.
+    const DISCRIMINATOR: u8;
+
+    /// Full discriminator bytes including EVENT_IX_TAG_LE prefix.
+    #[inline(always)]
+    fn discriminator_bytes() -> Vec<u8> {
+        let mut data = Vec::with_capacity(EVENT_DISCRIMINATOR_LEN);
+        data.extend_from_slice(&EVENT_IX_TAG_LE);
+        data.push(Self::DISCRIMINATOR);
+        data
+    }
+}
+
+/// Event serialization.
+///
+/// Implementors define `to_bytes_inner()` for field serialization.
+/// `to_bytes()` automatically prepends the full discriminator prefix.
+pub trait EventSerialize: EventDiscriminator {
+    /// Serialize event data (without discriminator).
+    fn to_bytes_inner(&self) -> Vec<u8>;
+
+    /// Serialize with full discriminator prefix.
+    #[inline(always)]
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut data = Self::discriminator_bytes();
+        data.extend_from_slice(&self.to_bytes_inner());
+        data
+    }
+}
 
 // ─── EmitEvent instruction processor (no-op) ─────────────────────────────────
 
@@ -57,7 +95,7 @@ pub fn process_emit_event(
 
 /// Verify that `account` is the expected event authority PDA.
 #[inline(always)]
-pub fn verify_event_authority(
+fn verify_event_authority(
     account: &AccountView,
     expected: &Address,
 ) -> Result<(), ProgramError> {
@@ -72,7 +110,7 @@ pub fn verify_event_authority(
 /// Emit an event via self-CPI to prevent log truncation.
 ///
 /// `event_data` must already contain the full payload:
-/// `EVENT_IX_TAG_LE (8) + event_discriminator (8) + LE-packed fields`.
+/// `EVENT_IX_TAG_LE (8) + event_discriminator (1) + LE-packed fields`.
 ///
 /// The function constructs a CPI call to the program's own `EmitEvent`
 /// instruction, signed by the `event_authority` PDA.
@@ -108,45 +146,6 @@ pub fn emit_event(
     invoke_signed(&instruction, &[event_authority, program], &[signer])
 }
 
-// ─── Event data builders ─────────────────────────────────────────────────────
-
-/// Build a complete event data buffer: `EVENT_IX_TAG_LE + disc + fields`.
-///
-/// `capacity` should be `8 (tag) + 8 (disc) + fields_len`.
-#[inline]
-pub fn build_event_data(disc: &[u8; 8], fields_capacity: usize) -> Vec<u8> {
-    let mut data = Vec::with_capacity(8 + 8 + fields_capacity);
-    data.extend_from_slice(&EVENT_IX_TAG_LE);
-    data.extend_from_slice(disc);
-    data
-}
-
-// ─── Field packing helpers ───────────────────────────────────────────────────
-
-/// Append a 32-byte address to the event data buffer.
-#[inline(always)]
-pub fn push_address(buf: &mut Vec<u8>, addr: &[u8; 32]) {
-    buf.extend_from_slice(addr);
-}
-
-/// Append a u64 (LE) to the event data buffer.
-#[inline(always)]
-pub fn push_u64(buf: &mut Vec<u8>, val: u64) {
-    buf.extend_from_slice(&val.to_le_bytes());
-}
-
-/// Append an i64 (LE) to the event data buffer.
-#[inline(always)]
-pub fn push_i64(buf: &mut Vec<u8>, val: i64) {
-    buf.extend_from_slice(&val.to_le_bytes());
-}
-
-/// Append a u8 to the event data buffer.
-#[inline(always)]
-pub fn push_u8(buf: &mut Vec<u8>, val: u8) {
-    buf.push(val);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -160,14 +159,25 @@ mod tests {
     }
 
     #[test]
-    fn build_event_data_layout() {
-        let disc = [0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08];
-        let mut data = build_event_data(&disc, 8);
-        push_u64(&mut data, 42);
+    fn test_discriminator_bytes_length() {
+        struct TestEvent;
+        impl EventDiscriminator for TestEvent {
+            const DISCRIMINATOR: u8 = 42;
+        }
 
-        assert_eq!(data.len(), 24); // 8 + 8 + 8
-        assert_eq!(&data[0..8], &EVENT_IX_TAG_LE);
-        assert_eq!(&data[8..16], &disc);
-        assert_eq!(&data[16..24], &42u64.to_le_bytes());
+        let bytes = TestEvent::discriminator_bytes();
+        assert_eq!(bytes.len(), EVENT_DISCRIMINATOR_LEN);
+    }
+
+    #[test]
+    fn test_discriminator_bytes_prefix() {
+        struct TestEvent;
+        impl EventDiscriminator for TestEvent {
+            const DISCRIMINATOR: u8 = 42;
+        }
+
+        let bytes = TestEvent::discriminator_bytes();
+        assert_eq!(&bytes[..8], &EVENT_IX_TAG_LE);
+        assert_eq!(bytes[8], 42);
     }
 }

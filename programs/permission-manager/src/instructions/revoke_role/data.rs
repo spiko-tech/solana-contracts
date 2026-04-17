@@ -19,3 +19,7 @@ impl<'a> TryFrom<&'a [u8]> for RevokeRoleData {
         Ok(Self { role_id: data[0] })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for RevokeRoleData {
+    const LEN: usize = 1;
+}

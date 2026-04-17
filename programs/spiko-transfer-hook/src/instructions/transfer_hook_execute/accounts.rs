@@ -57,3 +57,5 @@ impl<'a> TryFrom<&'a [AccountView]> for TransferHookExecuteAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for TransferHookExecuteAccounts<'a> {}

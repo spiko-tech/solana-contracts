@@ -33,3 +33,5 @@ impl<'a> TryFrom<&'a [AccountView]> for AcceptOwnershipAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for AcceptOwnershipAccounts<'a> {}

@@ -4,9 +4,10 @@ use pinocchio::{
 
 use spiko_common::{AccountDeserialize, AccountSize};
 
-use crate::events::build_role_granted_event;
+use crate::events::RoleGrantedEvent;
 use crate::helpers::{create_pda_account, require_admin_or_role, user_perm_seeds, verify_pda};
 use crate::state::{UserPermissions, PERMISSION_CONFIG_SEED, USER_PERMISSION_SEED};
+use spiko_events::EventSerialize;
 
 use super::accounts::GrantRoleAccounts;
 use super::data::GrantRoleData;
@@ -79,17 +80,17 @@ impl<'a> GrantRole<'a> {
             perms.set_role(self.data.role_id);
         }
 
-        let event_data = build_role_granted_event(
-            &self.accounts.caller.address().to_bytes(),
-            &self.accounts.target_user.address().to_bytes(),
+        let event = RoleGrantedEvent::new(
+            self.accounts.caller.address().clone(),
+            self.accounts.target_user.address().clone(),
             self.data.role_id,
         );
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

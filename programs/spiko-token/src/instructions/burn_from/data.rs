@@ -20,3 +20,7 @@ impl<'a> TryFrom<&'a [u8]> for BurnFromData {
         Ok(Self { amount })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for BurnFromData {
+    const LEN: usize = 8;
+}

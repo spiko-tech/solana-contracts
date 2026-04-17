@@ -1,5 +1,7 @@
 use pinocchio::{account::AccountView, error::ProgramError};
 
+use spiko_common::InstructionAccounts;
+
 /// Accounts for the SetMinimum instruction.
 ///
 ///   0. `[signer, writable]` Admin caller (payer if creating TokenMinimum PDA)
@@ -44,3 +46,5 @@ impl<'a> TryFrom<&'a [AccountView]> for SetMinimumAccounts<'a> {
         })
     }
 }
+
+impl<'a> InstructionAccounts<'a> for SetMinimumAccounts<'a> {}

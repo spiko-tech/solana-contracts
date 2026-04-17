@@ -38,3 +38,7 @@ impl<'a> TryFrom<&'a [u8]> for CancelMintData {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for CancelMintData {
+    const LEN: usize = 80;
+}

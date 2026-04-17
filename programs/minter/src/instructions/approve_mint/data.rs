@@ -38,3 +38,7 @@ impl<'a> TryFrom<&'a [u8]> for ApproveMintData {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for ApproveMintData {
+    const LEN: usize = 80;
+}

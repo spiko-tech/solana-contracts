@@ -144,7 +144,7 @@ impl<'a> InitExtraAccountMetas<'a> {
             buf[156..191].copy_from_slice(&meta4);
 
             // Extra[5]: Event authority PDA (literal pubkey)
-            let meta5 = build_literal_meta(&crate::event_authority_pda::ID.to_bytes());
+            let meta5 = build_literal_meta(&crate::events::event_authority_pda::ID.to_bytes());
             buf[191..226].copy_from_slice(&meta5);
 
             // Extra[6]: Transfer hook program itself (literal pubkey)

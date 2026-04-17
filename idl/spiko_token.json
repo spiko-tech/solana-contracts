@@ -110,12 +110,12 @@
     "definedTypes": [
       {
         "kind": "definedTypeNode",
-        "name": "tokenInitializedEvent",
+        "name": "burnEvent",
         "type": {
           "fields": [
             {
               "kind": "structFieldTypeNode",
-              "name": "admin",
+              "name": "caller",
               "type": {
                 "kind": "publicKeyTypeNode"
               }
@@ -125,6 +125,22 @@
               "name": "mint",
               "type": {
                 "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "sourceAta",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "amount",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
               }
             }
           ],
@@ -153,45 +169,6 @@
             {
               "kind": "structFieldTypeNode",
               "name": "recipientAta",
-              "type": {
-                "kind": "publicKeyTypeNode"
-              }
-            },
-            {
-              "kind": "structFieldTypeNode",
-              "name": "amount",
-              "type": {
-                "endian": "le",
-                "format": "u64",
-                "kind": "numberTypeNode"
-              }
-            }
-          ],
-          "kind": "structTypeNode"
-        }
-      },
-      {
-        "kind": "definedTypeNode",
-        "name": "burnEvent",
-        "type": {
-          "fields": [
-            {
-              "kind": "structFieldTypeNode",
-              "name": "caller",
-              "type": {
-                "kind": "publicKeyTypeNode"
-              }
-            },
-            {
-              "kind": "structFieldTypeNode",
-              "name": "mint",
-              "type": {
-                "kind": "publicKeyTypeNode"
-              }
-            },
-            {
-              "kind": "structFieldTypeNode",
-              "name": "sourceAta",
               "type": {
                 "kind": "publicKeyTypeNode"
               }
@@ -252,6 +229,59 @@
       },
       {
         "kind": "definedTypeNode",
+        "name": "redemptionContractSetEvent",
+        "type": {
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "caller",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "config",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "contract",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            }
+          ],
+          "kind": "structTypeNode"
+        }
+      },
+      {
+        "kind": "definedTypeNode",
+        "name": "tokenInitializedEvent",
+        "type": {
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "admin",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "mint",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            }
+          ],
+          "kind": "structTypeNode"
+        }
+      },
+      {
+        "kind": "definedTypeNode",
         "name": "tokenPausedEvent",
         "type": {
           "fields": [
@@ -288,36 +318,6 @@
             {
               "kind": "structFieldTypeNode",
               "name": "config",
-              "type": {
-                "kind": "publicKeyTypeNode"
-              }
-            }
-          ],
-          "kind": "structTypeNode"
-        }
-      },
-      {
-        "kind": "definedTypeNode",
-        "name": "redemptionContractSetEvent",
-        "type": {
-          "fields": [
-            {
-              "kind": "structFieldTypeNode",
-              "name": "caller",
-              "type": {
-                "kind": "publicKeyTypeNode"
-              }
-            },
-            {
-              "kind": "structFieldTypeNode",
-              "name": "config",
-              "type": {
-                "kind": "publicKeyTypeNode"
-              }
-            },
-            {
-              "kind": "structFieldTypeNode",
-              "name": "contract",
               "type": {
                 "kind": "publicKeyTypeNode"
               }

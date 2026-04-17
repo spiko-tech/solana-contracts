@@ -3,9 +3,10 @@ use spiko_common::AccountDeserialize;
 
 use permission_manager::state::ROLE_PAUSER;
 
+use spiko_events::EventSerialize;
+
 use crate::{
-    error::TokenError, events::build_token_unpaused_event, helpers::require_permission,
-    state::TokenConfig,
+    error::TokenError, events::TokenUnpausedEvent, helpers::require_permission, state::TokenConfig,
 };
 
 use super::accounts::UnpauseAccounts;
@@ -51,16 +52,16 @@ impl<'a> Unpause<'a> {
             config.paused = 0;
         }
 
-        let event_data = build_token_unpaused_event(
-            &self.accounts.caller.address().to_bytes(),
-            &self.accounts.config.address().to_bytes(),
+        let event = TokenUnpausedEvent::new(
+            self.accounts.caller.address().clone(),
+            self.accounts.config.address().clone(),
         );
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

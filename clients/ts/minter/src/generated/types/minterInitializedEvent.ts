@@ -10,6 +10,8 @@ import {
   combineCodec,
   getAddressDecoder,
   getAddressEncoder,
+  getI64Decoder,
+  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
   type Address,
@@ -18,16 +20,25 @@ import {
   type FixedSizeEncoder,
 } from "@solana/kit";
 
-export type MinterInitializedEvent = { admin: Address };
+export type MinterInitializedEvent = { admin: Address; maxDelay: bigint };
 
-export type MinterInitializedEventArgs = MinterInitializedEvent;
+export type MinterInitializedEventArgs = {
+  admin: Address;
+  maxDelay: number | bigint;
+};
 
 export function getMinterInitializedEventEncoder(): FixedSizeEncoder<MinterInitializedEventArgs> {
-  return getStructEncoder([["admin", getAddressEncoder()]]);
+  return getStructEncoder([
+    ["admin", getAddressEncoder()],
+    ["maxDelay", getI64Encoder()],
+  ]);
 }
 
 export function getMinterInitializedEventDecoder(): FixedSizeDecoder<MinterInitializedEvent> {
-  return getStructDecoder([["admin", getAddressDecoder()]]);
+  return getStructDecoder([
+    ["admin", getAddressDecoder()],
+    ["maxDelay", getI64Decoder()],
+  ]);
 }
 
 export function getMinterInitializedEventCodec(): FixedSizeCodec<

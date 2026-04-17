@@ -20,3 +20,7 @@ impl<'a> TryFrom<&'a [u8]> for TransferTokenData {
         Ok(Self { amount })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for TransferTokenData {
+    const LEN: usize = 8;
+}

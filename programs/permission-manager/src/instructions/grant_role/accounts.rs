@@ -51,3 +51,5 @@ impl<'a> TryFrom<&'a [AccountView]> for GrantRoleAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for GrantRoleAccounts<'a> {}

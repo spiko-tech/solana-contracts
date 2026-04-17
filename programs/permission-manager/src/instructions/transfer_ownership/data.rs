@@ -23,3 +23,7 @@ impl<'a> TryFrom<&'a [u8]> for TransferOwnershipData {
         Ok(Self { new_admin })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for TransferOwnershipData {
+    const LEN: usize = 32;
+}

@@ -10,9 +10,11 @@ use spiko_common::{AccountDeserialize, AccountSize};
 
 use permission_manager::state::ROLE_MINT_INITIATOR;
 
+use spiko_events::EventSerialize;
+
 use crate::{
     error::MinterError,
-    events::{build_mint_blocked_event, build_mint_executed_event},
+    events::{MintBlockedEvent, MintExecutedEvent},
     helpers::{
         compute_operation_id, cpi_spiko_token_mint, create_pda_account, mint_operation_seeds,
         require_permission, verify_pda,
@@ -151,10 +153,10 @@ impl<'a> InitiateMint<'a> {
                 self.data.amount,
             )?;
 
-            let event_data = build_mint_executed_event(
-                &self.accounts.caller.address().to_bytes(),
-                &self.data.user,
-                &self.accounts.token_mint.address().to_bytes(),
+            let event = MintExecutedEvent::new(
+                self.accounts.caller.address().clone(),
+                Address::new_from_array(self.data.user),
+                self.accounts.token_mint.address().clone(),
                 self.data.amount,
                 self.data.salt,
             );
@@ -162,8 +164,8 @@ impl<'a> InitiateMint<'a> {
                 program_id,
                 self.accounts.event_authority,
                 self.accounts.self_program,
-                &event_data,
-                crate::event_authority_pda::BUMP,
+                &event.to_bytes(),
+                crate::events::event_authority_pda::BUMP,
             )?;
         } else {
             let op_bump_bytes = [op_bump];
@@ -186,10 +188,10 @@ impl<'a> InitiateMint<'a> {
                 op.set_deadline(now + max_delay);
             }
 
-            let event_data = build_mint_blocked_event(
-                &self.accounts.caller.address().to_bytes(),
-                &self.data.user,
-                &self.accounts.token_mint.address().to_bytes(),
+            let event = MintBlockedEvent::new(
+                self.accounts.caller.address().clone(),
+                Address::new_from_array(self.data.user),
+                self.accounts.token_mint.address().clone(),
                 self.data.amount,
                 self.data.salt,
             );
@@ -197,8 +199,8 @@ impl<'a> InitiateMint<'a> {
                 program_id,
                 self.accounts.event_authority,
                 self.accounts.self_program,
-                &event_data,
-                crate::event_authority_pda::BUMP,
+                &event.to_bytes(),
+                crate::events::event_authority_pda::BUMP,
             )?;
         }
 

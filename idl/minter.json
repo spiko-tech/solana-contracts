@@ -194,14 +194,30 @@
     "definedTypes": [
       {
         "kind": "definedTypeNode",
-        "name": "minterInitializedEvent",
+        "name": "dailyLimitUpdatedEvent",
         "type": {
           "fields": [
             {
               "kind": "structFieldTypeNode",
-              "name": "admin",
+              "name": "caller",
               "type": {
                 "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "mint",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "limit",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
               }
             }
           ],
@@ -210,12 +226,37 @@
       },
       {
         "kind": "definedTypeNode",
-        "name": "mintExecutedEvent",
+        "name": "maxDelayUpdatedEvent",
         "type": {
           "fields": [
             {
               "kind": "structFieldTypeNode",
               "name": "caller",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "maxDelay",
+              "type": {
+                "endian": "le",
+                "format": "i64",
+                "kind": "numberTypeNode"
+              }
+            }
+          ],
+          "kind": "structTypeNode"
+        }
+      },
+      {
+        "kind": "definedTypeNode",
+        "name": "mintApprovedEvent",
+        "type": {
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "approver",
               "type": {
                 "kind": "publicKeyTypeNode"
               }
@@ -259,54 +300,6 @@
       {
         "kind": "definedTypeNode",
         "name": "mintBlockedEvent",
-        "type": {
-          "fields": [
-            {
-              "kind": "structFieldTypeNode",
-              "name": "caller",
-              "type": {
-                "kind": "publicKeyTypeNode"
-              }
-            },
-            {
-              "kind": "structFieldTypeNode",
-              "name": "user",
-              "type": {
-                "kind": "publicKeyTypeNode"
-              }
-            },
-            {
-              "kind": "structFieldTypeNode",
-              "name": "mint",
-              "type": {
-                "kind": "publicKeyTypeNode"
-              }
-            },
-            {
-              "kind": "structFieldTypeNode",
-              "name": "amount",
-              "type": {
-                "endian": "le",
-                "format": "u64",
-                "kind": "numberTypeNode"
-              }
-            },
-            {
-              "kind": "structFieldTypeNode",
-              "name": "salt",
-              "type": {
-                "endian": "le",
-                "format": "u64",
-                "kind": "numberTypeNode"
-              }
-            }
-          ],
-          "kind": "structTypeNode"
-        }
-      },
-      {
-        "kind": "definedTypeNode",
-        "name": "mintApprovedEvent",
         "type": {
           "fields": [
             {
@@ -402,12 +395,19 @@
       },
       {
         "kind": "definedTypeNode",
-        "name": "dailyLimitUpdatedEvent",
+        "name": "mintExecutedEvent",
         "type": {
           "fields": [
             {
               "kind": "structFieldTypeNode",
               "name": "caller",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "user",
               "type": {
                 "kind": "publicKeyTypeNode"
               }
@@ -421,7 +421,16 @@
             },
             {
               "kind": "structFieldTypeNode",
-              "name": "limit",
+              "name": "amount",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "salt",
               "type": {
                 "endian": "le",
                 "format": "u64",
@@ -434,12 +443,12 @@
       },
       {
         "kind": "definedTypeNode",
-        "name": "maxDelayUpdatedEvent",
+        "name": "minterInitializedEvent",
         "type": {
           "fields": [
             {
               "kind": "structFieldTypeNode",
-              "name": "caller",
+              "name": "admin",
               "type": {
                 "kind": "publicKeyTypeNode"
               }

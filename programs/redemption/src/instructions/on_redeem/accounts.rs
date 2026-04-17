@@ -1,5 +1,7 @@
 use pinocchio::{account::AccountView, error::ProgramError};
 
+use spiko_common::InstructionAccounts;
+
 /// Accounts for the OnRedeem instruction.
 ///
 ///   0. `[signer]`            TokenConfig PDA (from spiko_token — proves CPI origin)
@@ -56,3 +58,5 @@ impl<'a> TryFrom<&'a [AccountView]> for OnRedeemAccounts<'a> {
         })
     }
 }
+
+impl<'a> InstructionAccounts<'a> for OnRedeemAccounts<'a> {}

@@ -44,3 +44,5 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeRoleAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for RevokeRoleAccounts<'a> {}

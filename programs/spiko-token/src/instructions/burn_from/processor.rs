@@ -3,9 +3,11 @@ use pinocchio::{
 };
 use spiko_common::AccountDeserialize;
 
+use spiko_events::EventSerialize;
+
 use crate::{
     error::TokenError,
-    events::build_burn_event,
+    events::BurnEvent,
     helpers::{mint_authority_seeds, require_admin, require_not_paused},
     state::{TokenConfig, MINT_AUTHORITY_SEED},
 };
@@ -77,18 +79,18 @@ impl<'a> BurnFrom<'a> {
         }
         .invoke_signed(&[ma_signer])?;
 
-        let event_data = build_burn_event(
-            &self.accounts.caller.address().to_bytes(),
-            &self.accounts.mint.address().to_bytes(),
-            &self.accounts.source_token_account.address().to_bytes(),
+        let event = BurnEvent::new(
+            self.accounts.caller.address().clone(),
+            self.accounts.mint.address().clone(),
+            self.accounts.source_token_account.address().clone(),
             self.data.amount,
         );
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

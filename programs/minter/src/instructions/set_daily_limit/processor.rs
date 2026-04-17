@@ -3,9 +3,11 @@ use pinocchio::{
 };
 use spiko_common::{AccountDeserialize, AccountSize};
 
+use spiko_events::EventSerialize;
+
 use crate::{
     error::MinterError,
-    events::build_daily_limit_updated_event,
+    events::DailyLimitUpdatedEvent,
     helpers::{create_pda_account, daily_limit_seeds, require_admin, verify_pda},
     state::{DailyLimit, MinterConfig, DAILY_LIMIT_SEED},
 };
@@ -83,17 +85,17 @@ impl<'a> SetDailyLimit<'a> {
             // If newly created, used_amount and last_day are already zero
         }
 
-        let event_data = build_daily_limit_updated_event(
-            &self.accounts.caller.address().to_bytes(),
-            &self.data.token_mint,
+        let event = DailyLimitUpdatedEvent::new(
+            self.accounts.caller.address().clone(),
+            Address::new_from_array(self.data.token_mint),
             self.data.limit,
         );
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

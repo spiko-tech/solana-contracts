@@ -6,10 +6,12 @@ use spiko_common::{AccountDeserialize, AccountSize};
 
 use crate::{
     error::RedemptionError,
-    events::build_token_minimum_updated_event,
+    events::{event_authority_pda, TokenMinimumUpdatedEvent},
     helpers::{create_pda_account, require_admin, token_minimum_seeds, verify_pda},
     state::{RedemptionConfig, TokenMinimum, TOKEN_MINIMUM_SEED},
 };
+
+use spiko_events::EventSerialize;
 
 use super::accounts::SetMinimumAccounts;
 use super::data::SetMinimumData;
@@ -82,17 +84,17 @@ impl<'a> SetMinimum<'a> {
             tm.set_minimum_amount(self.data.minimum);
         }
 
-        let event_data = build_token_minimum_updated_event(
-            &self.accounts.caller.address().to_bytes(),
-            &self.data.token_mint,
+        let event = TokenMinimumUpdatedEvent::new(
+            self.accounts.caller.address().clone(),
+            Address::new_from_array(self.data.token_mint),
             self.data.minimum,
         );
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            event_authority_pda::BUMP,
         )?;
 
         Ok(())

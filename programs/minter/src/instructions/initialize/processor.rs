@@ -3,9 +3,11 @@ use pinocchio::{
 };
 use spiko_common::{AccountDeserialize, AccountSize};
 
+use spiko_events::EventSerialize;
+
 use crate::{
     error::MinterError,
-    events::build_minter_initialized_event,
+    events::MinterInitializedEvent,
     helpers::{create_pda_account, minter_config_seeds, verify_pda},
     state::{MinterConfig, MINTER_CONFIG_SEED},
 };
@@ -61,16 +63,14 @@ impl<'a> InitializeMinter<'a> {
             config.permission_manager = Address::new_from_array(self.data.permission_manager);
         }
 
-        let event_data = build_minter_initialized_event(
-            &self.accounts.admin.address().to_bytes(),
-            self.data.max_delay,
-        );
+        let event =
+            MinterInitializedEvent::new(self.accounts.admin.address().clone(), self.data.max_delay);
         spiko_events::emit_event(
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            crate::events::event_authority_pda::BUMP,
         )?;
 
         Ok(())

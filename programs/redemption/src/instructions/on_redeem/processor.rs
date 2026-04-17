@@ -11,13 +11,15 @@ use spiko_common::{AccountDeserialize, AccountSize};
 
 use crate::{
     error::RedemptionError,
-    events::build_redemption_initiated_event,
+    events::{event_authority_pda, RedemptionInitiatedEvent},
     helpers::{compute_operation_id, create_pda_account, redemption_operation_seeds, verify_pda},
     state::{
         RedemptionConfig, RedemptionOperation, TokenMinimum, MAX_DELAY, REDEMPTION_OPERATION_SEED,
         STATUS_NULL, STATUS_PENDING, TOKEN_MINIMUM_SEED,
     },
 };
+
+use spiko_events::EventSerialize;
 
 use super::accounts::OnRedeemAccounts;
 use super::data::OnRedeemData;
@@ -118,9 +120,9 @@ impl<'a> OnRedeem<'a> {
             op.user = Address::new_from_array(self.data.user_address);
         }
 
-        let event_data = build_redemption_initiated_event(
-            &self.data.user_address,
-            &self.accounts.token_mint.address().to_bytes(),
+        let event = RedemptionInitiatedEvent::new(
+            Address::new_from_array(self.data.user_address),
+            self.accounts.token_mint.address().clone(),
             self.data.amount,
             self.data.salt,
             now + MAX_DELAY,
@@ -129,8 +131,8 @@ impl<'a> OnRedeem<'a> {
             program_id,
             self.accounts.event_authority,
             self.accounts.self_program,
-            &event_data,
-            crate::event_authority_pda::BUMP,
+            &event.to_bytes(),
+            event_authority_pda::BUMP,
         )?;
 
         Ok(())

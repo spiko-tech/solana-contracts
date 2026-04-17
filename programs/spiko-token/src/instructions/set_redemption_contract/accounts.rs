@@ -36,3 +36,5 @@ impl<'a> TryFrom<&'a [AccountView]> for SetRedemptionContractAccounts<'a> {
         })
     }
 }
+
+impl<'a> spiko_common::InstructionAccounts<'a> for SetRedemptionContractAccounts<'a> {}

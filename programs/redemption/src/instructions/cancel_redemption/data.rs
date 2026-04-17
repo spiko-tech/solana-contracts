@@ -1,5 +1,7 @@
 use pinocchio::error::ProgramError;
 
+use spiko_common::InstructionData;
+
 /// Instruction data for the CancelRedemption instruction.
 ///
 /// Data layout:
@@ -27,4 +29,8 @@ impl<'a> TryFrom<&'a [u8]> for CancelRedemptionData {
 
         Ok(Self { user, amount, salt })
     }
+}
+
+impl<'a> InstructionData<'a> for CancelRedemptionData {
+    const LEN: usize = 48;
 }

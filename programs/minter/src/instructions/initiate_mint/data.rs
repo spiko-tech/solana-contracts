@@ -29,3 +29,7 @@ impl<'a> TryFrom<&'a [u8]> for InitiateMintData {
         Ok(Self { user, amount, salt })
     }
 }
+
+impl<'a> spiko_common::InstructionData<'a> for InitiateMintData {
+    const LEN: usize = 48;
+}
