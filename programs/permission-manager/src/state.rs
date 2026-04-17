@@ -14,13 +14,15 @@ pub const ROLE_WHITELISTED: u8 = 4;
 pub const ROLE_REDEMPTION_EXECUTOR: u8 = 5;
 pub const ROLE_MINT_APPROVER: u8 = 6;
 pub const ROLE_MINT_INITIATOR: u8 = 7;
+pub const ROLE_WHITELISTED_EXT: u8 = 8;
+pub const ROLE_CUSTODIAL_GATEKEEPER_APPROVER: u8 = 9;
 pub const MAX_ROLE_BIT: u8 = 255;
 
 #[inline]
 pub fn can_manage_role(grantor_role: u8, target_role: u8) -> bool {
     matches!(
         (grantor_role, target_role),
-        (ROLE_WHITELISTER, ROLE_WHITELISTED)
+        (ROLE_WHITELISTER, ROLE_WHITELISTED) | (ROLE_WHITELISTER, ROLE_WHITELISTED_EXT)
     )
 }
 

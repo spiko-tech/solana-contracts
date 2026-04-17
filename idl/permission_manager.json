@@ -272,6 +272,18 @@
         "kind": "errorNode",
         "message": "Caller is not the pending admin",
         "name": "notPendingAdmin"
+      },
+      {
+        "code": 7,
+        "kind": "errorNode",
+        "message": "Cannot grant role due to group exclusion",
+        "name": "groupExclusion"
+      },
+      {
+        "code": 8,
+        "kind": "errorNode",
+        "message": "Cannot revoke role due to group protection",
+        "name": "groupProtected"
       }
     ],
     "instructions": [

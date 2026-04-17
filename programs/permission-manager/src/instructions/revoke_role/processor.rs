@@ -4,8 +4,10 @@ use spiko_common::AccountDeserialize;
 
 use crate::error::PermissionError;
 use crate::events::RoleRemovedEvent;
-use crate::helpers::{require_admin_or_role, verify_pda};
-use crate::state::{UserPermissions, PERMISSION_CONFIG_SEED, USER_PERMISSION_SEED};
+use crate::helpers::{is_admin, require_admin_or_role, verify_pda};
+use crate::state::{
+    UserPermissions, PERMISSION_CONFIG_SEED, ROLE_WHITELISTED, USER_PERMISSION_SEED,
+};
 use spiko_events::EventSerialize;
 
 use super::accounts::RevokeRoleAccounts;
@@ -55,6 +57,13 @@ impl<'a> RevokeRole<'a> {
             ],
             program_id,
         )?;
+
+        // Group protection: non-admin cannot revoke WHITELISTED (protected group).
+        if self.data.role_id == ROLE_WHITELISTED
+            && !is_admin(self.accounts.caller, self.accounts.config, program_id)
+        {
+            return Err(PermissionError::GroupProtected.into());
+        }
 
         {
             let mut data = self.accounts.user_perms.try_borrow_mut()?;

@@ -4,9 +4,15 @@ use pinocchio::{
 
 use spiko_common::{AccountDeserialize, AccountSize};
 
+use crate::error::PermissionError;
 use crate::events::RoleGrantedEvent;
-use crate::helpers::{create_pda_account, require_admin_or_role, user_perm_seeds, verify_pda};
-use crate::state::{UserPermissions, PERMISSION_CONFIG_SEED, USER_PERMISSION_SEED};
+use crate::helpers::{
+    create_pda_account, is_admin, require_admin_or_role, user_perm_seeds, verify_pda,
+};
+use crate::state::{
+    UserPermissions, PERMISSION_CONFIG_SEED, ROLE_WHITELISTED, ROLE_WHITELISTED_EXT,
+    USER_PERMISSION_SEED,
+};
 use spiko_events::EventSerialize;
 
 use super::accounts::GrantRoleAccounts;
@@ -72,6 +78,22 @@ impl<'a> GrantRole<'a> {
             let perms = UserPermissions::from_bytes_mut_init(&mut data)?;
             perms.bump = user_perm_bump;
             perms.roles = [0u8; 32];
+        }
+
+        // Group exclusion: non-admin cannot grant WHITELISTED_EXT to a user
+        // that already holds WHITELISTED, and vice versa.
+        if !is_admin(self.accounts.caller, self.accounts.config, program_id) {
+            let data = self.accounts.user_perms.try_borrow()?;
+            let perms = UserPermissions::from_bytes(&data)?;
+
+            let excluded = match self.data.role_id {
+                ROLE_WHITELISTED => perms.has_role(ROLE_WHITELISTED_EXT),
+                ROLE_WHITELISTED_EXT => perms.has_role(ROLE_WHITELISTED),
+                _ => false,
+            };
+            if excluded {
+                return Err(PermissionError::GroupExclusion.into());
+            }
         }
 
         {

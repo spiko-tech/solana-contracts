@@ -9,6 +9,7 @@ members = [
     "programs/spiko-transfer-hook",
     "programs/minter",
     "programs/redemption",
+    "programs/custodial-gatekeeper",
     "integration-tests",
 ]
 

@@ -7,13 +7,17 @@ use pinocchio::{
 };
 use spiko_common::AccountDeserialize;
 
-use permission_manager::state::ROLE_WHITELISTED;
+use permission_manager::state::{
+    has_role, UserPermissions, ROLE_WHITELISTED, ROLE_WHITELISTED_EXT, USER_PERMISSION_SEED,
+};
 
 use crate::{
     error::TokenError,
-    helpers::{read_mint_decimals, require_not_paused, require_permission},
+    helpers::{read_mint_decimals, require_not_paused},
     state::TokenConfig,
 };
+
+use spiko_common::verify_pda;
 
 use super::accounts::TransferTokenAccounts;
 use super::data::TransferTokenData;
@@ -52,13 +56,32 @@ impl<'a> TransferToken<'a> {
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        require_permission(
-            self.accounts.sender.address(),
-            self.accounts.sender_perms,
-            &permission_manager_id,
-            ROLE_WHITELISTED,
-            TokenError::UnauthorizedFrom.into(),
-        )?;
+        // Read sender permissions and check WHITELISTED or WHITELISTED_EXT
+        let (sender_whitelisted, sender_whitelisted_ext) = {
+            let sender_addr = self.accounts.sender.address();
+            if !self.accounts.sender_perms.owned_by(&permission_manager_id) {
+                return Err(TokenError::UnauthorizedFrom.into());
+            }
+            if verify_pda(
+                self.accounts.sender_perms,
+                &[USER_PERMISSION_SEED, sender_addr.as_ref()],
+                &permission_manager_id,
+            )
+            .is_err()
+            {
+                return Err(TokenError::UnauthorizedFrom.into());
+            }
+            let data = self.accounts.sender_perms.try_borrow()?;
+            let perms = UserPermissions::from_bytes(&data)?;
+            (
+                has_role(&perms.roles, ROLE_WHITELISTED),
+                has_role(&perms.roles, ROLE_WHITELISTED_EXT),
+            )
+        };
+
+        if !sender_whitelisted && !sender_whitelisted_ext {
+            return Err(TokenError::UnauthorizedFrom.into());
+        }
 
         // Extract the recipient's owner from the destination token account
         // data (bytes 32..64) and verify the recipient_perms PDA matches.
@@ -71,13 +94,41 @@ impl<'a> TransferToken<'a> {
             Address::new_from_array(*owner_bytes)
         };
 
-        require_permission(
-            &recipient_owner,
-            self.accounts.recipient_perms,
-            &permission_manager_id,
-            ROLE_WHITELISTED,
-            TokenError::UnauthorizedTo.into(),
-        )?;
+        // Read recipient permissions
+        let recipient_whitelisted = {
+            if !self
+                .accounts
+                .recipient_perms
+                .owned_by(&permission_manager_id)
+            {
+                return Err(TokenError::UnauthorizedTo.into());
+            }
+            if verify_pda(
+                self.accounts.recipient_perms,
+                &[USER_PERMISSION_SEED, recipient_owner.as_ref()],
+                &permission_manager_id,
+            )
+            .is_err()
+            {
+                return Err(TokenError::UnauthorizedTo.into());
+            }
+            let data = self.accounts.recipient_perms.try_borrow()?;
+            let perms = UserPermissions::from_bytes(&data)?;
+            let r_wl = has_role(&perms.roles, ROLE_WHITELISTED);
+            let r_wl_ext = has_role(&perms.roles, ROLE_WHITELISTED_EXT);
+
+            if !r_wl && !r_wl_ext {
+                return Err(TokenError::UnauthorizedTo.into());
+            }
+
+            r_wl
+        };
+
+        // Directional transfer matrix:
+        // WHITELISTED-only sender can only send to WHITELISTED recipients.
+        if sender_whitelisted && !sender_whitelisted_ext && !recipient_whitelisted {
+            return Err(TokenError::UnauthorizedTo.into());
+        }
 
         {
             let decimals = read_mint_decimals(self.accounts.mint)?;
