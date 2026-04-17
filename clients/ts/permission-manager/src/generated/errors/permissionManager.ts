@@ -21,9 +21,13 @@ export const PERMISSION_MANAGER_ERROR__INVALID_ROLE = 0x3; // 3
 export const PERMISSION_MANAGER_ERROR__INVALID_PDA = 0x4; // 4
 export const PERMISSION_MANAGER_ERROR__NO_PENDING_ADMIN = 0x5; // 5
 export const PERMISSION_MANAGER_ERROR__NOT_PENDING_ADMIN = 0x6; // 6
+export const PERMISSION_MANAGER_ERROR__GROUP_EXCLUSION = 0x7; // 7
+export const PERMISSION_MANAGER_ERROR__GROUP_PROTECTED = 0x8; // 8
 
 export type PermissionManagerError =
   | typeof PERMISSION_MANAGER_ERROR__ALREADY_INITIALIZED
+  | typeof PERMISSION_MANAGER_ERROR__GROUP_EXCLUSION
+  | typeof PERMISSION_MANAGER_ERROR__GROUP_PROTECTED
   | typeof PERMISSION_MANAGER_ERROR__INVALID_PDA
   | typeof PERMISSION_MANAGER_ERROR__INVALID_ROLE
   | typeof PERMISSION_MANAGER_ERROR__NO_PENDING_ADMIN
@@ -37,6 +41,8 @@ let permissionManagerErrorMessages:
 if (process.env.NODE_ENV !== "production") {
   permissionManagerErrorMessages = {
     [PERMISSION_MANAGER_ERROR__ALREADY_INITIALIZED]: `Program has already been initialized`,
+    [PERMISSION_MANAGER_ERROR__GROUP_EXCLUSION]: `Cannot grant role due to group exclusion`,
+    [PERMISSION_MANAGER_ERROR__GROUP_PROTECTED]: `Cannot revoke role due to group protection`,
     [PERMISSION_MANAGER_ERROR__INVALID_PDA]: `Invalid PDA derivation`,
     [PERMISSION_MANAGER_ERROR__INVALID_ROLE]: `Invalid role identifier`,
     [PERMISSION_MANAGER_ERROR__NO_PENDING_ADMIN]: `No pending admin set`,

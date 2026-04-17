@@ -3,10 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {
-    "generate-idl": "cargo check -p permission-manager -p spiko-token -p minter -p redemption -p spiko-transfer-hook --features idl",
-    "generate-clients": "tsx codegen/generate-clients.ts"
-  },
   "dependencies": {
     "@solana/kit": "^2.1",
     "@solana-program/system": "^0.7"

@@ -32,7 +32,7 @@ pub enum GatekeeperInstruction {
     #[codama(account(
         name = "self_program",
         docs = "CustodialGatekeeper program (self)",
-        default_value = public_key("CGK1111111111111111111111111111111111111111")
+        default_value = public_key("4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY")
     ))]
     Initialize {
         /// Permission manager program ID
@@ -63,7 +63,7 @@ pub enum GatekeeperInstruction {
     #[codama(account(
         name = "self_program",
         docs = "CustodialGatekeeper program (self)",
-        default_value = public_key("CGK1111111111111111111111111111111111111111")
+        default_value = public_key("4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY")
     ))]
     SetDailyLimit {
         /// Token mint address
@@ -121,7 +121,7 @@ pub enum GatekeeperInstruction {
     #[codama(account(
         name = "self_program",
         docs = "CustodialGatekeeper program (self)",
-        default_value = public_key("CGK1111111111111111111111111111111111111111")
+        default_value = public_key("4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY")
     ))]
     CustodialWithdraw {
         /// Recipient address (self-custodial wallet owner)
@@ -168,7 +168,7 @@ pub enum GatekeeperInstruction {
     #[codama(account(
         name = "self_program",
         docs = "CustodialGatekeeper program (self)",
-        default_value = public_key("CGK1111111111111111111111111111111111111111")
+        default_value = public_key("4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY")
     ))]
     ApproveWithdrawal {
         /// Recipient address
@@ -211,7 +211,7 @@ pub enum GatekeeperInstruction {
     #[codama(account(
         name = "self_program",
         docs = "CustodialGatekeeper program (self)",
-        default_value = public_key("CGK1111111111111111111111111111111111111111")
+        default_value = public_key("4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY")
     ))]
     CancelWithdrawal {
         /// Recipient address (used for operation_id derivation)

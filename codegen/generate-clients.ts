@@ -22,6 +22,7 @@ const programs: [string, string][] = [
     ['minter.json', 'minter'],
     ['redemption.json', 'redemption'],
     ['spiko_transfer_hook.json', 'spiko-transfer-hook'],
+    ['custodial_gatekeeper.json', 'custodial-gatekeeper'],
 ];
 
 for (const [idlFile, clientDir] of programs) {

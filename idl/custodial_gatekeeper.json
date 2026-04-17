@@ -590,7 +590,7 @@
           {
             "defaultValue": {
               "kind": "publicKeyValueNode",
-              "publicKey": "CGK1111111111111111111111111111111111111111"
+              "publicKey": "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY"
             },
             "docs": [
               "CustodialGatekeeper program (self)"
@@ -706,7 +706,7 @@
           {
             "defaultValue": {
               "kind": "publicKeyValueNode",
-              "publicKey": "CGK1111111111111111111111111111111111111111"
+              "publicKey": "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY"
             },
             "docs": [
               "CustodialGatekeeper program (self)"
@@ -961,7 +961,7 @@
           {
             "defaultValue": {
               "kind": "publicKeyValueNode",
-              "publicKey": "CGK1111111111111111111111111111111111111111"
+              "publicKey": "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY"
             },
             "docs": [
               "CustodialGatekeeper program (self)"
@@ -1194,7 +1194,7 @@
           {
             "defaultValue": {
               "kind": "publicKeyValueNode",
-              "publicKey": "CGK1111111111111111111111111111111111111111"
+              "publicKey": "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY"
             },
             "docs": [
               "CustodialGatekeeper program (self)"
@@ -1418,7 +1418,7 @@
           {
             "defaultValue": {
               "kind": "publicKeyValueNode",
-              "publicKey": "CGK1111111111111111111111111111111111111111"
+              "publicKey": "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY"
             },
             "docs": [
               "CustodialGatekeeper program (self)"
@@ -1550,7 +1550,7 @@
         ]
       }
     ],
-    "publicKey": "CGK1111111111111111111111111111111111111111",
+    "publicKey": "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY",
     "version": "0.1.0"
   },
   "standard": "codama",
