@@ -18,7 +18,6 @@ impl<'a> TryFrom<&'a [u8]> for ApproveMintData {
     type Error = ProgramError;
 
     fn try_from(data: &'a [u8]) -> Result<Self, Self::Error> {
-        // 32 user + 32 token_mint + 8 amount + 8 salt = 80
         if data.len() < 80 {
             return Err(ProgramError::InvalidInstructionData);
         }

@@ -13,10 +13,6 @@ use solana_account::Account;
 use solana_instruction::{AccountMeta, Instruction};
 use solana_pubkey::Pubkey;
 
-// ===================================================================
-// Constants (matching on-chain programs)
-// ===================================================================
-// -- permission_manager --
 const PERMISSION_CONFIG_SEED: &[u8] = b"permission_config";
 const USER_PERMISSION_SEED: &[u8] = b"user_perm";
 const DISCRIMINATOR_PERMISSION_CONFIG: u8 = 1;
@@ -24,19 +20,15 @@ const DISCRIMINATOR_USER_PERMISSION: u8 = 2;
 const PERMISSION_CONFIG_LEN: usize = 67;
 const USER_PERMISSIONS_LEN: usize = 35;
 
-// Event authority (self-CPI)
 const EVENT_AUTHORITY_SEED: &[u8] = b"event_authority";
 
-// Role bits
 const ROLE_PAUSER: u8 = 1;
 const ROLE_MINT_APPROVER: u8 = 6;
 
-// -- spiko_token --
 const TOKEN_CONFIG_SEED: &[u8] = b"token_config";
 const DISCRIMINATOR_TOKEN_CONFIG: u8 = 1;
 const TOKEN_CONFIG_LEN: usize = 101;
 
-// -- minter --
 const MINTER_CONFIG_SEED: &[u8] = b"minter_config";
 const DAILY_LIMIT_SEED: &[u8] = b"daily_limit";
 const MINT_OPERATION_SEED: &[u8] = b"mint_op";
@@ -48,17 +40,12 @@ const DAILY_LIMIT_LEN: usize = 27;
 const MINT_OPERATION_LEN: usize = 12;
 const STATUS_PENDING: u8 = 1;
 
-// -- redemption --
 const REDEMPTION_CONFIG_SEED: &[u8] = b"redemption_config";
 const TOKEN_MINIMUM_SEED: &[u8] = b"minimum";
 const DISCRIMINATOR_REDEMPTION_CONFIG: u8 = 1;
 const DISCRIMINATOR_TOKEN_MINIMUM: u8 = 2;
 const REDEMPTION_CONFIG_LEN: usize = 35;
 const TOKEN_MINIMUM_LEN: usize = 11;
-
-// ===================================================================
-// Setup helpers
-// ===================================================================
 
 struct TestEnv {
     perm_mollusk: Mollusk,
@@ -96,10 +83,6 @@ fn setup() -> TestEnv {
     }
 }
 
-// ===================================================================
-// PDA derivation helpers
-// ===================================================================
-
 fn perm_config_pda(perm_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[PERMISSION_CONFIG_SEED], perm_id)
 }
@@ -135,10 +118,6 @@ fn token_minimum_pda(mint: &Pubkey, redemption_id: &Pubkey) -> (Pubkey, u8) {
 fn event_authority_pda(program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[EVENT_AUTHORITY_SEED], program_id)
 }
-
-// ===================================================================
-// Account builder helpers
-// ===================================================================
 
 fn payer_account() -> Account {
     Account::new(10_000_000_000, 0, &Pubkey::default())
@@ -244,11 +223,6 @@ fn mint_operation_account(minter_program_id: &Pubkey, bump: u8, deadline: i64) -
     }
 }
 
-// ===================================================================
-// Instruction data builders
-// ===================================================================
-
-// -- permission_manager --
 fn ix_perm_initialize() -> Vec<u8> {
     vec![0]
 }
@@ -257,7 +231,6 @@ fn ix_perm_grant_role(role_id: u8) -> Vec<u8> {
     vec![1, role_id]
 }
 
-// -- spiko_token --
 fn ix_token_pause() -> Vec<u8> {
     vec![4]
 }
@@ -272,7 +245,6 @@ fn ix_token_set_redemption_contract(addr: &Pubkey) -> Vec<u8> {
     data
 }
 
-// -- minter --
 fn ix_minter_set_daily_limit(token_mint: &Pubkey, limit: u64) -> Vec<u8> {
     let mut data = vec![4]; // discriminator
     data.extend_from_slice(token_mint.as_ref());
@@ -295,17 +267,12 @@ fn ix_minter_cancel_mint(user: &Pubkey, token_mint: &Pubkey, amount: u64, salt: 
     data
 }
 
-// -- redemption --
 fn ix_redemption_set_minimum(token_mint: &Pubkey, minimum: u64) -> Vec<u8> {
     let mut data = vec![3]; // discriminator
     data.extend_from_slice(token_mint.as_ref());
     data.extend_from_slice(&minimum.to_le_bytes());
     data
 }
-
-// ===================================================================
-// Helper: run permission_manager::initialize and return resulting accounts
-// ===================================================================
 
 /// Runs permission_manager::initialize and returns the resulting
 /// (PermissionConfig account, admin UserPermissions account).
@@ -408,10 +375,6 @@ fn run_perm_grant_role(
     result.resulting_accounts[2].1.clone()
 }
 
-// ===================================================================
-// Helper: SHA256 for operation_id computation
-// ===================================================================
-
 fn compute_operation_id(user: &[u8; 32], mint: &[u8; 32], amount: u64, salt: u64) -> [u8; 32] {
     use sha2::{Digest, Sha256};
     let mut input = [0u8; 80];
@@ -425,15 +388,6 @@ fn compute_operation_id(user: &[u8; 32], mint: &[u8; 32], amount: u64, salt: u64
     out
 }
 
-// ===================================================================
-// TEST 1: permission_manager → spiko_token::pause
-//
-// Flow:
-//   1. permission_manager::initialize → creates PermissionConfig + admin UserPerms
-//   2. permission_manager::grant_role(PAUSER) to a pauser user → creates UserPerms
-//   3. Feed real UserPerms into spiko_token::pause → verify it reads the bitmask correctly
-// ===================================================================
-
 #[test]
 fn test_perm_to_token_pause() {
     let env = setup();
@@ -441,11 +395,9 @@ fn test_perm_to_token_pause() {
     let pauser = Pubkey::new_unique();
     let spl_mint = Pubkey::new_unique();
 
-    // Step 1: Initialize permission_manager (creates PermissionConfig + admin UserPerms)
     let (config_account, admin_perms) =
         run_perm_initialize(&env.perm_mollusk, &env.perm_id, &admin);
 
-    // Step 2: Grant PAUSER role to the pauser user
     let pauser_perms = run_perm_grant_role(
         &env.perm_mollusk,
         &env.perm_id,
@@ -459,10 +411,8 @@ fn test_perm_to_token_pause() {
     // Sanity: verify the UserPermissions account has correct layout
     assert_eq!(pauser_perms.owner, env.perm_id);
     assert_eq!(pauser_perms.data[0], DISCRIMINATOR_USER_PERMISSION);
-    // Bit 1 (PAUSER) should be set in byte 0 of the bitmask (offset 3: disc+ver+bump)
     assert_ne!(pauser_perms.data[3] & (1 << ROLE_PAUSER), 0);
 
-    // Step 3: Build a TokenConfig that references this permission_manager
     let (token_config_key, token_config_bump) = token_config_pda(&spl_mint, &env.token_id);
     let token_config = token_config_account(
         &env.token_id,
@@ -475,7 +425,6 @@ fn test_perm_to_token_pause() {
     // The pauser's UserPermissions PDA address (in the permission_manager)
     let (pauser_perms_key, _) = user_perm_pda(&pauser, &env.perm_id);
 
-    // Step 4: Call spiko_token::pause with real permission_manager-created UserPerms
     let (ea_key, _) = event_authority_pda(&env.token_id);
     let ix = Instruction::new_with_bytes(
         env.token_id,
@@ -506,16 +455,9 @@ fn test_perm_to_token_pause() {
         result.program_result
     );
 
-    // Verify: TokenConfig.paused is now 1
     let resulting_config = &result.resulting_accounts[1].1;
     assert_eq!(resulting_config.data[3], 1, "Token should be paused");
 }
-
-// ===================================================================
-// TEST 2: permission_manager → spiko_token::unpause
-//
-// Same as above but token starts paused, and we unpause it.
-// ===================================================================
 
 #[test]
 fn test_perm_to_token_unpause() {
@@ -524,7 +466,6 @@ fn test_perm_to_token_unpause() {
     let pauser = Pubkey::new_unique();
     let spl_mint = Pubkey::new_unique();
 
-    // Step 1-2: Initialize + grant PAUSER
     let (config_account, admin_perms) =
         run_perm_initialize(&env.perm_mollusk, &env.perm_id, &admin);
     let pauser_perms = run_perm_grant_role(
@@ -580,18 +521,9 @@ fn test_perm_to_token_unpause() {
         result.program_result
     );
 
-    // Verify: TokenConfig.paused is now 0
     let resulting_config = &result.resulting_accounts[1].1;
     assert_eq!(resulting_config.data[3], 0, "Token should be unpaused");
 }
-
-// ===================================================================
-// TEST 3: permission_manager → spiko_token::set_redemption_contract
-//
-// This tests the admin-check path: spiko_token reads the real
-// PermissionConfig PDA, verifies its PDA seeds against the
-// permission_manager program_id, and checks caller == config.admin.
-// ===================================================================
 
 #[test]
 fn test_perm_to_token_set_redemption_contract() {
@@ -600,17 +532,14 @@ fn test_perm_to_token_set_redemption_contract() {
     let spl_mint = Pubkey::new_unique();
     let redemption_contract = Pubkey::new_unique();
 
-    // Step 1: Initialize permission_manager → get real PermissionConfig
     let (perm_config_account, _) = run_perm_initialize(&env.perm_mollusk, &env.perm_id, &admin);
 
-    // Step 2: Build TokenConfig referencing this permission_manager
     let (token_config_key, token_config_bump) = token_config_pda(&spl_mint, &env.token_id);
     let token_config =
         token_config_account(&env.token_id, token_config_bump, 0, &env.perm_id, &spl_mint);
 
     let (perm_config_key, _) = perm_config_pda(&env.perm_id);
 
-    // Step 3: Call set_redemption_contract with real PermissionConfig
     let (ea_key, _) = event_authority_pda(&env.token_id);
     let ix = Instruction::new_with_bytes(
         env.token_id,
@@ -641,7 +570,6 @@ fn test_perm_to_token_set_redemption_contract() {
         result.program_result
     );
 
-    // Verify: TokenConfig.redemption_contract (bytes 69..101) is set
     let resulting_config = &result.resulting_accounts[1].1;
     assert_eq!(
         &resulting_config.data[69..101],
@@ -649,12 +577,6 @@ fn test_perm_to_token_set_redemption_contract() {
         "Redemption contract should be set"
     );
 }
-
-// ===================================================================
-// TEST 4: set_redemption_contract fails with wrong admin
-//
-// Non-admin caller should be rejected.
-// ===================================================================
 
 #[test]
 fn test_set_redemption_contract_wrong_admin() {
@@ -704,23 +626,14 @@ fn test_set_redemption_contract_wrong_admin() {
     );
 }
 
-// ===================================================================
-// TEST 5: permission_manager → minter::set_daily_limit
-//
-// The minter reads MinterConfig.permission_manager, then verifies the
-// admin by reading the real PermissionConfig PDA (with PDA seed verification).
-// ===================================================================
-
 #[test]
 fn test_perm_to_minter_set_daily_limit() {
     let env = setup();
     let admin = Pubkey::new_unique();
     let token_mint = Pubkey::new_unique();
 
-    // Step 1: Initialize permission_manager → get real PermissionConfig
     let (perm_config_account, _) = run_perm_initialize(&env.perm_mollusk, &env.perm_id, &admin);
 
-    // Step 2: Build a MinterConfig that references this permission_manager
     let (minter_config_key, minter_config_bump) = minter_config_pda(&env.minter_id);
     let minter_cfg = minter_config_account(
         &env.minter_id,
@@ -734,7 +647,6 @@ fn test_perm_to_minter_set_daily_limit() {
 
     let limit: u64 = 1_000_000_00000; // 1M tokens (5 decimals)
 
-    // Step 3: Call minter::set_daily_limit
     let (ea_key, _) = event_authority_pda(&env.minter_id);
     let ix = Instruction::new_with_bytes(
         env.minter_id,
@@ -777,21 +689,13 @@ fn test_perm_to_minter_set_daily_limit() {
     assert_eq!(stored_limit, limit, "Daily limit should match");
 }
 
-// ===================================================================
-// TEST 6: permission_manager → minter::set_max_delay
-//
-// Admin check with real PermissionConfig, then updates MinterConfig.
-// ===================================================================
-
 #[test]
 fn test_perm_to_minter_set_max_delay() {
     let env = setup();
     let admin = Pubkey::new_unique();
 
-    // Step 1: Initialize permission_manager
     let (perm_config_account, _) = run_perm_initialize(&env.perm_mollusk, &env.perm_id, &admin);
 
-    // Step 2: Build MinterConfig
     let (minter_config_key, minter_config_bump) = minter_config_pda(&env.minter_id);
     let minter_cfg = minter_config_account(
         &env.minter_id,
@@ -803,7 +707,6 @@ fn test_perm_to_minter_set_max_delay() {
     let (perm_config_key, _) = perm_config_pda(&env.perm_id);
     let new_max_delay: i64 = 172800; // 2 days
 
-    // Step 3: Call minter::set_max_delay
     let (ea_key, _) = event_authority_pda(&env.minter_id);
     let ix = Instruction::new_with_bytes(
         env.minter_id,
@@ -834,15 +737,10 @@ fn test_perm_to_minter_set_max_delay() {
         result.program_result
     );
 
-    // Verify: MinterConfig.max_delay (bytes 3..11) is updated
     let cfg_account = &result.resulting_accounts[1].1;
     let stored_delay = i64::from_le_bytes(cfg_account.data[3..11].try_into().unwrap());
     assert_eq!(stored_delay, new_max_delay, "Max delay should be updated");
 }
-
-// ===================================================================
-// TEST 7: minter::set_max_delay fails with non-admin
-// ===================================================================
 
 #[test]
 fn test_minter_set_max_delay_wrong_admin() {
@@ -887,17 +785,6 @@ fn test_minter_set_max_delay_wrong_admin() {
     );
 }
 
-// ===================================================================
-// TEST 8: permission_manager → minter::cancel_mint
-//
-// Flow:
-//   1. permission_manager::initialize
-//   2. permission_manager::grant_role(ROLE_MINT_APPROVER) to an approver
-//   3. Build a pre-populated PENDING MintOperation
-//   4. Call minter::cancel_mint with real UserPermissions
-//   5. Verify operation status set to DONE
-// ===================================================================
-
 #[test]
 fn test_perm_to_minter_cancel_mint() {
     let env = setup();
@@ -908,7 +795,6 @@ fn test_perm_to_minter_cancel_mint() {
     let amount: u64 = 500_000_00000; // 500k tokens
     let salt: u64 = 42;
 
-    // Step 1-2: Initialize perm_manager + grant ROLE_MINT_APPROVER
     let (perm_config_account, admin_perms) =
         run_perm_initialize(&env.perm_mollusk, &env.perm_id, &admin);
     let approver_perms = run_perm_grant_role(
@@ -924,7 +810,6 @@ fn test_perm_to_minter_cancel_mint() {
     // Sanity check: bit 6 should be set
     assert_ne!(approver_perms.data[3] & (1 << ROLE_MINT_APPROVER), 0);
 
-    // Step 3: Build MinterConfig + pre-populated PENDING MintOperation
     let (minter_config_key, minter_config_bump) = minter_config_pda(&env.minter_id);
     let minter_cfg = minter_config_account(&env.minter_id, minter_config_bump, 86400, &env.perm_id);
 
@@ -938,7 +823,6 @@ fn test_perm_to_minter_cancel_mint() {
 
     let (approver_perms_key, _) = user_perm_pda(&approver, &env.perm_id);
 
-    // Step 4: Call minter::cancel_mint
     let (ea_key, _) = event_authority_pda(&env.minter_id);
     let ix = Instruction::new_with_bytes(
         env.minter_id,
@@ -971,19 +855,12 @@ fn test_perm_to_minter_cancel_mint() {
         result.program_result
     );
 
-    // Verify: MintOperation.status (byte 3) = DONE (2)
     let op_account = &result.resulting_accounts[2].1;
     assert_eq!(
         op_account.data[3], 2,
         "MintOperation should be DONE after cancel"
     );
 }
-
-// ===================================================================
-// TEST 9: minter::cancel_mint fails without ROLE_MINT_APPROVER
-//
-// Give the user a different role (PAUSER) and verify cancel_mint fails.
-// ===================================================================
 
 #[test]
 fn test_minter_cancel_mint_wrong_role() {
@@ -1050,26 +927,14 @@ fn test_minter_cancel_mint_wrong_role() {
     );
 }
 
-// ===================================================================
-// TEST 10: permission_manager → redemption::set_minimum
-//
-// Flow:
-//   1. permission_manager::initialize → get real PermissionConfig
-//   2. Build RedemptionConfig referencing this permission_manager
-//   3. Call redemption::set_minimum with the real PermissionConfig
-//   4. Verify TokenMinimum PDA is created with correct minimum
-// ===================================================================
-
 #[test]
 fn test_perm_to_redemption_set_minimum() {
     let env = setup();
     let admin = Pubkey::new_unique();
     let token_mint = Pubkey::new_unique();
 
-    // Step 1: Initialize permission_manager
     let (perm_config_account, _) = run_perm_initialize(&env.perm_mollusk, &env.perm_id, &admin);
 
-    // Step 2: Build RedemptionConfig referencing this permission_manager
     let (redemption_config_key, redemption_config_bump) = redemption_config_pda(&env.redemption_id);
     let redemption_cfg =
         redemption_config_account(&env.redemption_id, redemption_config_bump, &env.perm_id);
@@ -1079,7 +944,6 @@ fn test_perm_to_redemption_set_minimum() {
 
     let minimum: u64 = 100_00000; // 100 tokens (5 decimals)
 
-    // Step 3: Call redemption::set_minimum
     let (ea_key, _) = event_authority_pda(&env.redemption_id);
     let ix = Instruction::new_with_bytes(
         env.redemption_id,
@@ -1114,17 +978,12 @@ fn test_perm_to_redemption_set_minimum() {
         result.program_result
     );
 
-    // Verify TokenMinimum was created
     let tm_account = &result.resulting_accounts[3].1;
     assert_eq!(tm_account.owner, env.redemption_id);
     assert_eq!(tm_account.data[0], DISCRIMINATOR_TOKEN_MINIMUM);
     let stored_min = u64::from_le_bytes(tm_account.data[3..11].try_into().unwrap());
     assert_eq!(stored_min, minimum, "TokenMinimum should match");
 }
-
-// ===================================================================
-// TEST 11: redemption::set_minimum fails with non-admin
-// ===================================================================
 
 #[test]
 fn test_redemption_set_minimum_wrong_admin() {
@@ -1176,13 +1035,6 @@ fn test_redemption_set_minimum_wrong_admin() {
         "set_minimum should fail with wrong admin"
     );
 }
-
-// ===================================================================
-// TEST 12: spiko_token::pause fails when UserPerms owned by wrong program
-//
-// Even if the bitmask has PAUSER bit set, if the account is NOT owned
-// by the expected permission_manager, the check must fail.
-// ===================================================================
 
 #[test]
 fn test_pause_fails_wrong_perm_owner() {
@@ -1247,12 +1099,6 @@ fn test_pause_fails_wrong_perm_owner() {
     );
 }
 
-// ===================================================================
-// TEST 13: spiko_token::pause fails when UserPerms has no PAUSER role
-//
-// Real UserPerms from permission_manager, but only has MINTER role.
-// ===================================================================
-
 #[test]
 fn test_pause_fails_without_pauser_role() {
     let env = setup();
@@ -1312,14 +1158,6 @@ fn test_pause_fails_without_pauser_role() {
         "pause should fail without PAUSER role"
     );
 }
-
-// ===================================================================
-// TEST 14: Full flow — grant multiple roles, then use them
-//
-// Grant PAUSER to user A, pause, then grant PAUSER to user B, unpause.
-// Validates that grant_role on an already-existing UserPerms account
-// (adding a second grant) produces data that still works.
-// ===================================================================
 
 #[test]
 fn test_multi_role_grant_and_use() {

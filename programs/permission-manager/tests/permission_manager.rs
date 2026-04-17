@@ -15,11 +15,9 @@ const EVENT_AUTHORITY_SEED: &[u8] = b"event_authority";
 const DISCRIMINATOR_PERMISSION_CONFIG: u8 = 1;
 const DISCRIMINATOR_USER_PERMISSION: u8 = 2;
 
-// Account data sizes (disc + version + data)
 const PERMISSION_CONFIG_LEN: usize = 67; // 1(disc) + 1(ver) + 1(bump) + 32(admin) + 32(pending_admin)
 const USER_PERMISSIONS_LEN: usize = 35; // 1(disc) + 1(ver) + 1(bump) + 32(bitmask)
 
-// Role bit constants (must match state.rs)
 const ROLE_MINTER: u8 = 0;
 const ROLE_PAUSER: u8 = 1;
 const ROLE_BURNER: u8 = 2;

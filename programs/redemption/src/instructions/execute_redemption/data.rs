@@ -18,7 +18,6 @@ impl<'a> TryFrom<&'a [u8]> for ExecuteRedemptionData {
     type Error = ProgramError;
 
     fn try_from(data: &'a [u8]) -> Result<Self, Self::Error> {
-        // 32 + 8 + 8 = 48 bytes minimum
         if data.len() < 48 {
             return Err(ProgramError::InvalidInstructionData);
         }

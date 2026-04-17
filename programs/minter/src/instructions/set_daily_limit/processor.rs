@@ -59,7 +59,6 @@ impl<'a> SetDailyLimit<'a> {
         let needs_creation = self.accounts.daily_limit.lamports() == 0;
 
         if needs_creation {
-            // Create the DailyLimit PDA
             let bump_bytes = [bump];
             let seeds = daily_limit_seeds(&self.data.token_mint, &bump_bytes);
             let signer = Signer::from(&seeds);

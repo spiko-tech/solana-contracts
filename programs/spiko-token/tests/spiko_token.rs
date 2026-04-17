@@ -8,17 +8,11 @@ use solana_instruction::{AccountMeta, Instruction};
 use solana_program_error::ProgramError;
 use solana_pubkey::Pubkey;
 
-// -------------------------------------------------------------------
-// Constants matching the on-chain programs
-// -------------------------------------------------------------------
-
-// spiko-token constants
 const TOKEN_CONFIG_SEED: &[u8] = b"token_config";
 const MINT_AUTHORITY_SEED: &[u8] = b"mint_authority";
 const DISCRIMINATOR_TOKEN_CONFIG: u8 = 1;
 const TOKEN_CONFIG_LEN: usize = 101; // 1(disc)+1(ver)+1+1+1+32+32+32
 
-// permission-manager constants
 const USER_PERMISSION_SEED: &[u8] = b"user_perm";
 const DISCRIMINATOR_USER_PERMISSION: u8 = 2;
 const PERM_ACCOUNT_LEN: usize = 35; // 1(disc)+1(ver)+1(bump)+32
@@ -27,7 +21,6 @@ const PERMISSION_CONFIG_SEED: &[u8] = b"permission_config";
 const DISCRIMINATOR_PERMISSION_CONFIG: u8 = 1;
 const PERMISSION_CONFIG_LEN: usize = 67; // 1(disc)+1(ver)+1(bump)+32+32
 
-// Role bit constants (must match permission_manager::state)
 const ROLE_PAUSER: u8 = 1;
 
 // Token-2022 program ID (mainnet: TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb)
@@ -49,10 +42,6 @@ const MINT_BASE_LEN: usize = 82;
 // by the TokenMetadataInitialize instruction AFTER InitializeMint2.
 const MINT_FIXED_EXTENSIONS_LEN: usize = 338;
 
-// -------------------------------------------------------------------
-// Setup
-// -------------------------------------------------------------------
-
 /// Setup for tests that do NOT need Token-2022 CPI (pause/unpause).
 fn setup() -> (Mollusk, Pubkey) {
     let program_id = Pubkey::new_unique();
@@ -73,10 +62,6 @@ fn setup_with_token_2022() -> (Mollusk, Pubkey) {
 // Event authority PDA seed (must match spiko_events::EVENT_AUTHORITY_SEED)
 const EVENT_AUTHORITY_SEED: &[u8] = b"event_authority";
 
-// -------------------------------------------------------------------
-// PDA helpers
-// -------------------------------------------------------------------
-
 fn token_config_pda(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[TOKEN_CONFIG_SEED, mint.as_ref()], program_id)
 }
@@ -93,10 +78,6 @@ fn event_authority_pda(program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[EVENT_AUTHORITY_SEED], program_id)
 }
 
-// -------------------------------------------------------------------
-// Bitmask helpers
-// -------------------------------------------------------------------
-
 fn role_bitmask(role: u8) -> [u8; 32] {
     let mut mask = [0u8; 32];
     let byte_index = (role / 8) as usize;
@@ -104,10 +85,6 @@ fn role_bitmask(role: u8) -> [u8; 32] {
     mask[byte_index] |= 1 << bit_index;
     mask
 }
-
-// -------------------------------------------------------------------
-// Account builders
-// -------------------------------------------------------------------
 
 fn payer_account() -> Account {
     Account::new(10_000_000_000, 0, &Pubkey::default())
@@ -200,10 +177,6 @@ fn user_perms_account(perm_manager_id: &Pubkey, bump: u8, roles: &[u8; 32]) -> A
     }
 }
 
-// -------------------------------------------------------------------
-// Instruction data builders
-// -------------------------------------------------------------------
-
 fn ix_pause() -> Vec<u8> {
     vec![4] // discriminator only
 }
@@ -248,10 +221,6 @@ fn blank_pda_account() -> Account {
     Account::default()
 }
 
-// ===================================================================
-// TESTS: Pause
-// ===================================================================
-
 #[test]
 fn test_pause_success() {
     let (mollusk, program_id) = setup();
@@ -260,16 +229,13 @@ fn test_pause_success() {
     let caller = Pubkey::new_unique();
     let mint = Pubkey::new_unique();
 
-    // Derive PDAs
     let (config_key, config_bump) = token_config_pda(&mint, &program_id);
     let (caller_perms_key, caller_perms_bump) = user_perm_pda(&caller, &perm_manager_id);
     let (event_authority_key, _) = event_authority_pda(&program_id);
 
-    // Caller has PAUSER role (bit 1)
     let caller_roles = role_bitmask(ROLE_PAUSER);
     let caller_perms = user_perms_account(&perm_manager_id, caller_perms_bump, &caller_roles);
 
-    // TokenConfig: not paused
     let config = token_config_account(&program_id, config_bump, 0, 0, &perm_manager_id, &mint);
 
     let instruction = Instruction::new_with_bytes(
@@ -436,10 +402,6 @@ fn test_pause_missing_signer_fails() {
     );
 }
 
-// ===================================================================
-// TESTS: Unpause
-// ===================================================================
-
 #[test]
 fn test_unpause_success() {
     let (mollusk, program_id) = setup();
@@ -452,11 +414,9 @@ fn test_unpause_success() {
     let (caller_perms_key, caller_perms_bump) = user_perm_pda(&caller, &perm_manager_id);
     let (event_authority_key, _) = event_authority_pda(&program_id);
 
-    // Caller has PAUSER role (bit 1)
     let caller_roles = role_bitmask(ROLE_PAUSER);
     let caller_perms = user_perms_account(&perm_manager_id, caller_perms_bump, &caller_roles);
 
-    // TokenConfig: currently paused
     let config = token_config_account(&program_id, config_bump, 1, 0, &perm_manager_id, &mint);
 
     let instruction = Instruction::new_with_bytes(
@@ -531,10 +491,6 @@ fn test_unpause_unauthorized_fails() {
     );
 }
 
-// ===================================================================
-// TESTS: Initialize
-// ===================================================================
-
 #[test]
 fn test_initialize_success() {
     let (mollusk, program_id) = setup_with_token_2022();
@@ -549,7 +505,6 @@ fn test_initialize_success() {
     let uri = "https://spiko.finance/metadata/eutbl.json";
     let decimals: u8 = 5;
 
-    // Derive PDAs
     let (config_key, _) = token_config_pda(&mint, &program_id);
     let (mint_authority_key, _) = mint_authority_pda(&mint, &program_id);
     let (event_authority_key, _) = event_authority_pda(&program_id);
@@ -713,10 +668,6 @@ fn test_initialize_missing_signer_fails() {
     );
 }
 
-// ===================================================================
-// Helper: PermissionConfig PDA + account builder
-// ===================================================================
-
 fn perm_config_pda(perm_manager_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[PERMISSION_CONFIG_SEED], perm_manager_id)
 }
@@ -739,10 +690,6 @@ fn perm_config_account(perm_manager_id: &Pubkey, bump: u8, admin: &Pubkey) -> Ac
     }
 }
 
-// ===================================================================
-// Instruction data builder: set_redemption_contract
-// ===================================================================
-
 /// Discriminator 7: set_redemption_contract
 /// Data: [0..32] redemption_contract address
 fn ix_set_redemption_contract(redemption_contract: &Pubkey) -> Vec<u8> {
@@ -750,10 +697,6 @@ fn ix_set_redemption_contract(redemption_contract: &Pubkey) -> Vec<u8> {
     data.extend_from_slice(redemption_contract.as_ref());
     data
 }
-
-// ===================================================================
-// TESTS: SetRedemptionContract
-// ===================================================================
 
 #[test]
 fn test_set_redemption_contract_success() {

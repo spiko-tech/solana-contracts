@@ -14,7 +14,6 @@ impl<'a> TryFrom<&'a [u8]> for InitializeMinterData {
     type Error = ProgramError;
 
     fn try_from(data: &'a [u8]) -> Result<Self, Self::Error> {
-        // 8 bytes max_delay + 32 bytes permission_manager = 40
         if data.len() < 40 {
             return Err(ProgramError::InvalidInstructionData);
         }

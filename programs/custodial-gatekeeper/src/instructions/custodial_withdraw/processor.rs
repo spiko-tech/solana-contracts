@@ -67,7 +67,6 @@ impl<'a> CustodialWithdraw<'a> {
             )
         };
 
-        // Verify sender has ROLE_WHITELISTED
         require_permission(
             self.accounts.sender.address(),
             self.accounts.sender_perms,
@@ -76,7 +75,6 @@ impl<'a> CustodialWithdraw<'a> {
             GatekeeperError::UnauthorizedFrom.into(),
         )?;
 
-        // Verify recipient has ROLE_WHITELISTED_EXT
         require_permission(
             &Address::new_from_array(self.data.recipient),
             self.accounts.recipient_perms,
@@ -87,7 +85,6 @@ impl<'a> CustodialWithdraw<'a> {
 
         let mint_key_bytes = self.accounts.token_mint.address().to_bytes();
 
-        // Verify daily limit PDA
         verify_pda(
             self.accounts.daily_limit,
             &[WITHDRAWAL_DAILY_LIMIT_SEED, &mint_key_bytes],
@@ -109,7 +106,6 @@ impl<'a> CustodialWithdraw<'a> {
             let mut dl_data = self.accounts.daily_limit.try_borrow_mut()?;
             let dl = WithdrawalDailyLimit::from_bytes_mut(&mut dl_data)?;
 
-            // Reset if new day
             if today > dl.last_day() {
                 dl.set_used_amount(0);
                 dl.set_last_day(today);
@@ -128,8 +124,6 @@ impl<'a> CustodialWithdraw<'a> {
             }
         };
 
-        // Step 1: Transfer tokens from sender to vault via Token-2022 TransferChecked
-        // (sender signs directly, no PDA signing needed)
         {
             let decimals = {
                 let mint_data = self.accounts.token_mint.try_borrow()?;
@@ -237,7 +231,6 @@ impl<'a> CustodialWithdraw<'a> {
                 program_id,
             )?;
 
-            // Check operation doesn't already exist
             {
                 let op_data = self.accounts.withdrawal_op.try_borrow()?;
                 if !op_data.is_empty() && op_data[0] != 0 {

@@ -16,7 +16,6 @@ impl<'a> TryFrom<&'a [u8]> for InitiateMintData {
     type Error = ProgramError;
 
     fn try_from(data: &'a [u8]) -> Result<Self, Self::Error> {
-        // 32 bytes user + 8 bytes amount + 8 bytes salt = 48 bytes
         if data.len() < 48 {
             return Err(ProgramError::InvalidInstructionData);
         }

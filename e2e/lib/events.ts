@@ -25,9 +25,6 @@ import {
 
 import { ROLE_NAMES } from "./shared.js";
 
-// ─── Self-CPI event constants ────────────────────────────────────────────────
-
-/** EmitEvent instruction discriminator (first byte of CPI data). */
 const EMIT_EVENT_DISCRIMINATOR = 0xff;
 
 /** SHA256("anchor:event")[0..8] — little-endian tag prepended to CPI event data. */
@@ -35,7 +32,6 @@ const EVENT_IX_TAG_LE = new Uint8Array([
   0x1d, 0x9a, 0xcb, 0x51, 0x2e, 0xa5, 0x45, 0xe4,
 ]);
 
-// ── Permission Manager event decoders ─────────────────────────
 import {
   getPermissionManagerInitializedEventDecoder,
 } from "../../clients/ts/permission-manager/src/generated/types/permissionManagerInitializedEvent.js";
@@ -52,7 +48,6 @@ import {
   getOwnershipTransferredEventDecoder,
 } from "../../clients/ts/permission-manager/src/generated/types/ownershipTransferredEvent.js";
 
-// ── Spiko Token event decoders ────────────────────────────────
 import {
   getTokenInitializedEventDecoder,
 } from "../../clients/ts/spiko-token/src/generated/types/tokenInitializedEvent.js";
@@ -75,12 +70,10 @@ import {
   getRedemptionContractSetEventDecoder,
 } from "../../clients/ts/spiko-token/src/generated/types/redemptionContractSetEvent.js";
 
-// ── Transfer Hook event decoders ──────────────────────────────
 import {
   getTransferEventDecoder,
 } from "../../clients/ts/spiko-transfer-hook/src/generated/types/transferEvent.js";
 
-// ── Minter event decoders ─────────────────────────────────────
 import {
   getMinterInitializedEventDecoder,
 } from "../../clients/ts/minter/src/generated/types/minterInitializedEvent.js";
@@ -103,7 +96,6 @@ import {
   getMaxDelayUpdatedEventDecoder,
 } from "../../clients/ts/minter/src/generated/types/maxDelayUpdatedEvent.js";
 
-// ── Redemption event decoders ─────────────────────────────────
 import {
   getRedemptionInitializedEventDecoder,
 } from "../../clients/ts/redemption/src/generated/types/redemptionInitializedEvent.js";
@@ -120,7 +112,6 @@ import {
   getTokenMinimumUpdatedEventDecoder,
 } from "../../clients/ts/redemption/src/generated/types/tokenMinimumUpdatedEvent.js";
 
-// ── Custodial Gatekeeper event decoders ───────────────────────
 import {
   getGatekeeperInitializedEventDecoder,
 } from "../../clients/ts/custodial-gatekeeper/src/generated/types/gatekeeperInitializedEvent.js";
@@ -140,7 +131,6 @@ import {
   getDailyLimitUpdatedEventDecoder as getGkDailyLimitUpdatedEventDecoder,
 } from "../../clients/ts/custodial-gatekeeper/src/generated/types/dailyLimitUpdatedEvent.js";
 
-// ── Program addresses (imported from Codama-generated code) ───
 import { PERMISSION_MANAGER_PROGRAM_ADDRESS } from "../../clients/ts/permission-manager/src/generated/programs/index.js";
 import { SPIKO_TOKEN_PROGRAM_ADDRESS } from "../../clients/ts/spiko-token/src/generated/programs/index.js";
 import { MINTER_PROGRAM_ADDRESS } from "../../clients/ts/minter/src/generated/programs/index.js";
@@ -148,19 +138,11 @@ import { REDEMPTION_PROGRAM_ADDRESS } from "../../clients/ts/redemption/src/gene
 import { SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS } from "../../clients/ts/spiko-transfer-hook/src/generated/programs/index.js";
 import { CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS } from "../../clients/ts/custodial-gatekeeper/src/generated/programs/index.js";
 
-// =================================================================
-// Public types
-// =================================================================
-
 export interface DecodedEvent {
   name: string;
   program: string;
   fields: Record<string, string | bigint | number>;
 }
-
-// =================================================================
-// Event registry: (programAddress, 1-byte discriminator) -> entry
-// =================================================================
 
 interface EventEntry {
   name: string;
@@ -182,7 +164,6 @@ function registerEvents(programAddress: Address, entries: Array<{ disc: number }
   PROGRAM_EVENT_MAPS.set(programAddress as string, map);
 }
 
-// ── Permission Manager (5 events) ──
 registerEvents(PERMISSION_MANAGER_PROGRAM_ADDRESS, [
   { disc: 0, name: "PermissionManagerInitialized", program: "PermissionManager", decoder: getPermissionManagerInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
   { disc: 1, name: "RoleGranted",                  program: "PermissionManager", decoder: getRoleGrantedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
@@ -191,7 +172,6 @@ registerEvents(PERMISSION_MANAGER_PROGRAM_ADDRESS, [
   { disc: 4, name: "OwnershipTransferred",         program: "PermissionManager", decoder: getOwnershipTransferredEventDecoder() as FixedSizeDecoder<Record<string, any>> },
 ]);
 
-// ── Spiko Token (7 events) ──
 registerEvents(SPIKO_TOKEN_PROGRAM_ADDRESS, [
   { disc: 0, name: "TokenInitialized",       program: "SpikoToken", decoder: getTokenInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
   { disc: 1, name: "Mint",                   program: "SpikoToken", decoder: getMintEventDecoder() as FixedSizeDecoder<Record<string, any>> },
@@ -202,12 +182,10 @@ registerEvents(SPIKO_TOKEN_PROGRAM_ADDRESS, [
   { disc: 6, name: "RedemptionContractSet",  program: "SpikoToken", decoder: getRedemptionContractSetEventDecoder() as FixedSizeDecoder<Record<string, any>> },
 ]);
 
-// ── Transfer Hook (1 event) ──
 registerEvents(SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS, [
   { disc: 0, name: "Transfer", program: "TransferHook", decoder: getTransferEventDecoder() as FixedSizeDecoder<Record<string, any>> },
 ]);
 
-// ── Minter (7 events) ──
 registerEvents(MINTER_PROGRAM_ADDRESS, [
   { disc: 0, name: "MinterInitialized",  program: "Minter", decoder: getMinterInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
   { disc: 1, name: "MintExecuted",       program: "Minter", decoder: getMintExecutedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
@@ -218,7 +196,6 @@ registerEvents(MINTER_PROGRAM_ADDRESS, [
   { disc: 6, name: "MaxDelayUpdated",    program: "Minter", decoder: getMaxDelayUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
 ]);
 
-// ── Redemption (5 events) ──
 registerEvents(REDEMPTION_PROGRAM_ADDRESS, [
   { disc: 0, name: "RedemptionInitialized",  program: "Redemption", decoder: getRedemptionInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
   { disc: 1, name: "RedemptionInitiated",    program: "Redemption", decoder: getRedemptionInitiatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
@@ -227,7 +204,6 @@ registerEvents(REDEMPTION_PROGRAM_ADDRESS, [
   { disc: 4, name: "TokenMinimumUpdated",    program: "Redemption", decoder: getTokenMinimumUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
 ]);
 
-// ── Custodial Gatekeeper (6 events) ──
 registerEvents(CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS, [
   { disc: 0, name: "GatekeeperInitialized", program: "CustodialGatekeeper", decoder: getGatekeeperInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
   { disc: 1, name: "WithdrawalInitiated",   program: "CustodialGatekeeper", decoder: getWithdrawalInitiatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
@@ -236,10 +212,6 @@ registerEvents(CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS, [
   { disc: 4, name: "WithdrawalBlocked",     program: "CustodialGatekeeper", decoder: getWithdrawalBlockedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
   { disc: 5, name: "DailyLimitUpdated",     program: "CustodialGatekeeper", decoder: getGkDailyLimitUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
 ]);
-
-// =================================================================
-// Core decoder
-// =================================================================
 
 /**
  * Decode a single event from raw bytes, given the program that emitted it.
@@ -256,11 +228,9 @@ export function decodeEvent(data: Uint8Array, programAddress: string): DecodedEv
   const entry = programMap.get(disc);
   if (!entry) return null;
 
-  // Strip 1-byte discriminator, decode struct fields with Codama decoder
   const body = data.slice(1);
   const decoded = entry.decoder.decode(body);
 
-  // Flatten to Record<string, string | bigint | number>
   const fields: Record<string, string | bigint | number> = {};
   for (const [k, v] of Object.entries(decoded)) {
     fields[k] = v as string | bigint | number;
@@ -281,12 +251,10 @@ function extractCpiEventPayload(data: Uint8Array): Uint8Array | null {
   if (data.length < 10) return null;
   if (data[0] !== EMIT_EVENT_DISCRIMINATOR) return null;
 
-  // Verify EVENT_IX_TAG_LE at bytes 1..9
   for (let i = 0; i < 8; i++) {
     if (data[1 + i] !== EVENT_IX_TAG_LE[i]) return null;
   }
 
-  // Return bytes from offset 9 onward (event_disc(1) + fields)
   return data.slice(9);
 }
 
@@ -339,8 +307,6 @@ export function decodeEventsFromCpiInstructions(
   return events;
 }
 
-// ── base58 decoder ───────────────────────────────────────────────────────────
-
 const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
 
 function decodeBase58(str: string): Uint8Array {
@@ -389,11 +355,9 @@ export async function parseTransactionEvents(
       .send();
 
     if (tx?.meta) {
-      // Extract account keys from the transaction message
       const message = (tx as any).transaction?.message;
       const accountKeys: string[] = message?.accountKeys ?? [];
 
-      // Try inner instructions (self-CPI events)
       const innerIxs = (tx.meta as any).innerInstructions;
       if (innerIxs && Array.isArray(innerIxs) && innerIxs.length > 0) {
         const events = decodeEventsFromCpiInstructions(innerIxs, accountKeys);
@@ -408,10 +372,6 @@ export async function parseTransactionEvents(
 
   return [];
 }
-
-// =================================================================
-// Pretty-print helpers
-// =================================================================
 
 export function formatEvent(event: DecodedEvent, decimals: number = 5): string {
   const lines: string[] = [];

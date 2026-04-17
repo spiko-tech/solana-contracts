@@ -56,7 +56,6 @@ impl<'a> TransferToken<'a> {
             Address::new_from_array(config.permission_manager.to_bytes())
         };
 
-        // Read sender permissions and check WHITELISTED or WHITELISTED_EXT
         let (sender_whitelisted, sender_whitelisted_ext) = {
             let sender_addr = self.accounts.sender.address();
             if !self.accounts.sender_perms.owned_by(&permission_manager_id) {
@@ -94,7 +93,6 @@ impl<'a> TransferToken<'a> {
             Address::new_from_array(*owner_bytes)
         };
 
-        // Read recipient permissions
         let recipient_whitelisted = {
             if !self
                 .accounts
@@ -138,7 +136,6 @@ impl<'a> TransferToken<'a> {
             ix_data[9] = decimals;
 
             let ix_accounts = [
-                // Standard TransferChecked accounts:
                 InstructionAccount::writable(self.accounts.source.address()), // source
                 InstructionAccount::readonly(self.accounts.mint.address()),   // mint
                 InstructionAccount::writable(self.accounts.destination.address()), // destination

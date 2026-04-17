@@ -63,7 +63,6 @@ pub fn require_admin_or_role(
         return Err(crate::error::PermissionError::Unauthorized.into());
     }
 
-    // Verify the caller_perms PDA is derived from the caller's address
     verify_pda(
         caller_perms,
         &[USER_PERMISSION_SEED, caller.address().as_ref()],

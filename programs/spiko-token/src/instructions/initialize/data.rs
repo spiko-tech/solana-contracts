@@ -28,7 +28,6 @@ impl<'a> TryFrom<&'a [u8]> for InitializeTokenData<'a> {
         let decimals = data[0];
         let mut offset = 1;
 
-        // Parse name
         if data.len() < offset + 4 {
             return Err(ProgramError::InvalidInstructionData);
         }
@@ -40,7 +39,6 @@ impl<'a> TryFrom<&'a [u8]> for InitializeTokenData<'a> {
         let name = &data[offset..offset + name_len];
         offset += name_len;
 
-        // Parse symbol
         if data.len() < offset + 4 {
             return Err(ProgramError::InvalidInstructionData);
         }
@@ -52,7 +50,6 @@ impl<'a> TryFrom<&'a [u8]> for InitializeTokenData<'a> {
         let symbol = &data[offset..offset + symbol_len];
         offset += symbol_len;
 
-        // Parse uri
         if data.len() < offset + 4 {
             return Err(ProgramError::InvalidInstructionData);
         }

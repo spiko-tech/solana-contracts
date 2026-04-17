@@ -9,10 +9,6 @@ use solana_instruction::{AccountMeta, Instruction};
 use solana_program_error::ProgramError;
 use solana_pubkey::Pubkey;
 
-// -------------------------------------------------------------------
-// Constants matching the on-chain program (from state.rs / error.rs)
-// -------------------------------------------------------------------
-
 const EVENT_AUTHORITY_SEED: &[u8] = b"event_authority";
 const MINTER_CONFIG_SEED: &[u8] = b"minter_config";
 const DAILY_LIMIT_SEED: &[u8] = b"daily_limit";
@@ -29,7 +25,6 @@ const MINTER_CONFIG_LEN: usize = 43;
 const DAILY_LIMIT_LEN: usize = 27;
 const MINT_OPERATION_LEN: usize = 12;
 
-// Permission manager constants
 const PERMISSION_CONFIG_SEED: &[u8] = b"permission_config";
 const USER_PERMISSION_SEED: &[u8] = b"user_perm";
 const DISCRIMINATOR_PERMISSION_CONFIG: u8 = 1;
@@ -37,13 +32,8 @@ const DISCRIMINATOR_USER_PERMISSION: u8 = 2;
 const PERMISSION_CONFIG_LEN: usize = 67;
 const USER_PERMISSIONS_LEN: usize = 35;
 
-// Role bit constants
 const ROLE_MINT_INITIATOR: u8 = 7;
 const ROLE_MINT_APPROVER: u8 = 6;
-
-// -------------------------------------------------------------------
-// Setup
-// -------------------------------------------------------------------
 
 fn setup() -> (Mollusk, Pubkey) {
     let program_id = Pubkey::new_unique();
@@ -51,10 +41,6 @@ fn setup() -> (Mollusk, Pubkey) {
     let mollusk = Mollusk::new(&program_id, "minter");
     (mollusk, program_id)
 }
-
-// -------------------------------------------------------------------
-// PDA helpers
-// -------------------------------------------------------------------
 
 fn minter_config_pda(program_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[MINTER_CONFIG_SEED], program_id)
@@ -75,10 +61,6 @@ fn mint_operation_pda(operation_id: &[u8; 32], program_id: &Pubkey) -> (Pubkey, 
 fn perm_config_pda(perm_manager_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[PERMISSION_CONFIG_SEED], perm_manager_id)
 }
-
-// -------------------------------------------------------------------
-// Account helpers
-// -------------------------------------------------------------------
 
 fn payer_account() -> Account {
     Account::new(10_000_000_000, 0, &Pubkey::default())
@@ -127,10 +109,6 @@ fn perm_config_account(perm_manager_id: &Pubkey, bump: u8, admin: &Pubkey) -> Ac
     }
 }
 
-// -------------------------------------------------------------------
-// Instruction data builders
-// -------------------------------------------------------------------
-
 /// Discriminator 0: initialize
 /// Data: [0..8] max_delay (i64 LE) + [8..40] permission_manager (32 bytes)
 fn ix_initialize(max_delay: i64, permission_manager: &Pubkey) -> Vec<u8> {
@@ -139,10 +117,6 @@ fn ix_initialize(max_delay: i64, permission_manager: &Pubkey) -> Vec<u8> {
     data.extend_from_slice(permission_manager.as_ref());
     data
 }
-
-// ===================================================================
-// TEST: Initialize — happy path
-// ===================================================================
 
 #[test]
 fn test_initialize() {
@@ -184,10 +158,6 @@ fn test_initialize() {
     assert!(result.program_result.is_err());
 }
 
-// ===================================================================
-// TEST: Initialize — already initialized (should fail)
-// ===================================================================
-
 #[test]
 fn test_initialize_already_initialized() {
     let (mollusk, program_id) = setup();
@@ -225,10 +195,6 @@ fn test_initialize_already_initialized() {
         &[Check::err(ProgramError::Custom(0))], // AlreadyInitialized = 0
     );
 }
-
-// -------------------------------------------------------------------
-// Additional account helpers
-// -------------------------------------------------------------------
 
 fn user_perm_pda(user: &Pubkey, perm_manager_id: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[USER_PERMISSION_SEED, user.as_ref()], perm_manager_id)
@@ -316,10 +282,6 @@ fn compute_operation_id(
     out
 }
 
-// -------------------------------------------------------------------
-// Instruction data builders
-// -------------------------------------------------------------------
-
 /// Discriminator 4: set_daily_limit
 /// Data: [0..32] token_mint + [32..40] limit (u64 LE)
 fn ix_set_daily_limit(token_mint: &Pubkey, limit: u64) -> Vec<u8> {
@@ -357,10 +319,6 @@ fn ix_cancel_mint(user: &Pubkey, token_mint: &Pubkey, amount: u64, salt: u64) ->
     data.extend_from_slice(&salt.to_le_bytes());
     data
 }
-
-// ===================================================================
-// TEST: SetDailyLimit — happy path (create new DailyLimit PDA)
-// ===================================================================
 
 #[test]
 fn test_set_daily_limit() {
@@ -414,10 +372,6 @@ fn test_set_daily_limit() {
     );
     assert!(result.program_result.is_err());
 }
-
-// ===================================================================
-// TEST: SetDailyLimit — update existing DailyLimit
-// ===================================================================
 
 #[test]
 fn test_set_daily_limit_update() {
@@ -476,10 +430,6 @@ fn test_set_daily_limit_update() {
     assert!(result.program_result.is_err());
 }
 
-// ===================================================================
-// TEST: SetDailyLimit — unauthorized (non-admin caller)
-// ===================================================================
-
 #[test]
 fn test_set_daily_limit_unauthorized() {
     let (mollusk, program_id) = setup();
@@ -526,10 +476,6 @@ fn test_set_daily_limit_unauthorized() {
         &[Check::err(ProgramError::Custom(2))], // Unauthorized = 2
     );
 }
-
-// ===================================================================
-// TEST: SetMaxDelay — happy path
-// ===================================================================
 
 #[test]
 fn test_set_max_delay() {
@@ -579,10 +525,6 @@ fn test_set_max_delay() {
     assert!(result.program_result.is_err());
 }
 
-// ===================================================================
-// TEST: SetMaxDelay — unauthorized (non-admin caller)
-// ===================================================================
-
 #[test]
 fn test_set_max_delay_unauthorized() {
     let (mollusk, program_id) = setup();
@@ -623,10 +565,6 @@ fn test_set_max_delay_unauthorized() {
         &[Check::err(ProgramError::Custom(2))], // Unauthorized = 2
     );
 }
-
-// ===================================================================
-// TEST: InitiateMint — blocked (over daily limit, creates PENDING op)
-// ===================================================================
 
 #[test]
 fn test_initiate_mint_blocked() {
@@ -743,10 +681,6 @@ fn test_initiate_mint_blocked() {
     assert!(result.program_result.is_err());
 }
 
-// ===================================================================
-// TEST: InitiateMint — unauthorized (missing ROLE_MINT_INITIATOR)
-// ===================================================================
-
 #[test]
 fn test_initiate_mint_unauthorized() {
     let (mut mollusk, program_id) = setup();
@@ -848,10 +782,6 @@ fn test_initiate_mint_unauthorized() {
     );
 }
 
-// ===================================================================
-// TEST: CancelMint — happy path (cancel a PENDING operation)
-// ===================================================================
-
 #[test]
 fn test_cancel_mint() {
     let (mollusk, program_id) = setup();
@@ -915,10 +845,6 @@ fn test_cancel_mint() {
     );
     assert!(result.program_result.is_err());
 }
-
-// ===================================================================
-// TEST: CancelMint — not pending (already DONE, should fail)
-// ===================================================================
 
 #[test]
 fn test_cancel_mint_not_pending() {

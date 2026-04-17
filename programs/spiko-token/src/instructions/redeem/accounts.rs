@@ -41,16 +41,13 @@ pub struct RedeemTokenAccounts<'a> {
     pub redemption_op: &'a AccountView,
     pub token_minimum: &'a AccountView,
     pub system_program: &'a AccountView,
-    // Transfer Hook extra accounts
     pub extra_account_meta_list: &'a AccountView,
     pub permission_manager_program: &'a AccountView,
     pub spiko_token_program: &'a AccountView,
     pub hook_event_authority: &'a AccountView,
     pub hook_program: &'a AccountView,
-    // Event CPI accounts
     pub event_authority: &'a AccountView,
     pub self_program: &'a AccountView,
-    // Redemption program event CPI accounts
     pub rd_event_authority: &'a AccountView,
     pub rd_self_program: &'a AccountView,
 }
