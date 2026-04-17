@@ -6,6 +6,12 @@ pub use spiko_common::{create_pda_account, verify_pda};
 
 use crate::state::{can_manage_role, PermissionConfig, UserPermissions, USER_PERMISSION_SEED};
 
+/// Check whether the caller is the admin stored in PermissionConfig.
+/// Returns true if the caller matches, false otherwise.
+pub fn is_admin(caller: &AccountView, config_account: &AccountView, program_id: &Address) -> bool {
+    require_admin(caller, config_account, program_id).is_ok()
+}
+
 /// Verify that the caller is the admin stored in PermissionConfig.
 ///
 /// - `caller`: the signer account
@@ -68,7 +74,7 @@ pub fn require_admin_or_role(
     let data = caller_perms.try_borrow()?;
     let perms = UserPermissions::from_bytes(&data)?;
 
-    for grantor_role in 0..=7u8 {
+    for grantor_role in 0..=9u8 {
         if can_manage_role(grantor_role, target_role) && perms.has_role(grantor_role) {
             return Ok(());
         }

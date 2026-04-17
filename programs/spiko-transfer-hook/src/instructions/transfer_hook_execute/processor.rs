@@ -2,19 +2,44 @@ use pinocchio::{account::AccountView, address::Address, error::ProgramError, Pro
 
 use spiko_common::AccountDeserialize;
 
-use permission_manager::state::ROLE_WHITELISTED;
+use permission_manager::state::{
+    has_role, UserPermissions, ROLE_WHITELISTED, ROLE_WHITELISTED_EXT, USER_PERMISSION_SEED,
+};
 use spiko_token::state::TokenConfig;
 
 use spiko_events::EventSerialize;
 
-use crate::{
-    error::TransferHookError,
-    events::TransferEvent,
-    helpers::{require_not_paused, require_permission},
-};
+use crate::{error::TransferHookError, events::TransferEvent, helpers::require_not_paused};
+
+use spiko_common::verify_pda;
 
 use super::accounts::TransferHookExecuteAccounts;
 use super::data::TransferHookExecuteData;
+
+/// Reads the UserPermissions bitmask from a permissions PDA account.
+/// Validates ownership and PDA derivation.
+fn read_user_roles(
+    user_address: &Address,
+    perms_account: &AccountView,
+    permission_manager_id: &Address,
+    error_on_fail: ProgramError,
+) -> Result<[u8; 32], ProgramError> {
+    if !perms_account.owned_by(permission_manager_id) {
+        return Err(error_on_fail);
+    }
+    if verify_pda(
+        perms_account,
+        &[USER_PERMISSION_SEED, user_address.as_ref()],
+        permission_manager_id,
+    )
+    .is_err()
+    {
+        return Err(error_on_fail);
+    }
+    let data = perms_account.try_borrow()?;
+    let perms = UserPermissions::from_bytes(&data)?;
+    Ok(perms.roles)
+}
 
 /// Transfer Hook Execute handler.
 ///
@@ -24,8 +49,11 @@ use super::data::TransferHookExecuteData;
 ///
 /// The handler enforces:
 ///   - Token is not paused (via TokenConfig, owned by spiko-token)
-///   - Source wallet is WHITELISTED (via UserPermissions PDA)
-///   - Destination wallet is WHITELISTED (via UserPermissions PDA)
+///   - Source wallet has WHITELISTED or WHITELISTED_EXT
+///   - Destination wallet has WHITELISTED or WHITELISTED_EXT
+///   - Directional transfer matrix:
+///       * WHITELISTED-only sender can only send to WHITELISTED recipients
+///       * WHITELISTED_EXT sender can send to any whitelisted recipient
 pub struct TransferHookExecute<'a> {
     pub accounts: TransferHookExecuteAccounts<'a>,
     pub data: TransferHookExecuteData,
@@ -81,13 +109,19 @@ impl<'a> TransferHookExecute<'a> {
             Address::new_from_array(*owner_bytes)
         };
 
-        require_permission(
+        let sender_roles = read_user_roles(
             &sender_owner,
             self.accounts.sender_perms,
             &permission_manager_id,
-            ROLE_WHITELISTED,
             TransferHookError::UnauthorizedFrom.into(),
         )?;
+
+        let sender_whitelisted = has_role(&sender_roles, ROLE_WHITELISTED);
+        let sender_whitelisted_ext = has_role(&sender_roles, ROLE_WHITELISTED_EXT);
+
+        if !sender_whitelisted && !sender_whitelisted_ext {
+            return Err(TransferHookError::UnauthorizedFrom.into());
+        }
 
         // Extract recipient owner from destination token account (bytes 32..64)
         let recipient_owner = {
@@ -99,13 +133,26 @@ impl<'a> TransferHookExecute<'a> {
             Address::new_from_array(*owner_bytes)
         };
 
-        require_permission(
+        let recipient_roles = read_user_roles(
             &recipient_owner,
             self.accounts.recipient_perms,
             &permission_manager_id,
-            ROLE_WHITELISTED,
             TransferHookError::UnauthorizedTo.into(),
         )?;
+
+        let recipient_whitelisted = has_role(&recipient_roles, ROLE_WHITELISTED);
+        let recipient_whitelisted_ext = has_role(&recipient_roles, ROLE_WHITELISTED_EXT);
+
+        if !recipient_whitelisted && !recipient_whitelisted_ext {
+            return Err(TransferHookError::UnauthorizedTo.into());
+        }
+
+        // Directional transfer matrix:
+        // If sender only has WHITELISTED (not WHITELISTED_EXT),
+        // recipient must have WHITELISTED.
+        if sender_whitelisted && !sender_whitelisted_ext && !recipient_whitelisted {
+            return Err(TransferHookError::UnauthorizedTo.into());
+        }
 
         let event = TransferEvent::new(
             self.accounts.authority.address().clone(),

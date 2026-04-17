@@ -26,6 +26,12 @@ pub enum PermissionError {
     /// (6) Caller is not the pending admin
     #[error("Caller is not the pending admin")]
     NotPendingAdmin,
+    /// (7) Cannot grant role due to group exclusion
+    #[error("Cannot grant role due to group exclusion")]
+    GroupExclusion,
+    /// (8) Cannot revoke role due to group protection
+    #[error("Cannot revoke role due to group protection")]
+    GroupProtected,
 }
 
 impl From<PermissionError> for ProgramError {
