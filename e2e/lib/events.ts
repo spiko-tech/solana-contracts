@@ -78,8 +78,8 @@ import {
   getMinterInitializedEventDecoder,
 } from "../../clients/ts/minter/src/generated/types/minterInitializedEvent.js";
 import {
-  getMintExecutedEventDecoder,
-} from "../../clients/ts/minter/src/generated/types/mintExecutedEvent.js";
+  getMintInitiatedEventDecoder,
+} from "../../clients/ts/minter/src/generated/types/mintInitiatedEvent.js";
 import {
   getMintBlockedEventDecoder,
 } from "../../clients/ts/minter/src/generated/types/mintBlockedEvent.js";
@@ -188,10 +188,10 @@ registerEvents(SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS, [
 
 registerEvents(MINTER_PROGRAM_ADDRESS, [
   { disc: 0, name: "MinterInitialized",  program: "Minter", decoder: getMinterInitializedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { disc: 1, name: "MintExecuted",       program: "Minter", decoder: getMintExecutedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { disc: 2, name: "MintBlocked",        program: "Minter", decoder: getMintBlockedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { disc: 3, name: "MintApproved",       program: "Minter", decoder: getMintApprovedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
-  { disc: 4, name: "MintCanceled",       program: "Minter", decoder: getMintCanceledEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 1, name: "MintInitiated",      program: "Minter", decoder: getMintInitiatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 2, name: "MintApproved",       program: "Minter", decoder: getMintApprovedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 3, name: "MintCanceled",       program: "Minter", decoder: getMintCanceledEventDecoder() as FixedSizeDecoder<Record<string, any>> },
+  { disc: 4, name: "MintBlocked",        program: "Minter", decoder: getMintBlockedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
   { disc: 5, name: "DailyLimitUpdated",  program: "Minter", decoder: getDailyLimitUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
   { disc: 6, name: "MaxDelayUpdated",    program: "Minter", decoder: getMaxDelayUpdatedEventDecoder() as FixedSizeDecoder<Record<string, any>> },
 ]);

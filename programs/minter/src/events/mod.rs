@@ -5,7 +5,7 @@ pub mod max_delay_updated;
 pub mod mint_approved;
 pub mod mint_blocked;
 pub mod mint_canceled;
-pub mod mint_executed;
+pub mod mint_initiated;
 pub mod minter_initialized;
 
 pub use shared::*;
@@ -15,5 +15,5 @@ pub use max_delay_updated::*;
 pub use mint_approved::*;
 pub use mint_blocked::*;
 pub use mint_canceled::*;
-pub use mint_executed::*;
+pub use mint_initiated::*;
 pub use minter_initialized::*;

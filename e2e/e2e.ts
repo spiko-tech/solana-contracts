@@ -735,7 +735,7 @@ async function main() {
   // ═══════════════════════════════════════════════════════════
   await step(
     `Minter mints ${MINT_SHARES} ${TOKEN_SYMBOL} to User1`,
-    ["MintExecuted", "Mint"],
+    ["MintInitiated", "Mint"],
     async () => {
       const instructions: any[] = [];
 
@@ -1140,7 +1140,7 @@ async function main() {
   // ═══════════════════════════════════════════════════════════
   // Steps 1-5: 5 x RoleGranted = 5
   // Step 5b: RoleGranted = 1
-  // Step 6: MintExecuted + Mint = 2
+  // Step 6: MintInitiated + Mint = 2
   // Step 7a: Transfer = 1
   // Step 7b: Transfer = 1
   // Step 7c: (expected failure, no events)
