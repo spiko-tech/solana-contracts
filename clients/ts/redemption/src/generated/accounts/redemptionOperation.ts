@@ -53,7 +53,7 @@ export type RedemptionOperation = {
 
 export type RedemptionOperationArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   status: number;
   padding: number;
@@ -76,6 +76,7 @@ export function getRedemptionOperationEncoder(): FixedSizeEncoder<RedemptionOper
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? REDEMPTION_OPERATION_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

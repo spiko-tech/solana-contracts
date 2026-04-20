@@ -49,7 +49,7 @@ export type UserPermissions = {
 
 export type UserPermissionsArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   roles: ReadonlyUint8Array;
 };
@@ -66,6 +66,7 @@ export function getUserPermissionsEncoder(): Encoder<UserPermissionsArgs> {
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? USER_PERMISSIONS_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

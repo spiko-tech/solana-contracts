@@ -51,7 +51,7 @@ export type MinterConfig = {
 
 export type MinterConfigArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   maxDelay: number | bigint;
   permissionManager: Address;
@@ -70,6 +70,7 @@ export function getMinterConfigEncoder(): FixedSizeEncoder<MinterConfigArgs> {
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? MINTER_CONFIG_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

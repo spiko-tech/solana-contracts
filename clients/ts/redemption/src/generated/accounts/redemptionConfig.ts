@@ -48,7 +48,7 @@ export type RedemptionConfig = {
 
 export type RedemptionConfigArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   permissionManager: Address;
 };
@@ -65,6 +65,7 @@ export function getRedemptionConfigEncoder(): FixedSizeEncoder<RedemptionConfigA
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? REDEMPTION_CONFIG_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

@@ -52,7 +52,7 @@ export type TokenConfig = {
 
 export type TokenConfigArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   paused: number;
   mintAuthorityBump: number;
@@ -77,6 +77,7 @@ export function getTokenConfigEncoder(): FixedSizeEncoder<TokenConfigArgs> {
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? TOKEN_CONFIG_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

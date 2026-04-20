@@ -51,7 +51,7 @@ export type GatekeeperConfig = {
 
 export type GatekeeperConfigArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   maxDelay: number | bigint;
   permissionManager: Address;
@@ -70,6 +70,7 @@ export function getGatekeeperConfigEncoder(): FixedSizeEncoder<GatekeeperConfigA
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? GATEKEEPER_CONFIG_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

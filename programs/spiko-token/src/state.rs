@@ -31,6 +31,7 @@ pub const DISCRIMINATOR_TOKEN_CONFIG: u8 = 1;
 ///   [69..101] redemption_contract program ID (Address / 32 bytes, all zeros = not set)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 1))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "token_config"))]
 #[codama(seed(name = "splMint", type = public_key))]

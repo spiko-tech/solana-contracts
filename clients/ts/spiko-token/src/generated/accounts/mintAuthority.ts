@@ -30,24 +30,18 @@ import {
 } from "@solana/kit";
 import { findMintAuthorityPda, MintAuthoritySeeds } from "../pdas";
 
-export type MintAuthority = { version: number; bump: number };
+export type MintAuthority = { bump: number };
 
 export type MintAuthorityArgs = MintAuthority;
 
 /** Gets the encoder for {@link MintAuthorityArgs} account data. */
 export function getMintAuthorityEncoder(): FixedSizeEncoder<MintAuthorityArgs> {
-  return getStructEncoder([
-    ["version", getU8Encoder()],
-    ["bump", getU8Encoder()],
-  ]);
+  return getStructEncoder([["bump", getU8Encoder()]]);
 }
 
 /** Gets the decoder for {@link MintAuthority} account data. */
 export function getMintAuthorityDecoder(): FixedSizeDecoder<MintAuthority> {
-  return getStructDecoder([
-    ["version", getU8Decoder()],
-    ["bump", getU8Decoder()],
-  ]);
+  return getStructDecoder([["bump", getU8Decoder()]]);
 }
 
 /** Gets the codec for {@link MintAuthority} account data. */

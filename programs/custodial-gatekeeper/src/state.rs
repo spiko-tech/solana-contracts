@@ -34,6 +34,7 @@ pub const SECONDS_PER_DAY: i64 = 86_400;
 ///   [11..43]  permission_manager program ID (Address / 32 bytes)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 1))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "gatekeeper_config"))]
 #[repr(C)]
@@ -117,6 +118,7 @@ impl GatekeeperConfig {
 ///   [19..27]  last_day (i64, little-endian) -- floor(timestamp / 86400)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 2))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "withdrawal_limit"))]
 #[codama(seed(name = "mint", type = public_key))]
@@ -188,6 +190,7 @@ impl WithdrawalDailyLimit {
 ///   [76..84]  amount (u64, little-endian)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 3))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "withdrawal_op"))]
 #[codama(seed(name = "operationId", type = bytes))]
