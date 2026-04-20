@@ -49,7 +49,7 @@ export type MintOperation = {
 
 export type MintOperationArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   status: number;
   deadline: number | bigint;
@@ -68,6 +68,7 @@ export function getMintOperationEncoder(): FixedSizeEncoder<MintOperationArgs> {
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? MINT_OPERATION_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

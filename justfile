@@ -19,7 +19,7 @@ generate-idl:
 
 # Generate TypeScript clients from IDL files
 generate-clients: generate-idl
-    pnpm exec tsx codegen/generate-clients.ts
+    pnpm exec tsx scripts/generate-ts-clients.ts
 
 # Full build: generate IDL + clients + compile programs
 build: generate-clients

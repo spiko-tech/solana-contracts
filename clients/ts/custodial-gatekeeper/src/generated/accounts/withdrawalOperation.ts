@@ -56,7 +56,7 @@ export type WithdrawalOperation = {
 
 export type WithdrawalOperationArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   status: number;
   deadline: number | bigint;
@@ -81,6 +81,7 @@ export function getWithdrawalOperationEncoder(): FixedSizeEncoder<WithdrawalOper
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? WITHDRAWAL_OPERATION_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

@@ -34,6 +34,7 @@ pub const SECONDS_PER_DAY: i64 = 86_400;
 /// Note: repr(C) with [u8;8] fields avoids alignment padding.
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 1))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "minter_config"))]
 #[repr(C)]
@@ -117,6 +118,7 @@ impl MinterConfig {
 ///   [19..27]  last_day (i64, little-endian) -- floor(timestamp / 86400)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 2))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "daily_limit"))]
 #[codama(seed(name = "mint", type = public_key))]
@@ -217,6 +219,7 @@ impl DailyLimit {
 ///   [4..12]   deadline (i64, little-endian, unix timestamp)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 3))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "mint_op"))]
 #[codama(seed(name = "operationId", type = bytes))]

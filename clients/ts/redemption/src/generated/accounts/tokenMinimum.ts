@@ -48,7 +48,7 @@ export type TokenMinimum = {
 
 export type TokenMinimumArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   minimumAmount: number | bigint;
 };
@@ -65,6 +65,7 @@ export function getTokenMinimumEncoder(): FixedSizeEncoder<TokenMinimumArgs> {
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? TOKEN_MINIMUM_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

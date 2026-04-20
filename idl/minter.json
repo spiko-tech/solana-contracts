@@ -20,6 +20,19 @@
               }
             },
             {
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 1
+              },
+              "kind": "structFieldTypeNode",
+              "name": "version",
+              "type": {
+                "endian": "le",
+                "format": "u8",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
               "kind": "structFieldTypeNode",
               "name": "bump",
               "type": {
@@ -71,6 +84,19 @@
               },
               "kind": "structFieldTypeNode",
               "name": "discriminator",
+              "type": {
+                "endian": "le",
+                "format": "u8",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 1
+              },
+              "kind": "structFieldTypeNode",
+              "name": "version",
               "type": {
                 "endian": "le",
                 "format": "u8",
@@ -140,6 +166,19 @@
               },
               "kind": "structFieldTypeNode",
               "name": "discriminator",
+              "type": {
+                "endian": "le",
+                "format": "u8",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 1
+              },
+              "kind": "structFieldTypeNode",
+              "name": "version",
               "type": {
                 "endian": "le",
                 "format": "u8",

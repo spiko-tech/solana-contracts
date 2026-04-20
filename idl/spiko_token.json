@@ -20,6 +20,19 @@
               }
             },
             {
+              "defaultValue": {
+                "kind": "numberValueNode",
+                "number": 1
+              },
+              "kind": "structFieldTypeNode",
+              "name": "version",
+              "type": {
+                "endian": "le",
+                "format": "u8",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
               "kind": "structFieldTypeNode",
               "name": "bump",
               "type": {

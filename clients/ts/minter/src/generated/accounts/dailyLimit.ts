@@ -52,7 +52,7 @@ export type DailyLimit = {
 
 export type DailyLimitArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   limit: number | bigint;
   usedAmount: number | bigint;
@@ -73,6 +73,7 @@ export function getDailyLimitEncoder(): FixedSizeEncoder<DailyLimitArgs> {
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? DAILY_LIMIT_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

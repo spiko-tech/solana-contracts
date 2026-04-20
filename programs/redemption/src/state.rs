@@ -34,6 +34,7 @@ pub const MAX_DELAY: i64 = 14 * 24 * 60 * 60; // 1_209_600
 ///   [3..35]   permission_manager program ID (Address / 32 bytes)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 1))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "redemption_config"))]
 #[repr(C)]
@@ -104,6 +105,7 @@ impl PdaAccount for RedemptionConfig {
 ///   [3..11]   minimum_amount (u64, little-endian)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 2))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "minimum"))]
 #[codama(seed(name = "mint", type = public_key))]
@@ -154,6 +156,7 @@ impl TokenMinimum {
 ///   [13..45]  user address (Address / 32 bytes, for refund on cancel)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 4))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "redemption_op"))]
 #[codama(seed(name = "operationId", type = bytes))]

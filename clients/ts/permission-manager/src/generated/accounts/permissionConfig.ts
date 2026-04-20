@@ -49,7 +49,7 @@ export type PermissionConfig = {
 
 export type PermissionConfigArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   admin: Address;
   pendingAdmin: Address;
@@ -68,6 +68,7 @@ export function getPermissionConfigEncoder(): FixedSizeEncoder<PermissionConfigA
     (value) => ({
       ...value,
       discriminator: value.discriminator ?? PERMISSION_CONFIG_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }

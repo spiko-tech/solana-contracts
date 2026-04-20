@@ -56,6 +56,7 @@ pub const ZERO_ADDRESS: Address = Address::new_from_array([0u8; 32]);
 ///   [35..67]  pending admin (Address / 32 bytes, zero if none)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 1))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "permission_config"))]
 #[repr(C)]
@@ -133,6 +134,7 @@ impl PermissionConfig {
 ///   [3..35]   roles bitmask (32 bytes = 256 bits)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 2))]
+#[codama(field("version", number(u8), default_value = 1))]
 #[codama(discriminator(field = "discriminator"))]
 #[codama(seed(type = string(utf8), value = "user_perm"))]
 #[codama(seed(name = "user", type = public_key))]

@@ -55,7 +55,7 @@ export type WithdrawalDailyLimit = {
 
 export type WithdrawalDailyLimitArgs = {
   discriminator?: number;
-  version: number;
+  version?: number;
   bump: number;
   limit: number | bigint;
   usedAmount: number | bigint;
@@ -77,6 +77,7 @@ export function getWithdrawalDailyLimitEncoder(): FixedSizeEncoder<WithdrawalDai
       ...value,
       discriminator:
         value.discriminator ?? WITHDRAWAL_DAILY_LIMIT_DISCRIMINATOR,
+      version: value.version ?? 1,
     }),
   );
 }
