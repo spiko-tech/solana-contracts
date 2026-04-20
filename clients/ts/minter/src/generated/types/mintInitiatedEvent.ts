@@ -20,7 +20,7 @@ import {
   type FixedSizeEncoder,
 } from "@solana/kit";
 
-export type MintExecutedEvent = {
+export type MintInitiatedEvent = {
   caller: Address;
   user: Address;
   mint: Address;
@@ -28,7 +28,7 @@ export type MintExecutedEvent = {
   salt: bigint;
 };
 
-export type MintExecutedEventArgs = {
+export type MintInitiatedEventArgs = {
   caller: Address;
   user: Address;
   mint: Address;
@@ -36,7 +36,7 @@ export type MintExecutedEventArgs = {
   salt: number | bigint;
 };
 
-export function getMintExecutedEventEncoder(): FixedSizeEncoder<MintExecutedEventArgs> {
+export function getMintInitiatedEventEncoder(): FixedSizeEncoder<MintInitiatedEventArgs> {
   return getStructEncoder([
     ["caller", getAddressEncoder()],
     ["user", getAddressEncoder()],
@@ -46,7 +46,7 @@ export function getMintExecutedEventEncoder(): FixedSizeEncoder<MintExecutedEven
   ]);
 }
 
-export function getMintExecutedEventDecoder(): FixedSizeDecoder<MintExecutedEvent> {
+export function getMintInitiatedEventDecoder(): FixedSizeDecoder<MintInitiatedEvent> {
   return getStructDecoder([
     ["caller", getAddressDecoder()],
     ["user", getAddressDecoder()],
@@ -56,12 +56,12 @@ export function getMintExecutedEventDecoder(): FixedSizeDecoder<MintExecutedEven
   ]);
 }
 
-export function getMintExecutedEventCodec(): FixedSizeCodec<
-  MintExecutedEventArgs,
-  MintExecutedEvent
+export function getMintInitiatedEventCodec(): FixedSizeCodec<
+  MintInitiatedEventArgs,
+  MintInitiatedEvent
 > {
   return combineCodec(
-    getMintExecutedEventEncoder(),
-    getMintExecutedEventDecoder(),
+    getMintInitiatedEventEncoder(),
+    getMintInitiatedEventDecoder(),
   );
 }

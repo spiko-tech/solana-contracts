@@ -6,7 +6,7 @@ use crate::discriminators::MinterEventDiscriminators;
 use spiko_events::{EventDiscriminator, EventSerialize};
 
 #[derive(CodamaType)]
-pub struct MintExecutedEvent {
+pub struct MintInitiatedEvent {
     pub caller: Address,
     pub user: Address,
     pub mint: Address,
@@ -14,11 +14,11 @@ pub struct MintExecutedEvent {
     pub salt: u64,
 }
 
-impl EventDiscriminator for MintExecutedEvent {
-    const DISCRIMINATOR: u8 = MinterEventDiscriminators::MintExecuted as u8;
+impl EventDiscriminator for MintInitiatedEvent {
+    const DISCRIMINATOR: u8 = MinterEventDiscriminators::MintInitiated as u8;
 }
 
-impl EventSerialize for MintExecutedEvent {
+impl EventSerialize for MintInitiatedEvent {
     #[inline(always)]
     fn to_bytes_inner(&self) -> Vec<u8> {
         let mut data = Vec::with_capacity(Self::DATA_LEN);
@@ -31,7 +31,7 @@ impl EventSerialize for MintExecutedEvent {
     }
 }
 
-impl MintExecutedEvent {
+impl MintInitiatedEvent {
     pub const DATA_LEN: usize = 32 + 32 + 32 + 8 + 8;
 
     #[inline(always)]

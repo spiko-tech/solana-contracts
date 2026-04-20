@@ -434,7 +434,7 @@
       },
       {
         "kind": "definedTypeNode",
-        "name": "mintExecutedEvent",
+        "name": "mintInitiatedEvent",
         "type": {
           "fields": [
             {

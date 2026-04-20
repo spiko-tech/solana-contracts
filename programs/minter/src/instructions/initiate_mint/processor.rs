@@ -14,7 +14,7 @@ use spiko_events::EventSerialize;
 
 use crate::{
     error::MinterError,
-    events::{MintBlockedEvent, MintExecutedEvent},
+    events::{MintBlockedEvent, MintInitiatedEvent},
     helpers::{
         compute_operation_id, cpi_spiko_token_mint, create_pda_account, mint_operation_seeds,
         require_permission, verify_pda,
@@ -153,7 +153,7 @@ impl<'a> InitiateMint<'a> {
                 self.data.amount,
             )?;
 
-            let event = MintExecutedEvent::new(
+            let event = MintInitiatedEvent::new(
                 self.accounts.caller.address().clone(),
                 Address::new_from_array(self.data.user),
                 self.accounts.token_mint.address().clone(),

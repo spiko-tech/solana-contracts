@@ -12,4 +12,4 @@ export * from "./mintApprovedEvent";
 export * from "./mintBlockedEvent";
 export * from "./mintCanceledEvent";
 export * from "./minterInitializedEvent";
-export * from "./mintExecutedEvent";
+export * from "./mintInitiatedEvent";
