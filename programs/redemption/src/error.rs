@@ -24,6 +24,8 @@ pub enum RedemptionError {
     InvalidPda,
     #[error("Invalid vault")]
     InvalidVault,
+    #[error("User token account does not belong to the original user")]
+    InvalidUser,
 }
 
 impl From<RedemptionError> for ProgramError {

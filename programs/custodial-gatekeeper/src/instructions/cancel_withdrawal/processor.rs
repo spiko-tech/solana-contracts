@@ -84,6 +84,19 @@ impl<'a> CancelWithdrawal<'a> {
             if now <= op.deadline() {
                 return Err(GatekeeperError::DeadlineNotPassed.into());
             }
+
+            // Verify that the sender_token_account belongs to the original sender
+            // Token account owner is at bytes 32..64 of the SPL/Token-2022 account data
+            let sta_data = self.accounts.sender_token_account.try_borrow()?;
+            if sta_data.len() < 64 {
+                return Err(ProgramError::InvalidAccountData);
+            }
+            let owner_bytes: [u8; 32] = sta_data[32..64]
+                .try_into()
+                .map_err(|_| ProgramError::InvalidAccountData)?;
+            if owner_bytes != op.sender.to_bytes() {
+                return Err(GatekeeperError::InvalidSender.into());
+            }
         }
 
         // Transfer tokens from vault back to sender (custodial wallet)

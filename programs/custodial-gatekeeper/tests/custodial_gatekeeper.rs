@@ -24,7 +24,7 @@ const STATUS_DONE: u8 = 2;
 
 const GATEKEEPER_CONFIG_LEN: usize = 43; // disc(1) + ver(1) + bump(1) + max_delay(8) + perm_manager(32)
 const WITHDRAWAL_DAILY_LIMIT_LEN: usize = 27; // disc(1) + ver(1) + bump(1) + limit(8) + used(8) + last_day(8)
-const WITHDRAWAL_OPERATION_LEN: usize = 84; // disc(1) + ver(1) + bump(1) + status(1) + deadline(8) + recipient(32) + mint(32) + amount(8)
+const WITHDRAWAL_OPERATION_LEN: usize = 116; // disc(1) + ver(1) + bump(1) + status(1) + deadline(8) + recipient(32) + mint(32) + amount(8) + sender(32)
 
 const PERMISSION_CONFIG_SEED: &[u8] = b"permission_config";
 const USER_PERMISSION_SEED: &[u8] = b"user_perm";
@@ -178,6 +178,7 @@ fn withdrawal_operation_account(
     recipient: &Pubkey,
     mint: &Pubkey,
     amount: u64,
+    sender: &Pubkey,
 ) -> Account {
     let mut data = vec![0u8; WITHDRAWAL_OPERATION_LEN];
     data[0] = DISCRIMINATOR_WITHDRAWAL_OPERATION;
@@ -188,6 +189,7 @@ fn withdrawal_operation_account(
     data[12..44].copy_from_slice(recipient.as_ref());
     data[44..76].copy_from_slice(mint.as_ref());
     data[76..84].copy_from_slice(&amount.to_le_bytes());
+    data[84..116].copy_from_slice(sender.as_ref());
     Account {
         lamports: 1_000_000,
         data,
@@ -853,6 +855,7 @@ fn test_approve_withdrawal_unauthorized() {
                     &recipient,
                     &token_mint,
                     amount,
+                    &Pubkey::new_unique(),
                 ),
             ),
             (
@@ -973,6 +976,7 @@ fn test_approve_withdrawal_not_pending() {
                     &recipient,
                     &token_mint,
                     amount,
+                    &Pubkey::new_unique(),
                 ),
             ),
             (
@@ -1093,6 +1097,7 @@ fn test_approve_withdrawal_deadline_passed() {
                     &recipient,
                     &token_mint,
                     amount,
+                    &Pubkey::new_unique(),
                 ),
             ),
             (
@@ -1210,6 +1215,7 @@ fn test_cancel_withdrawal_not_pending() {
                     &recipient,
                     &token_mint,
                     amount,
+                    &sender,
                 ),
             ),
             (vault_token_account, dummy_account()),
@@ -1322,6 +1328,7 @@ fn test_cancel_withdrawal_deadline_not_passed() {
                     &recipient,
                     &token_mint,
                     amount,
+                    &sender,
                 ),
             ),
             (vault_token_account, dummy_account()),

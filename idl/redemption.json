@@ -475,6 +475,12 @@
         "kind": "errorNode",
         "message": "Invalid vault",
         "name": "invalidVault"
+      },
+      {
+        "code": 10,
+        "kind": "errorNode",
+        "message": "User token account does not belong to the original user",
+        "name": "invalidUser"
       }
     ],
     "instructions": [

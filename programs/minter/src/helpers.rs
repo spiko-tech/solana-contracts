@@ -1,6 +1,7 @@
 use pinocchio::{
     account::AccountView,
     cpi::{Seed, Signer},
+    error::ProgramError,
     instruction::{InstructionAccount, InstructionView},
     ProgramResult,
 };
@@ -64,6 +65,14 @@ pub fn cpi_spiko_token_mint<'a>(
     let mut ix_data = [0u8; 9];
     ix_data[0] = 1; // discriminator for mint
     ix_data[1..9].copy_from_slice(&amount.to_le_bytes());
+
+    // Validate that the CPI target is the canonical spiko-token program
+    if spiko_token_program.address() != &spiko_token::ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
+    if st_self_program.address() != &spiko_token::ID {
+        return Err(ProgramError::IncorrectProgramId);
+    }
 
     let ix_accounts = [
         InstructionAccount::writable_signer(minter_config.address()), // caller (PDA signer)

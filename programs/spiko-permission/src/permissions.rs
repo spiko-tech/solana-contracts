@@ -66,6 +66,10 @@ pub fn require_admin(
     permission_manager_id: &Address,
     error_on_fail: ProgramError,
 ) -> Result<(), ProgramError> {
+    if !caller.is_signer() {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
     if !perm_config_account.owned_by(permission_manager_id) {
         return Err(error_on_fail);
     }

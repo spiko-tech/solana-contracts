@@ -53,6 +53,10 @@ impl<'a> OnRedeem<'a> {
 
         let mint_key_bytes = self.accounts.token_mint.address().to_bytes();
 
+        if self.data.user_address != self.accounts.user.address().to_bytes() {
+            return Err(RedemptionError::InvalidUser.into());
+        }
+
         {
             verify_pda(
                 self.accounts.token_minimum,

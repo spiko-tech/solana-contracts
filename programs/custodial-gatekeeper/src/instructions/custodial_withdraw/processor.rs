@@ -20,8 +20,9 @@ use crate::{
         verify_pda, withdrawal_operation_seeds,
     },
     state::{
-        GatekeeperConfig, WithdrawalDailyLimit, WithdrawalOperation, SECONDS_PER_DAY, STATUS_NULL,
-        STATUS_PENDING, VAULT_SEED, WITHDRAWAL_DAILY_LIMIT_SEED, WITHDRAWAL_OPERATION_SEED,
+        GatekeeperConfig, WithdrawalDailyLimit, WithdrawalOperation, SECONDS_PER_DAY, STATUS_DONE,
+        STATUS_NULL, STATUS_PENDING, VAULT_SEED, WITHDRAWAL_DAILY_LIMIT_SEED,
+        WITHDRAWAL_OPERATION_SEED,
     },
 };
 
@@ -216,6 +217,55 @@ impl<'a> CustodialWithdraw<'a> {
                 self.accounts.hook_program,
                 self.data.amount,
             )?;
+
+            let operation_id = compute_operation_id(
+                &self.data.recipient,
+                &mint_key_bytes,
+                self.data.amount,
+                self.data.salt,
+            );
+
+            let op_bump = verify_pda(
+                self.accounts.withdrawal_op,
+                &[WITHDRAWAL_OPERATION_SEED, &operation_id],
+                program_id,
+            )?;
+
+            {
+                let op_data = self.accounts.withdrawal_op.try_borrow()?;
+                if !op_data.is_empty() && op_data[0] != 0 {
+                    if op_data.len() >= WithdrawalOperation::LEN {
+                        let op = WithdrawalOperation::from_bytes(&op_data)?;
+                        if op.status != STATUS_NULL {
+                            return Err(GatekeeperError::OperationExists.into());
+                        }
+                    }
+                }
+            }
+
+            let op_bump_bytes = [op_bump];
+            let op_seeds = withdrawal_operation_seeds(&operation_id, &op_bump_bytes);
+            let op_signer = Signer::from(&op_seeds);
+
+            create_pda_account(
+                self.accounts.sender,
+                self.accounts.withdrawal_op,
+                WithdrawalOperation::LEN,
+                program_id,
+                &[op_signer],
+            )?;
+
+            {
+                let mut data = self.accounts.withdrawal_op.try_borrow_mut()?;
+                let op = WithdrawalOperation::from_bytes_mut_init(&mut data)?;
+                op.bump = op_bump;
+                op.status = STATUS_DONE;
+                op.set_deadline(0);
+                op.recipient = Address::new_from_array(self.data.recipient);
+                op.mint = self.accounts.token_mint.address().clone();
+                op.set_amount(self.data.amount);
+                op.sender = self.accounts.sender.address().clone();
+            }
         } else {
             // Step 2b: Create pending operation
             let operation_id = compute_operation_id(
@@ -266,6 +316,7 @@ impl<'a> CustodialWithdraw<'a> {
                 op.recipient = Address::new_from_array(self.data.recipient);
                 op.mint = self.accounts.token_mint.address().clone();
                 op.set_amount(self.data.amount);
+                op.sender = self.accounts.sender.address().clone();
             }
 
             let blocked_event = WithdrawalBlockedEvent::new(

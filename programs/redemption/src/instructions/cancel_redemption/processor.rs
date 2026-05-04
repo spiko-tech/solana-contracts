@@ -84,6 +84,19 @@ impl<'a> CancelRedemption<'a> {
             if now <= op.deadline() {
                 return Err(RedemptionError::DeadlineNotPassed.into());
             }
+
+            // Verify that the user_token_account belongs to the original user (op.user)
+            // Token account owner is at bytes 32..64 of the SPL/Token-2022 account data
+            let uta_data = self.accounts.user_token_account.try_borrow()?;
+            if uta_data.len() < 64 {
+                return Err(ProgramError::InvalidAccountData);
+            }
+            let owner_bytes: [u8; 32] = uta_data[32..64]
+                .try_into()
+                .map_err(|_| ProgramError::InvalidAccountData)?;
+            if owner_bytes != op.user.to_bytes() {
+                return Err(RedemptionError::InvalidUser.into());
+            }
         }
 
         cpi_token_2022_transfer(

@@ -23,6 +23,10 @@ pub fn require_admin(
     config_account: &AccountView,
     program_id: &Address,
 ) -> Result<(), ProgramError> {
+    if !caller.is_signer() {
+        return Err(ProgramError::MissingRequiredSignature);
+    }
+
     if !config_account.owned_by(program_id) {
         return Err(crate::error::PermissionError::NotInitialized.into());
     }

@@ -179,7 +179,7 @@ impl WithdrawalDailyLimit {
 ///
 /// Seeds: ["withdrawal_op", operation_id (32 bytes)]
 ///
-/// On-chain layout (total: 77 bytes):
+/// On-chain layout (total: 114 bytes):
 ///   [0]       discriminator (u8) -- external, trait-provided
 ///   [1]       version (u8) -- external, trait-provided
 ///   [2]       bump (u8)
@@ -188,6 +188,7 @@ impl WithdrawalDailyLimit {
 ///   [12..44]  recipient address (Address / 32 bytes)
 ///   [44..76]  mint address (Address / 32 bytes)
 ///   [76..84]  amount (u64, little-endian)
+///   [84..116] sender address (Address / 32 bytes)
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 #[codama(field("discriminator", number(u8), default_value = 3))]
 #[codama(field("version", number(u8), default_value = 1))]
@@ -206,9 +207,11 @@ pub struct WithdrawalOperation {
     pub mint: Address,
     #[codama(type = number(u64))]
     amount: [u8; 8],
+    #[codama(type = public_key)]
+    pub sender: Address,
 }
 
-assert_no_padding!(WithdrawalOperation, 1 + 1 + 8 + 32 + 32 + 8);
+assert_no_padding!(WithdrawalOperation, 1 + 1 + 8 + 32 + 32 + 8 + 32);
 
 impl Discriminator for WithdrawalOperation {
     const DISCRIMINATOR: u8 = DISCRIMINATOR_WITHDRAWAL_OPERATION;
@@ -219,7 +222,7 @@ impl Versioned for WithdrawalOperation {
 }
 
 impl AccountSize for WithdrawalOperation {
-    const DATA_LEN: usize = 1 + 1 + 8 + 32 + 32 + 8;
+    const DATA_LEN: usize = 1 + 1 + 8 + 32 + 32 + 8 + 32;
 }
 
 impl AccountDeserialize for WithdrawalOperation {}

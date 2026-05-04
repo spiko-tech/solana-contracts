@@ -234,6 +234,13 @@
                 "format": "u64",
                 "kind": "numberTypeNode"
               }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "sender",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
             }
           ],
           "kind": "structTypeNode"
@@ -573,6 +580,12 @@
         "kind": "errorNode",
         "message": "Unauthorized recipient (not WHITELISTED_EXT)",
         "name": "unauthorizedTo"
+      },
+      {
+        "code": 10,
+        "kind": "errorNode",
+        "message": "Sender token account does not belong to the original sender",
+        "name": "invalidSender"
       }
     ],
     "instructions": [

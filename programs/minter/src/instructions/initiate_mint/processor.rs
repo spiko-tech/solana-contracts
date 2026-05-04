@@ -21,7 +21,7 @@ use crate::{
     },
     state::{
         DailyLimit, MintOperation, MinterConfig, DAILY_LIMIT_SEED, MINT_OPERATION_SEED,
-        SECONDS_PER_DAY, STATUS_NULL, STATUS_PENDING,
+        SECONDS_PER_DAY, STATUS_DONE, STATUS_NULL, STATUS_PENDING,
     },
 };
 
@@ -152,6 +152,26 @@ impl<'a> InitiateMint<'a> {
                 self.accounts.st_self_program,
                 self.data.amount,
             )?;
+
+            let op_bump_bytes = [op_bump];
+            let op_seeds = mint_operation_seeds(&operation_id, &op_bump_bytes);
+            let op_signer = Signer::from(&op_seeds);
+
+            create_pda_account(
+                self.accounts.caller,
+                self.accounts.mint_operation,
+                MintOperation::LEN,
+                program_id,
+                &[op_signer],
+            )?;
+
+            {
+                let mut data = self.accounts.mint_operation.try_borrow_mut()?;
+                let op = MintOperation::from_bytes_mut_init(&mut data)?;
+                op.bump = op_bump;
+                op.status = STATUS_DONE;
+                op.set_deadline(0);
+            }
 
             let event = MintInitiatedEvent::new(
                 self.accounts.caller.address().clone(),

@@ -24,6 +24,8 @@ pub enum GatekeeperError {
     UnauthorizedFrom,
     #[error("Unauthorized recipient (not WHITELISTED_EXT)")]
     UnauthorizedTo,
+    #[error("Sender token account does not belong to the original sender")]
+    InvalidSender,
 }
 
 impl From<GatekeeperError> for ProgramError {
