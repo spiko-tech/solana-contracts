@@ -13,10 +13,18 @@ import {
   decodeAccount,
   fetchEncodedAccount,
   fetchEncodedAccounts,
+  fixDecoderSize,
+  fixEncoderSize,
+  getAddressDecoder,
+  getAddressEncoder,
+  getBytesDecoder,
+  getBytesEncoder,
   getI64Decoder,
   getI64Encoder,
   getStructDecoder,
   getStructEncoder,
+  getU64Decoder,
+  getU64Encoder,
   getU8Decoder,
   getU8Encoder,
   transformEncoder,
@@ -30,57 +38,60 @@ import {
   type FixedSizeEncoder,
   type MaybeAccount,
   type MaybeEncodedAccount,
+  type ReadonlyUint8Array,
 } from "@solana/kit";
-import { findMintOperationPda, MintOperationSeeds } from "../pdas";
 
-export const MINT_OPERATION_DISCRIMINATOR = 3;
+export const MINT_OPERATION_DISCRIMINATOR = new Uint8Array([
+  44, 71, 174, 212, 213, 48, 214, 226,
+]);
 
 export function getMintOperationDiscriminatorBytes() {
-  return getU8Encoder().encode(MINT_OPERATION_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    MINT_OPERATION_DISCRIMINATOR,
+  );
 }
 
 export type MintOperation = {
-  discriminator: number;
-  version: number;
-  bump: number;
+  discriminator: ReadonlyUint8Array;
   status: number;
   deadline: bigint;
+  recipient: Address;
+  mint: Address;
+  amount: bigint;
 };
 
 export type MintOperationArgs = {
-  discriminator?: number;
-  version?: number;
-  bump: number;
   status: number;
   deadline: number | bigint;
+  recipient: Address;
+  mint: Address;
+  amount: number | bigint;
 };
 
 /** Gets the encoder for {@link MintOperationArgs} account data. */
 export function getMintOperationEncoder(): FixedSizeEncoder<MintOperationArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["version", getU8Encoder()],
-      ["bump", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["status", getU8Encoder()],
       ["deadline", getI64Encoder()],
+      ["recipient", getAddressEncoder()],
+      ["mint", getAddressEncoder()],
+      ["amount", getU64Encoder()],
     ]),
-    (value) => ({
-      ...value,
-      discriminator: value.discriminator ?? MINT_OPERATION_DISCRIMINATOR,
-      version: value.version ?? 1,
-    }),
+    (value) => ({ ...value, discriminator: MINT_OPERATION_DISCRIMINATOR }),
   );
 }
 
 /** Gets the decoder for {@link MintOperation} account data. */
 export function getMintOperationDecoder(): FixedSizeDecoder<MintOperation> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["version", getU8Decoder()],
-    ["bump", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["status", getU8Decoder()],
     ["deadline", getI64Decoder()],
+    ["recipient", getAddressDecoder()],
+    ["mint", getAddressDecoder()],
+    ["amount", getU64Decoder()],
   ]);
 }
 
@@ -149,26 +160,6 @@ export async function fetchAllMaybeMintOperation(
   return maybeAccounts.map((maybeAccount) => decodeMintOperation(maybeAccount));
 }
 
-export async function fetchMintOperationFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: MintOperationSeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<Account<MintOperation>> {
-  const maybeAccount = await fetchMaybeMintOperationFromSeeds(
-    rpc,
-    seeds,
-    config,
-  );
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
-}
-
-export async function fetchMaybeMintOperationFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: MintOperationSeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<MaybeAccount<MintOperation>> {
-  const { programAddress, ...fetchConfig } = config;
-  const [address] = await findMintOperationPda(seeds, { programAddress });
-  return await fetchMaybeMintOperation(rpc, address, fetchConfig);
+export function getMintOperationSize(): number {
+  return 89;
 }

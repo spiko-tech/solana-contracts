@@ -8,10 +8,12 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -28,61 +30,78 @@ import {
   type TransactionSigner,
   type WritableAccount,
 } from "@solana/kit";
+import { findMintAuthorityPda } from "../pdas";
 import { SPIKO_TOKEN_PROGRAM_ADDRESS } from "../programs";
-import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
+import {
+  expectAddress,
+  getAccountMetaFactory,
+  type ResolvedAccount,
+} from "../shared";
 
-export const PAUSE_DISCRIMINATOR = 4;
+export const PAUSE_DISCRIMINATOR = new Uint8Array([
+  211, 22, 221, 251, 74, 121, 193, 47,
+]);
 
 export function getPauseDiscriminatorBytes() {
-  return getU8Encoder().encode(PAUSE_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(PAUSE_DISCRIMINATOR);
 }
 
 export type PauseInstruction<
   TProgram extends string = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
-  TAccountCaller extends string | AccountMeta<string> = string,
-  TAccountConfig extends string | AccountMeta<string> = string,
-  TAccountCallerPerms extends string | AccountMeta<string> = string,
-  TAccountEventAuthority extends string | AccountMeta<string> = string,
-  TAccountSelfProgram extends string | AccountMeta<string> =
-    "3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd",
+  TAccountAdmin extends string | AccountMeta<string> = string,
+  TAccountTokenConfig extends string | AccountMeta<string> = string,
+  TAccountMint extends string | AccountMeta<string> = string,
+  TAccountMintAuthority extends string | AccountMeta<string> = string,
+  TAccountHookConfig extends string | AccountMeta<string> = string,
+  TAccountSpikoTransferHookProgram extends string | AccountMeta<string> =
+    "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86",
+  TAccountAdminPermissions extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountCaller extends string
-        ? ReadonlySignerAccount<TAccountCaller> &
-            AccountSignerMeta<TAccountCaller>
-        : TAccountCaller,
-      TAccountConfig extends string
-        ? WritableAccount<TAccountConfig>
-        : TAccountConfig,
-      TAccountCallerPerms extends string
-        ? ReadonlyAccount<TAccountCallerPerms>
-        : TAccountCallerPerms,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountSelfProgram extends string
-        ? ReadonlyAccount<TAccountSelfProgram>
-        : TAccountSelfProgram,
+      TAccountAdmin extends string
+        ? ReadonlySignerAccount<TAccountAdmin> &
+            AccountSignerMeta<TAccountAdmin>
+        : TAccountAdmin,
+      TAccountTokenConfig extends string
+        ? WritableAccount<TAccountTokenConfig>
+        : TAccountTokenConfig,
+      TAccountMint extends string
+        ? ReadonlyAccount<TAccountMint>
+        : TAccountMint,
+      TAccountMintAuthority extends string
+        ? ReadonlyAccount<TAccountMintAuthority>
+        : TAccountMintAuthority,
+      TAccountHookConfig extends string
+        ? WritableAccount<TAccountHookConfig>
+        : TAccountHookConfig,
+      TAccountSpikoTransferHookProgram extends string
+        ? ReadonlyAccount<TAccountSpikoTransferHookProgram>
+        : TAccountSpikoTransferHookProgram,
+      TAccountAdminPermissions extends string
+        ? ReadonlyAccount<TAccountAdminPermissions>
+        : TAccountAdminPermissions,
       ...TRemainingAccounts,
     ]
   >;
 
-export type PauseInstructionData = { discriminator: number };
+export type PauseInstructionData = { discriminator: ReadonlyUint8Array };
 
 export type PauseInstructionDataArgs = {};
 
 export function getPauseInstructionDataEncoder(): FixedSizeEncoder<PauseInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([["discriminator", getU8Encoder()]]),
+    getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
     (value) => ({ ...value, discriminator: PAUSE_DISCRIMINATOR }),
   );
 }
 
 export function getPauseInstructionDataDecoder(): FixedSizeDecoder<PauseInstructionData> {
-  return getStructDecoder([["discriminator", getU8Decoder()]]);
+  return getStructDecoder([
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+  ]);
 }
 
 export function getPauseInstructionDataCodec(): FixedSizeCodec<
@@ -95,59 +114,74 @@ export function getPauseInstructionDataCodec(): FixedSizeCodec<
   );
 }
 
-export type PauseInput<
-  TAccountCaller extends string = string,
-  TAccountConfig extends string = string,
-  TAccountCallerPerms extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
+export type PauseAsyncInput<
+  TAccountAdmin extends string = string,
+  TAccountTokenConfig extends string = string,
+  TAccountMint extends string = string,
+  TAccountMintAuthority extends string = string,
+  TAccountHookConfig extends string = string,
+  TAccountSpikoTransferHookProgram extends string = string,
+  TAccountAdminPermissions extends string = string,
 > = {
-  /** Must have PAUSER role */
-  caller: TransactionSigner<TAccountCaller>;
-  /** TokenConfig PDA */
-  config: Address<TAccountConfig>;
-  /** Caller's UserPermissions PDA */
-  callerPerms: Address<TAccountCallerPerms>;
-  /** Event authority PDA */
-  eventAuthority: Address<TAccountEventAuthority>;
-  /** This program */
-  selfProgram?: Address<TAccountSelfProgram>;
+  admin: TransactionSigner<TAccountAdmin>;
+  tokenConfig: Address<TAccountTokenConfig>;
+  mint: Address<TAccountMint>;
+  mintAuthority?: Address<TAccountMintAuthority>;
+  hookConfig: Address<TAccountHookConfig>;
+  spikoTransferHookProgram?: Address<TAccountSpikoTransferHookProgram>;
+  adminPermissions: Address<TAccountAdminPermissions>;
 };
 
-export function getPauseInstruction<
-  TAccountCaller extends string,
-  TAccountConfig extends string,
-  TAccountCallerPerms extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
+export async function getPauseInstructionAsync<
+  TAccountAdmin extends string,
+  TAccountTokenConfig extends string,
+  TAccountMint extends string,
+  TAccountMintAuthority extends string,
+  TAccountHookConfig extends string,
+  TAccountSpikoTransferHookProgram extends string,
+  TAccountAdminPermissions extends string,
   TProgramAddress extends Address = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
 >(
-  input: PauseInput<
-    TAccountCaller,
-    TAccountConfig,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+  input: PauseAsyncInput<
+    TAccountAdmin,
+    TAccountTokenConfig,
+    TAccountMint,
+    TAccountMintAuthority,
+    TAccountHookConfig,
+    TAccountSpikoTransferHookProgram,
+    TAccountAdminPermissions
   >,
   config?: { programAddress?: TProgramAddress },
-): PauseInstruction<
-  TProgramAddress,
-  TAccountCaller,
-  TAccountConfig,
-  TAccountCallerPerms,
-  TAccountEventAuthority,
-  TAccountSelfProgram
+): Promise<
+  PauseInstruction<
+    TProgramAddress,
+    TAccountAdmin,
+    TAccountTokenConfig,
+    TAccountMint,
+    TAccountMintAuthority,
+    TAccountHookConfig,
+    TAccountSpikoTransferHookProgram,
+    TAccountAdminPermissions
+  >
 > {
   // Program address.
   const programAddress = config?.programAddress ?? SPIKO_TOKEN_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    caller: { value: input.caller ?? null, isWritable: false },
-    config: { value: input.config ?? null, isWritable: true },
-    callerPerms: { value: input.callerPerms ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
+    admin: { value: input.admin ?? null, isWritable: false },
+    tokenConfig: { value: input.tokenConfig ?? null, isWritable: true },
+    mint: { value: input.mint ?? null, isWritable: false },
+    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
+    hookConfig: { value: input.hookConfig ?? null, isWritable: true },
+    spikoTransferHookProgram: {
+      value: input.spikoTransferHookProgram ?? null,
+      isWritable: false,
+    },
+    adminPermissions: {
+      value: input.adminPermissions ?? null,
+      isWritable: false,
+    },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -155,29 +189,141 @@ export function getPauseInstruction<
   >;
 
   // Resolve default values.
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd" as Address<"3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd">;
+  if (!accounts.mintAuthority.value) {
+    accounts.mintAuthority.value = await findMintAuthorityPda({
+      mint: expectAddress(accounts.mint.value),
+    });
+  }
+  if (!accounts.spikoTransferHookProgram.value) {
+    accounts.spikoTransferHookProgram.value =
+      "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.caller),
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.callerPerms),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
+      getAccountMeta(accounts.admin),
+      getAccountMeta(accounts.tokenConfig),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.mintAuthority),
+      getAccountMeta(accounts.hookConfig),
+      getAccountMeta(accounts.spikoTransferHookProgram),
+      getAccountMeta(accounts.adminPermissions),
     ],
     data: getPauseInstructionDataEncoder().encode({}),
     programAddress,
   } as PauseInstruction<
     TProgramAddress,
-    TAccountCaller,
-    TAccountConfig,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountAdmin,
+    TAccountTokenConfig,
+    TAccountMint,
+    TAccountMintAuthority,
+    TAccountHookConfig,
+    TAccountSpikoTransferHookProgram,
+    TAccountAdminPermissions
+  >);
+}
+
+export type PauseInput<
+  TAccountAdmin extends string = string,
+  TAccountTokenConfig extends string = string,
+  TAccountMint extends string = string,
+  TAccountMintAuthority extends string = string,
+  TAccountHookConfig extends string = string,
+  TAccountSpikoTransferHookProgram extends string = string,
+  TAccountAdminPermissions extends string = string,
+> = {
+  admin: TransactionSigner<TAccountAdmin>;
+  tokenConfig: Address<TAccountTokenConfig>;
+  mint: Address<TAccountMint>;
+  mintAuthority: Address<TAccountMintAuthority>;
+  hookConfig: Address<TAccountHookConfig>;
+  spikoTransferHookProgram?: Address<TAccountSpikoTransferHookProgram>;
+  adminPermissions: Address<TAccountAdminPermissions>;
+};
+
+export function getPauseInstruction<
+  TAccountAdmin extends string,
+  TAccountTokenConfig extends string,
+  TAccountMint extends string,
+  TAccountMintAuthority extends string,
+  TAccountHookConfig extends string,
+  TAccountSpikoTransferHookProgram extends string,
+  TAccountAdminPermissions extends string,
+  TProgramAddress extends Address = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
+>(
+  input: PauseInput<
+    TAccountAdmin,
+    TAccountTokenConfig,
+    TAccountMint,
+    TAccountMintAuthority,
+    TAccountHookConfig,
+    TAccountSpikoTransferHookProgram,
+    TAccountAdminPermissions
+  >,
+  config?: { programAddress?: TProgramAddress },
+): PauseInstruction<
+  TProgramAddress,
+  TAccountAdmin,
+  TAccountTokenConfig,
+  TAccountMint,
+  TAccountMintAuthority,
+  TAccountHookConfig,
+  TAccountSpikoTransferHookProgram,
+  TAccountAdminPermissions
+> {
+  // Program address.
+  const programAddress = config?.programAddress ?? SPIKO_TOKEN_PROGRAM_ADDRESS;
+
+  // Original accounts.
+  const originalAccounts = {
+    admin: { value: input.admin ?? null, isWritable: false },
+    tokenConfig: { value: input.tokenConfig ?? null, isWritable: true },
+    mint: { value: input.mint ?? null, isWritable: false },
+    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
+    hookConfig: { value: input.hookConfig ?? null, isWritable: true },
+    spikoTransferHookProgram: {
+      value: input.spikoTransferHookProgram ?? null,
+      isWritable: false,
+    },
+    adminPermissions: {
+      value: input.adminPermissions ?? null,
+      isWritable: false,
+    },
+  };
+  const accounts = originalAccounts as Record<
+    keyof typeof originalAccounts,
+    ResolvedAccount
+  >;
+
+  // Resolve default values.
+  if (!accounts.spikoTransferHookProgram.value) {
+    accounts.spikoTransferHookProgram.value =
+      "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">;
+  }
+
+  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
+  return Object.freeze({
+    accounts: [
+      getAccountMeta(accounts.admin),
+      getAccountMeta(accounts.tokenConfig),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.mintAuthority),
+      getAccountMeta(accounts.hookConfig),
+      getAccountMeta(accounts.spikoTransferHookProgram),
+      getAccountMeta(accounts.adminPermissions),
+    ],
+    data: getPauseInstructionDataEncoder().encode({}),
+    programAddress,
+  } as PauseInstruction<
+    TProgramAddress,
+    TAccountAdmin,
+    TAccountTokenConfig,
+    TAccountMint,
+    TAccountMintAuthority,
+    TAccountHookConfig,
+    TAccountSpikoTransferHookProgram,
+    TAccountAdminPermissions
   >);
 }
 
@@ -187,16 +333,13 @@ export type ParsedPauseInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Must have PAUSER role */
-    caller: TAccountMetas[0];
-    /** TokenConfig PDA */
-    config: TAccountMetas[1];
-    /** Caller's UserPermissions PDA */
-    callerPerms: TAccountMetas[2];
-    /** Event authority PDA */
-    eventAuthority: TAccountMetas[3];
-    /** This program */
-    selfProgram: TAccountMetas[4];
+    admin: TAccountMetas[0];
+    tokenConfig: TAccountMetas[1];
+    mint: TAccountMetas[2];
+    mintAuthority: TAccountMetas[3];
+    hookConfig: TAccountMetas[4];
+    spikoTransferHookProgram: TAccountMetas[5];
+    adminPermissions: TAccountMetas[6];
   };
   data: PauseInstructionData;
 };
@@ -209,7 +352,7 @@ export function parsePauseInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedPauseInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 5) {
+  if (instruction.accounts.length < 7) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -222,11 +365,13 @@ export function parsePauseInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      caller: getNextAccount(),
-      config: getNextAccount(),
-      callerPerms: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      selfProgram: getNextAccount(),
+      admin: getNextAccount(),
+      tokenConfig: getNextAccount(),
+      mint: getNextAccount(),
+      mintAuthority: getNextAccount(),
+      hookConfig: getNextAccount(),
+      spikoTransferHookProgram: getNextAccount(),
+      adminPermissions: getNextAccount(),
     },
     data: getPauseInstructionDataDecoder().decode(instruction.data),
   };

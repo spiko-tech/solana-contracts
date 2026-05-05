@@ -7,8 +7,8 @@
  */
 
 import {
+  getBytesEncoder,
   getProgramDerivedAddress,
-  getUtf8Encoder,
   type Address,
   type ProgramDerivedAddress,
 } from "@solana/kit";
@@ -17,10 +17,16 @@ export async function findMinterConfigPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2" as Address<"3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2">,
+    programAddress = "13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ" as Address<"13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
-    seeds: [getUtf8Encoder().encode("minter_config")],
+    seeds: [
+      getBytesEncoder().encode(
+        new Uint8Array([
+          109, 105, 110, 116, 101, 114, 95, 99, 111, 110, 102, 105, 103,
+        ]),
+      ),
+    ],
   });
 }

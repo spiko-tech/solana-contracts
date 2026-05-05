@@ -6,5 +6,6 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./permissionConfig";
+export * from "./callerPermissions";
+export * from "./config";
 export * from "./userPermissions";

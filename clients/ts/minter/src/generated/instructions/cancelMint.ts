@@ -8,14 +8,16 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -32,25 +34,28 @@ import {
   type TransactionSigner,
   type WritableAccount,
 } from "@solana/kit";
+import { findMinterConfigPda, findMintOperationPda } from "../pdas";
 import { MINTER_PROGRAM_ADDRESS } from "../programs";
-import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
+import {
+  expectSome,
+  getAccountMetaFactory,
+  type ResolvedAccount,
+} from "../shared";
 
-export const CANCEL_MINT_DISCRIMINATOR = 3;
+export const CANCEL_MINT_DISCRIMINATOR = new Uint8Array([
+  61, 87, 130, 22, 64, 57, 137, 57,
+]);
 
 export function getCancelMintDiscriminatorBytes() {
-  return getU8Encoder().encode(CANCEL_MINT_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(CANCEL_MINT_DISCRIMINATOR);
 }
 
 export type CancelMintInstruction<
   TProgram extends string = typeof MINTER_PROGRAM_ADDRESS,
   TAccountCaller extends string | AccountMeta<string> = string,
-  TAccountConfig extends string | AccountMeta<string> = string,
+  TAccountMinterConfig extends string | AccountMeta<string> = string,
   TAccountMintOperation extends string | AccountMeta<string> = string,
-  TAccountCallerPerms extends string | AccountMeta<string> = string,
-  TAccountEventAuthority extends string | AccountMeta<string> =
-    "9iz29VQ2wSuy56NKTz9qBv9mNpFP4bApHtbc2aPzURhh",
-  TAccountSelfProgram extends string | AccountMeta<string> =
-    "3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2",
+  TAccountMint extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -60,36 +65,30 @@ export type CancelMintInstruction<
         ? ReadonlySignerAccount<TAccountCaller> &
             AccountSignerMeta<TAccountCaller>
         : TAccountCaller,
-      TAccountConfig extends string
-        ? ReadonlyAccount<TAccountConfig>
-        : TAccountConfig,
+      TAccountMinterConfig extends string
+        ? ReadonlyAccount<TAccountMinterConfig>
+        : TAccountMinterConfig,
       TAccountMintOperation extends string
         ? WritableAccount<TAccountMintOperation>
         : TAccountMintOperation,
-      TAccountCallerPerms extends string
-        ? ReadonlyAccount<TAccountCallerPerms>
-        : TAccountCallerPerms,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountSelfProgram extends string
-        ? ReadonlyAccount<TAccountSelfProgram>
-        : TAccountSelfProgram,
+      TAccountMint extends string
+        ? ReadonlyAccount<TAccountMint>
+        : TAccountMint,
       ...TRemainingAccounts,
     ]
   >;
 
 export type CancelMintInstructionData = {
-  discriminator: number;
-  user: Address;
-  tokenMintKey: Address;
+  discriminator: ReadonlyUint8Array;
+  operationId: ReadonlyUint8Array;
+  recipient: Address;
   amount: bigint;
   salt: bigint;
 };
 
 export type CancelMintInstructionDataArgs = {
-  user: Address;
-  tokenMintKey: Address;
+  operationId: ReadonlyUint8Array;
+  recipient: Address;
   amount: number | bigint;
   salt: number | bigint;
 };
@@ -97,9 +96,9 @@ export type CancelMintInstructionDataArgs = {
 export function getCancelMintInstructionDataEncoder(): FixedSizeEncoder<CancelMintInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["user", getAddressEncoder()],
-      ["tokenMintKey", getAddressEncoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["operationId", fixEncoderSize(getBytesEncoder(), 32)],
+      ["recipient", getAddressEncoder()],
       ["amount", getU64Encoder()],
       ["salt", getU64Encoder()],
     ]),
@@ -109,9 +108,9 @@ export function getCancelMintInstructionDataEncoder(): FixedSizeEncoder<CancelMi
 
 export function getCancelMintInstructionDataDecoder(): FixedSizeDecoder<CancelMintInstructionData> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["user", getAddressDecoder()],
-    ["tokenMintKey", getAddressDecoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["operationId", fixDecoderSize(getBytesDecoder(), 32)],
+    ["recipient", getAddressDecoder()],
     ["amount", getU64Decoder()],
     ["salt", getU64Decoder()],
   ]);
@@ -127,58 +126,44 @@ export function getCancelMintInstructionDataCodec(): FixedSizeCodec<
   );
 }
 
-export type CancelMintInput<
+export type CancelMintAsyncInput<
   TAccountCaller extends string = string,
-  TAccountConfig extends string = string,
+  TAccountMinterConfig extends string = string,
   TAccountMintOperation extends string = string,
-  TAccountCallerPerms extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
+  TAccountMint extends string = string,
 > = {
-  /** Caller (must have ROLE_MINT_APPROVER) */
   caller: TransactionSigner<TAccountCaller>;
-  /** MinterConfig PDA */
-  config: Address<TAccountConfig>;
-  /** MintOperation PDA */
-  mintOperation: Address<TAccountMintOperation>;
-  /** Caller's UserPermissions PDA (from permission_manager) */
-  callerPerms: Address<TAccountCallerPerms>;
-  /** Event authority PDA for CPI event emission */
-  eventAuthority?: Address<TAccountEventAuthority>;
-  /** Minter program (self) for CPI event emission */
-  selfProgram?: Address<TAccountSelfProgram>;
-  user: CancelMintInstructionDataArgs["user"];
-  tokenMintKey: CancelMintInstructionDataArgs["tokenMintKey"];
+  minterConfig?: Address<TAccountMinterConfig>;
+  mintOperation?: Address<TAccountMintOperation>;
+  mint: Address<TAccountMint>;
+  operationId: CancelMintInstructionDataArgs["operationId"];
+  recipient: CancelMintInstructionDataArgs["recipient"];
   amount: CancelMintInstructionDataArgs["amount"];
   salt: CancelMintInstructionDataArgs["salt"];
 };
 
-export function getCancelMintInstruction<
+export async function getCancelMintInstructionAsync<
   TAccountCaller extends string,
-  TAccountConfig extends string,
+  TAccountMinterConfig extends string,
   TAccountMintOperation extends string,
-  TAccountCallerPerms extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
+  TAccountMint extends string,
   TProgramAddress extends Address = typeof MINTER_PROGRAM_ADDRESS,
 >(
-  input: CancelMintInput<
+  input: CancelMintAsyncInput<
     TAccountCaller,
-    TAccountConfig,
+    TAccountMinterConfig,
     TAccountMintOperation,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountMint
   >,
   config?: { programAddress?: TProgramAddress },
-): CancelMintInstruction<
-  TProgramAddress,
-  TAccountCaller,
-  TAccountConfig,
-  TAccountMintOperation,
-  TAccountCallerPerms,
-  TAccountEventAuthority,
-  TAccountSelfProgram
+): Promise<
+  CancelMintInstruction<
+    TProgramAddress,
+    TAccountCaller,
+    TAccountMinterConfig,
+    TAccountMintOperation,
+    TAccountMint
+  >
 > {
   // Program address.
   const programAddress = config?.programAddress ?? MINTER_PROGRAM_ADDRESS;
@@ -186,11 +171,9 @@ export function getCancelMintInstruction<
   // Original accounts.
   const originalAccounts = {
     caller: { value: input.caller ?? null, isWritable: false },
-    config: { value: input.config ?? null, isWritable: false },
+    minterConfig: { value: input.minterConfig ?? null, isWritable: false },
     mintOperation: { value: input.mintOperation ?? null, isWritable: true },
-    callerPerms: { value: input.callerPerms ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
+    mint: { value: input.mint ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -201,24 +184,22 @@ export function getCancelMintInstruction<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value =
-      "9iz29VQ2wSuy56NKTz9qBv9mNpFP4bApHtbc2aPzURhh" as Address<"9iz29VQ2wSuy56NKTz9qBv9mNpFP4bApHtbc2aPzURhh">;
+  if (!accounts.minterConfig.value) {
+    accounts.minterConfig.value = await findMinterConfigPda();
   }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2" as Address<"3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2">;
+  if (!accounts.mintOperation.value) {
+    accounts.mintOperation.value = await findMintOperationPda({
+      operationId: expectSome(args.operationId),
+    });
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.caller),
-      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.minterConfig),
       getAccountMeta(accounts.mintOperation),
-      getAccountMeta(accounts.callerPerms),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
+      getAccountMeta(accounts.mint),
     ],
     data: getCancelMintInstructionDataEncoder().encode(
       args as CancelMintInstructionDataArgs,
@@ -227,11 +208,85 @@ export function getCancelMintInstruction<
   } as CancelMintInstruction<
     TProgramAddress,
     TAccountCaller,
-    TAccountConfig,
+    TAccountMinterConfig,
     TAccountMintOperation,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountMint
+  >);
+}
+
+export type CancelMintInput<
+  TAccountCaller extends string = string,
+  TAccountMinterConfig extends string = string,
+  TAccountMintOperation extends string = string,
+  TAccountMint extends string = string,
+> = {
+  caller: TransactionSigner<TAccountCaller>;
+  minterConfig: Address<TAccountMinterConfig>;
+  mintOperation: Address<TAccountMintOperation>;
+  mint: Address<TAccountMint>;
+  operationId: CancelMintInstructionDataArgs["operationId"];
+  recipient: CancelMintInstructionDataArgs["recipient"];
+  amount: CancelMintInstructionDataArgs["amount"];
+  salt: CancelMintInstructionDataArgs["salt"];
+};
+
+export function getCancelMintInstruction<
+  TAccountCaller extends string,
+  TAccountMinterConfig extends string,
+  TAccountMintOperation extends string,
+  TAccountMint extends string,
+  TProgramAddress extends Address = typeof MINTER_PROGRAM_ADDRESS,
+>(
+  input: CancelMintInput<
+    TAccountCaller,
+    TAccountMinterConfig,
+    TAccountMintOperation,
+    TAccountMint
+  >,
+  config?: { programAddress?: TProgramAddress },
+): CancelMintInstruction<
+  TProgramAddress,
+  TAccountCaller,
+  TAccountMinterConfig,
+  TAccountMintOperation,
+  TAccountMint
+> {
+  // Program address.
+  const programAddress = config?.programAddress ?? MINTER_PROGRAM_ADDRESS;
+
+  // Original accounts.
+  const originalAccounts = {
+    caller: { value: input.caller ?? null, isWritable: false },
+    minterConfig: { value: input.minterConfig ?? null, isWritable: false },
+    mintOperation: { value: input.mintOperation ?? null, isWritable: true },
+    mint: { value: input.mint ?? null, isWritable: false },
+  };
+  const accounts = originalAccounts as Record<
+    keyof typeof originalAccounts,
+    ResolvedAccount
+  >;
+
+  // Original args.
+  const args = { ...input };
+
+  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
+  return Object.freeze({
+    accounts: [
+      getAccountMeta(accounts.caller),
+      getAccountMeta(accounts.minterConfig),
+      getAccountMeta(accounts.mintOperation),
+      getAccountMeta(accounts.mint),
+    ],
+    data: getCancelMintInstructionDataEncoder().encode(
+      args as CancelMintInstructionDataArgs,
+    ),
+    programAddress,
+  } as CancelMintInstruction<
+    TProgramAddress,
+    TAccountCaller,
+    TAccountMinterConfig,
+    TAccountMintOperation,
+    TAccountMint
   >);
 }
 
@@ -241,18 +296,10 @@ export type ParsedCancelMintInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Caller (must have ROLE_MINT_APPROVER) */
     caller: TAccountMetas[0];
-    /** MinterConfig PDA */
-    config: TAccountMetas[1];
-    /** MintOperation PDA */
+    minterConfig: TAccountMetas[1];
     mintOperation: TAccountMetas[2];
-    /** Caller's UserPermissions PDA (from permission_manager) */
-    callerPerms: TAccountMetas[3];
-    /** Event authority PDA for CPI event emission */
-    eventAuthority: TAccountMetas[4];
-    /** Minter program (self) for CPI event emission */
-    selfProgram: TAccountMetas[5];
+    mint: TAccountMetas[3];
   };
   data: CancelMintInstructionData;
 };
@@ -265,7 +312,7 @@ export function parseCancelMintInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCancelMintInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 6) {
+  if (instruction.accounts.length < 4) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -279,11 +326,9 @@ export function parseCancelMintInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       caller: getNextAccount(),
-      config: getNextAccount(),
+      minterConfig: getNextAccount(),
       mintOperation: getNextAccount(),
-      callerPerms: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      selfProgram: getNextAccount(),
+      mint: getNextAccount(),
     },
     data: getCancelMintInstructionDataDecoder().decode(instruction.data),
   };

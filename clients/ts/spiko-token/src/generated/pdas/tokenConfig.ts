@@ -8,14 +8,14 @@
 
 import {
   getAddressEncoder,
+  getBytesEncoder,
   getProgramDerivedAddress,
-  getUtf8Encoder,
   type Address,
   type ProgramDerivedAddress,
 } from "@solana/kit";
 
 export type TokenConfigSeeds = {
-  splMint: Address;
+  mint: Address;
 };
 
 export async function findTokenConfigPda(
@@ -23,13 +23,17 @@ export async function findTokenConfigPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd" as Address<"3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd">,
+    programAddress = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ" as Address<"6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
     seeds: [
-      getUtf8Encoder().encode("token_config"),
-      getAddressEncoder().encode(seeds.splMint),
+      getBytesEncoder().encode(
+        new Uint8Array([
+          116, 111, 107, 101, 110, 95, 99, 111, 110, 102, 105, 103,
+        ]),
+      ),
+      getAddressEncoder().encode(seeds.mint),
     ],
   });
 }

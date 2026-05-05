@@ -8,14 +8,15 @@
 
 import {
   getAddressEncoder,
+  getBytesEncoder,
   getProgramDerivedAddress,
-  getUtf8Encoder,
   type Address,
   type ProgramDerivedAddress,
 } from "@solana/kit";
 
 export type UserPermissionsSeeds = {
   user: Address;
+  config: Address;
 };
 
 export async function findUserPermissionsPda(
@@ -23,13 +24,19 @@ export async function findUserPermissionsPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc" as Address<"2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc">,
+    programAddress = "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
     seeds: [
-      getUtf8Encoder().encode("user_perm"),
+      getBytesEncoder().encode(
+        new Uint8Array([
+          117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
+          110,
+        ]),
+      ),
       getAddressEncoder().encode(seeds.user),
+      getAddressEncoder().encode(seeds.config),
     ],
   });
 }

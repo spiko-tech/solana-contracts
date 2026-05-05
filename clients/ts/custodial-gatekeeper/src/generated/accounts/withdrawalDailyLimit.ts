@@ -13,14 +13,16 @@ import {
   decodeAccount,
   fetchEncodedAccount,
   fetchEncodedAccounts,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
   getI64Decoder,
   getI64Encoder,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -32,31 +34,27 @@ import {
   type FixedSizeEncoder,
   type MaybeAccount,
   type MaybeEncodedAccount,
+  type ReadonlyUint8Array,
 } from "@solana/kit";
-import {
-  findWithdrawalDailyLimitPda,
-  WithdrawalDailyLimitSeeds,
-} from "../pdas";
 
-export const WITHDRAWAL_DAILY_LIMIT_DISCRIMINATOR = 2;
+export const WITHDRAWAL_DAILY_LIMIT_DISCRIMINATOR = new Uint8Array([
+  158, 82, 223, 66, 49, 239, 244, 42,
+]);
 
 export function getWithdrawalDailyLimitDiscriminatorBytes() {
-  return getU8Encoder().encode(WITHDRAWAL_DAILY_LIMIT_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    WITHDRAWAL_DAILY_LIMIT_DISCRIMINATOR,
+  );
 }
 
 export type WithdrawalDailyLimit = {
-  discriminator: number;
-  version: number;
-  bump: number;
+  discriminator: ReadonlyUint8Array;
   limit: bigint;
   usedAmount: bigint;
   lastDay: bigint;
 };
 
 export type WithdrawalDailyLimitArgs = {
-  discriminator?: number;
-  version?: number;
-  bump: number;
   limit: number | bigint;
   usedAmount: number | bigint;
   lastDay: number | bigint;
@@ -66,18 +64,14 @@ export type WithdrawalDailyLimitArgs = {
 export function getWithdrawalDailyLimitEncoder(): FixedSizeEncoder<WithdrawalDailyLimitArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["version", getU8Encoder()],
-      ["bump", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["limit", getU64Encoder()],
       ["usedAmount", getU64Encoder()],
       ["lastDay", getI64Encoder()],
     ]),
     (value) => ({
       ...value,
-      discriminator:
-        value.discriminator ?? WITHDRAWAL_DAILY_LIMIT_DISCRIMINATOR,
-      version: value.version ?? 1,
+      discriminator: WITHDRAWAL_DAILY_LIMIT_DISCRIMINATOR,
     }),
   );
 }
@@ -85,9 +79,7 @@ export function getWithdrawalDailyLimitEncoder(): FixedSizeEncoder<WithdrawalDai
 /** Gets the decoder for {@link WithdrawalDailyLimit} account data. */
 export function getWithdrawalDailyLimitDecoder(): FixedSizeDecoder<WithdrawalDailyLimit> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["version", getU8Decoder()],
-    ["bump", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["limit", getU64Decoder()],
     ["usedAmount", getU64Decoder()],
     ["lastDay", getI64Decoder()],
@@ -174,28 +166,6 @@ export async function fetchAllMaybeWithdrawalDailyLimit(
   );
 }
 
-export async function fetchWithdrawalDailyLimitFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: WithdrawalDailyLimitSeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<Account<WithdrawalDailyLimit>> {
-  const maybeAccount = await fetchMaybeWithdrawalDailyLimitFromSeeds(
-    rpc,
-    seeds,
-    config,
-  );
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
-}
-
-export async function fetchMaybeWithdrawalDailyLimitFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: WithdrawalDailyLimitSeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<MaybeAccount<WithdrawalDailyLimit>> {
-  const { programAddress, ...fetchConfig } = config;
-  const [address] = await findWithdrawalDailyLimitPda(seeds, {
-    programAddress,
-  });
-  return await fetchMaybeWithdrawalDailyLimit(rpc, address, fetchConfig);
+export function getWithdrawalDailyLimitSize(): number {
+  return 32;
 }

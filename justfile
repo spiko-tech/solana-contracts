@@ -1,4 +1,4 @@
-# Spiko Solana Contracts — Build & Codegen Recipes
+# Spiko Solana Contracts — Anchor Build Recipes
 
 # Default recipe: show available commands
 default:
@@ -8,22 +8,17 @@ default:
 install:
     pnpm install
 
-# Generate Codama IDL JSON files from Rust source annotations
-generate-idl:
-    cargo check -p permission-manager --features idl
-    cargo check -p spiko-token --features idl
-    cargo check -p minter --features idl
-    cargo check -p redemption --features idl
-    cargo check -p spiko-transfer-hook --features idl
-    cargo check -p custodial-gatekeeper --features idl
+# Build all programs (SBF binaries + IDL)
+build:
+    anchor build
 
-# Generate TypeScript clients from IDL files
-generate-clients: generate-idl
-    pnpm exec tsx scripts/generate-ts-clients.ts
+# Build without IDL generation
+build-no-idl:
+    anchor build --no-idl
 
-# Full build: generate IDL + clients + compile programs
-build: generate-clients
-    cargo-build-sbf
+# Generate TypeScript clients from Anchor IDLs
+generate-clients:
+    pnpm run generate-clients
 
 # Check Rust code (without building .so)
 check:
@@ -37,6 +32,18 @@ fmt:
 clippy:
     cargo clippy --workspace -- -D warnings
 
-# Run integration tests
-integration-test:
-    cargo test -p integration-tests
+# Run Anchor integration tests (TypeScript)
+test:
+    anchor test
+
+# Run tests without rebuilding
+test-skip-build:
+    anchor test --skip-build
+
+# Run Rust BPF unit tests for a specific program
+test-sbf program:
+    cargo test-sbf -p {{program}} --tools-version v1.48
+
+# Run all Rust BPF unit tests
+test-sbf-all:
+    cargo test-sbf --tools-version v1.48

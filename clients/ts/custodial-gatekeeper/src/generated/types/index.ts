@@ -6,9 +6,9 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./dailyLimitUpdatedEvent";
-export * from "./gatekeeperInitializedEvent";
-export * from "./withdrawalApprovedEvent";
-export * from "./withdrawalBlockedEvent";
-export * from "./withdrawalCanceledEvent";
-export * from "./withdrawalInitiatedEvent";
+export * from "./dailyLimitUpdated";
+export * from "./gatekeeperInitialized";
+export * from "./withdrawalApproved";
+export * from "./withdrawalBlocked";
+export * from "./withdrawalCanceled";
+export * from "./withdrawalInitiated";

@@ -8,14 +8,14 @@
 
 import {
   combineCodec,
-  getAddressDecoder,
-  getAddressEncoder,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -33,74 +33,82 @@ import {
   type WritableAccount,
   type WritableSignerAccount,
 } from "@solana/kit";
+import {
+  findRedemptionConfigPda,
+  findRedemptionOperationPda,
+  findVaultAuthorityPda,
+} from "../pdas";
 import { REDEMPTION_PROGRAM_ADDRESS } from "../programs";
-import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
+import {
+  expectAddress,
+  expectSome,
+  getAccountMetaFactory,
+  type ResolvedAccount,
+} from "../shared";
 
-export const ON_REDEEM_DISCRIMINATOR = 4;
+export const ON_REDEEM_DISCRIMINATOR = new Uint8Array([
+  223, 206, 53, 237, 249, 236, 62, 45,
+]);
 
 export function getOnRedeemDiscriminatorBytes() {
-  return getU8Encoder().encode(ON_REDEEM_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(ON_REDEEM_DISCRIMINATOR);
 }
 
 export type OnRedeemInstruction<
   TProgram extends string = typeof REDEMPTION_PROGRAM_ADDRESS,
-  TAccountTokenConfig extends string | AccountMeta<string> = string,
   TAccountUser extends string | AccountMeta<string> = string,
-  TAccountConfig extends string | AccountMeta<string> = string,
-  TAccountRedemptionOp extends string | AccountMeta<string> = string,
-  TAccountTokenMinimum extends string | AccountMeta<string> = string,
-  TAccountTokenMint extends string | AccountMeta<string> = string,
+  TAccountMintAuthority extends string | AccountMeta<string> = string,
+  TAccountMint extends string | AccountMeta<string> = string,
+  TAccountVaultAuthority extends string | AccountMeta<string> = string,
+  TAccountRedemptionConfig extends string | AccountMeta<string> = string,
+  TAccountRedemptionOperation extends string | AccountMeta<string> = string,
+  TAccountPayer extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
-  TAccountEventAuthority extends string | AccountMeta<string> = string,
-  TAccountSelfProgram extends string | AccountMeta<string> =
-    "8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountTokenConfig extends string
-        ? ReadonlySignerAccount<TAccountTokenConfig> &
-            AccountSignerMeta<TAccountTokenConfig>
-        : TAccountTokenConfig,
       TAccountUser extends string
-        ? WritableSignerAccount<TAccountUser> & AccountSignerMeta<TAccountUser>
+        ? ReadonlySignerAccount<TAccountUser> & AccountSignerMeta<TAccountUser>
         : TAccountUser,
-      TAccountConfig extends string
-        ? ReadonlyAccount<TAccountConfig>
-        : TAccountConfig,
-      TAccountRedemptionOp extends string
-        ? WritableAccount<TAccountRedemptionOp>
-        : TAccountRedemptionOp,
-      TAccountTokenMinimum extends string
-        ? ReadonlyAccount<TAccountTokenMinimum>
-        : TAccountTokenMinimum,
-      TAccountTokenMint extends string
-        ? ReadonlyAccount<TAccountTokenMint>
-        : TAccountTokenMint,
+      TAccountMintAuthority extends string
+        ? ReadonlySignerAccount<TAccountMintAuthority> &
+            AccountSignerMeta<TAccountMintAuthority>
+        : TAccountMintAuthority,
+      TAccountMint extends string
+        ? ReadonlyAccount<TAccountMint>
+        : TAccountMint,
+      TAccountVaultAuthority extends string
+        ? ReadonlyAccount<TAccountVaultAuthority>
+        : TAccountVaultAuthority,
+      TAccountRedemptionConfig extends string
+        ? ReadonlyAccount<TAccountRedemptionConfig>
+        : TAccountRedemptionConfig,
+      TAccountRedemptionOperation extends string
+        ? WritableAccount<TAccountRedemptionOperation>
+        : TAccountRedemptionOperation,
+      TAccountPayer extends string
+        ? WritableSignerAccount<TAccountPayer> &
+            AccountSignerMeta<TAccountPayer>
+        : TAccountPayer,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountSelfProgram extends string
-        ? ReadonlyAccount<TAccountSelfProgram>
-        : TAccountSelfProgram,
       ...TRemainingAccounts,
     ]
   >;
 
 export type OnRedeemInstructionData = {
-  discriminator: number;
-  userAddress: Address;
+  discriminator: ReadonlyUint8Array;
+  operationId: ReadonlyUint8Array;
   amount: bigint;
   salt: bigint;
 };
 
 export type OnRedeemInstructionDataArgs = {
-  userAddress: Address;
+  operationId: ReadonlyUint8Array;
   amount: number | bigint;
   salt: number | bigint;
 };
@@ -108,8 +116,8 @@ export type OnRedeemInstructionDataArgs = {
 export function getOnRedeemInstructionDataEncoder(): FixedSizeEncoder<OnRedeemInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["userAddress", getAddressEncoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["operationId", fixEncoderSize(getBytesEncoder(), 32)],
       ["amount", getU64Encoder()],
       ["salt", getU64Encoder()],
     ]),
@@ -119,8 +127,8 @@ export function getOnRedeemInstructionDataEncoder(): FixedSizeEncoder<OnRedeemIn
 
 export function getOnRedeemInstructionDataDecoder(): FixedSizeDecoder<OnRedeemInstructionData> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["userAddress", getAddressDecoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["operationId", fixDecoderSize(getBytesDecoder(), 32)],
     ["amount", getU64Decoder()],
     ["salt", getU64Decoder()],
   ]);
@@ -136,90 +144,217 @@ export function getOnRedeemInstructionDataCodec(): FixedSizeCodec<
   );
 }
 
-export type OnRedeemInput<
-  TAccountTokenConfig extends string = string,
+export type OnRedeemAsyncInput<
   TAccountUser extends string = string,
-  TAccountConfig extends string = string,
-  TAccountRedemptionOp extends string = string,
-  TAccountTokenMinimum extends string = string,
-  TAccountTokenMint extends string = string,
+  TAccountMintAuthority extends string = string,
+  TAccountMint extends string = string,
+  TAccountVaultAuthority extends string = string,
+  TAccountRedemptionConfig extends string = string,
+  TAccountRedemptionOperation extends string = string,
+  TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
 > = {
-  /** TokenConfig PDA (from spiko_token — proves CPI origin) */
-  tokenConfig: TransactionSigner<TAccountTokenConfig>;
-  /** User (payer for PDA creation) */
   user: TransactionSigner<TAccountUser>;
-  /** RedemptionConfig PDA */
-  config: Address<TAccountConfig>;
-  /** RedemptionOperation PDA (to be created) */
-  redemptionOp: Address<TAccountRedemptionOp>;
-  /** TokenMinimum PDA */
-  tokenMinimum: Address<TAccountTokenMinimum>;
-  /** Token-2022 Mint */
-  tokenMint: Address<TAccountTokenMint>;
-  /** System program */
+  /** spiko-token MintAuthority PDA — must be a signer, enforcing CPI-only access. */
+  mintAuthority: TransactionSigner<TAccountMintAuthority>;
+  mint: Address<TAccountMint>;
+  vaultAuthority?: Address<TAccountVaultAuthority>;
+  redemptionConfig?: Address<TAccountRedemptionConfig>;
+  redemptionOperation?: Address<TAccountRedemptionOperation>;
+  payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
-  /** Event authority PDA */
-  eventAuthority: Address<TAccountEventAuthority>;
-  /** Redemption program (self) */
-  selfProgram?: Address<TAccountSelfProgram>;
-  userAddress: OnRedeemInstructionDataArgs["userAddress"];
+  operationId: OnRedeemInstructionDataArgs["operationId"];
   amount: OnRedeemInstructionDataArgs["amount"];
   salt: OnRedeemInstructionDataArgs["salt"];
 };
 
-export function getOnRedeemInstruction<
-  TAccountTokenConfig extends string,
+export async function getOnRedeemInstructionAsync<
   TAccountUser extends string,
-  TAccountConfig extends string,
-  TAccountRedemptionOp extends string,
-  TAccountTokenMinimum extends string,
-  TAccountTokenMint extends string,
+  TAccountMintAuthority extends string,
+  TAccountMint extends string,
+  TAccountVaultAuthority extends string,
+  TAccountRedemptionConfig extends string,
+  TAccountRedemptionOperation extends string,
+  TAccountPayer extends string,
   TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
-  input: OnRedeemInput<
-    TAccountTokenConfig,
+  input: OnRedeemAsyncInput<
     TAccountUser,
-    TAccountConfig,
-    TAccountRedemptionOp,
-    TAccountTokenMinimum,
-    TAccountTokenMint,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountMintAuthority,
+    TAccountMint,
+    TAccountVaultAuthority,
+    TAccountRedemptionConfig,
+    TAccountRedemptionOperation,
+    TAccountPayer,
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): OnRedeemInstruction<
-  TProgramAddress,
-  TAccountTokenConfig,
-  TAccountUser,
-  TAccountConfig,
-  TAccountRedemptionOp,
-  TAccountTokenMinimum,
-  TAccountTokenMint,
-  TAccountSystemProgram,
-  TAccountEventAuthority,
-  TAccountSelfProgram
+): Promise<
+  OnRedeemInstruction<
+    TProgramAddress,
+    TAccountUser,
+    TAccountMintAuthority,
+    TAccountMint,
+    TAccountVaultAuthority,
+    TAccountRedemptionConfig,
+    TAccountRedemptionOperation,
+    TAccountPayer,
+    TAccountSystemProgram
+  >
 > {
   // Program address.
   const programAddress = config?.programAddress ?? REDEMPTION_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
-    user: { value: input.user ?? null, isWritable: true },
-    config: { value: input.config ?? null, isWritable: false },
-    redemptionOp: { value: input.redemptionOp ?? null, isWritable: true },
-    tokenMinimum: { value: input.tokenMinimum ?? null, isWritable: false },
-    tokenMint: { value: input.tokenMint ?? null, isWritable: false },
+    user: { value: input.user ?? null, isWritable: false },
+    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
+    mint: { value: input.mint ?? null, isWritable: false },
+    vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
+    redemptionConfig: {
+      value: input.redemptionConfig ?? null,
+      isWritable: false,
+    },
+    redemptionOperation: {
+      value: input.redemptionOperation ?? null,
+      isWritable: true,
+    },
+    payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
+  };
+  const accounts = originalAccounts as Record<
+    keyof typeof originalAccounts,
+    ResolvedAccount
+  >;
+
+  // Original args.
+  const args = { ...input };
+
+  // Resolve default values.
+  if (!accounts.vaultAuthority.value) {
+    accounts.vaultAuthority.value = await findVaultAuthorityPda({
+      mint: expectAddress(accounts.mint.value),
+    });
+  }
+  if (!accounts.redemptionConfig.value) {
+    accounts.redemptionConfig.value = await findRedemptionConfigPda();
+  }
+  if (!accounts.redemptionOperation.value) {
+    accounts.redemptionOperation.value = await findRedemptionOperationPda({
+      operationId: expectSome(args.operationId),
+    });
+  }
+  if (!accounts.systemProgram.value) {
+    accounts.systemProgram.value =
+      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
+  }
+
+  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
+  return Object.freeze({
+    accounts: [
+      getAccountMeta(accounts.user),
+      getAccountMeta(accounts.mintAuthority),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.vaultAuthority),
+      getAccountMeta(accounts.redemptionConfig),
+      getAccountMeta(accounts.redemptionOperation),
+      getAccountMeta(accounts.payer),
+      getAccountMeta(accounts.systemProgram),
+    ],
+    data: getOnRedeemInstructionDataEncoder().encode(
+      args as OnRedeemInstructionDataArgs,
+    ),
+    programAddress,
+  } as OnRedeemInstruction<
+    TProgramAddress,
+    TAccountUser,
+    TAccountMintAuthority,
+    TAccountMint,
+    TAccountVaultAuthority,
+    TAccountRedemptionConfig,
+    TAccountRedemptionOperation,
+    TAccountPayer,
+    TAccountSystemProgram
+  >);
+}
+
+export type OnRedeemInput<
+  TAccountUser extends string = string,
+  TAccountMintAuthority extends string = string,
+  TAccountMint extends string = string,
+  TAccountVaultAuthority extends string = string,
+  TAccountRedemptionConfig extends string = string,
+  TAccountRedemptionOperation extends string = string,
+  TAccountPayer extends string = string,
+  TAccountSystemProgram extends string = string,
+> = {
+  user: TransactionSigner<TAccountUser>;
+  /** spiko-token MintAuthority PDA — must be a signer, enforcing CPI-only access. */
+  mintAuthority: TransactionSigner<TAccountMintAuthority>;
+  mint: Address<TAccountMint>;
+  vaultAuthority: Address<TAccountVaultAuthority>;
+  redemptionConfig: Address<TAccountRedemptionConfig>;
+  redemptionOperation: Address<TAccountRedemptionOperation>;
+  payer: TransactionSigner<TAccountPayer>;
+  systemProgram?: Address<TAccountSystemProgram>;
+  operationId: OnRedeemInstructionDataArgs["operationId"];
+  amount: OnRedeemInstructionDataArgs["amount"];
+  salt: OnRedeemInstructionDataArgs["salt"];
+};
+
+export function getOnRedeemInstruction<
+  TAccountUser extends string,
+  TAccountMintAuthority extends string,
+  TAccountMint extends string,
+  TAccountVaultAuthority extends string,
+  TAccountRedemptionConfig extends string,
+  TAccountRedemptionOperation extends string,
+  TAccountPayer extends string,
+  TAccountSystemProgram extends string,
+  TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
+>(
+  input: OnRedeemInput<
+    TAccountUser,
+    TAccountMintAuthority,
+    TAccountMint,
+    TAccountVaultAuthority,
+    TAccountRedemptionConfig,
+    TAccountRedemptionOperation,
+    TAccountPayer,
+    TAccountSystemProgram
+  >,
+  config?: { programAddress?: TProgramAddress },
+): OnRedeemInstruction<
+  TProgramAddress,
+  TAccountUser,
+  TAccountMintAuthority,
+  TAccountMint,
+  TAccountVaultAuthority,
+  TAccountRedemptionConfig,
+  TAccountRedemptionOperation,
+  TAccountPayer,
+  TAccountSystemProgram
+> {
+  // Program address.
+  const programAddress = config?.programAddress ?? REDEMPTION_PROGRAM_ADDRESS;
+
+  // Original accounts.
+  const originalAccounts = {
+    user: { value: input.user ?? null, isWritable: false },
+    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
+    mint: { value: input.mint ?? null, isWritable: false },
+    vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
+    redemptionConfig: {
+      value: input.redemptionConfig ?? null,
+      isWritable: false,
+    },
+    redemptionOperation: {
+      value: input.redemptionOperation ?? null,
+      isWritable: true,
+    },
+    payer: { value: input.payer ?? null, isWritable: true },
+    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -234,23 +369,18 @@ export function getOnRedeemInstruction<
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
   }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX" as Address<"8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX">;
-  }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.tokenConfig),
       getAccountMeta(accounts.user),
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.redemptionOp),
-      getAccountMeta(accounts.tokenMinimum),
-      getAccountMeta(accounts.tokenMint),
+      getAccountMeta(accounts.mintAuthority),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.vaultAuthority),
+      getAccountMeta(accounts.redemptionConfig),
+      getAccountMeta(accounts.redemptionOperation),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
     ],
     data: getOnRedeemInstructionDataEncoder().encode(
       args as OnRedeemInstructionDataArgs,
@@ -258,15 +388,14 @@ export function getOnRedeemInstruction<
     programAddress,
   } as OnRedeemInstruction<
     TProgramAddress,
-    TAccountTokenConfig,
     TAccountUser,
-    TAccountConfig,
-    TAccountRedemptionOp,
-    TAccountTokenMinimum,
-    TAccountTokenMint,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountMintAuthority,
+    TAccountMint,
+    TAccountVaultAuthority,
+    TAccountRedemptionConfig,
+    TAccountRedemptionOperation,
+    TAccountPayer,
+    TAccountSystemProgram
   >);
 }
 
@@ -276,24 +405,15 @@ export type ParsedOnRedeemInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** TokenConfig PDA (from spiko_token — proves CPI origin) */
-    tokenConfig: TAccountMetas[0];
-    /** User (payer for PDA creation) */
-    user: TAccountMetas[1];
-    /** RedemptionConfig PDA */
-    config: TAccountMetas[2];
-    /** RedemptionOperation PDA (to be created) */
-    redemptionOp: TAccountMetas[3];
-    /** TokenMinimum PDA */
-    tokenMinimum: TAccountMetas[4];
-    /** Token-2022 Mint */
-    tokenMint: TAccountMetas[5];
-    /** System program */
-    systemProgram: TAccountMetas[6];
-    /** Event authority PDA */
-    eventAuthority: TAccountMetas[7];
-    /** Redemption program (self) */
-    selfProgram: TAccountMetas[8];
+    user: TAccountMetas[0];
+    /** spiko-token MintAuthority PDA — must be a signer, enforcing CPI-only access. */
+    mintAuthority: TAccountMetas[1];
+    mint: TAccountMetas[2];
+    vaultAuthority: TAccountMetas[3];
+    redemptionConfig: TAccountMetas[4];
+    redemptionOperation: TAccountMetas[5];
+    payer: TAccountMetas[6];
+    systemProgram: TAccountMetas[7];
   };
   data: OnRedeemInstructionData;
 };
@@ -306,7 +426,7 @@ export function parseOnRedeemInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedOnRedeemInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 9) {
+  if (instruction.accounts.length < 8) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -319,15 +439,14 @@ export function parseOnRedeemInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      tokenConfig: getNextAccount(),
       user: getNextAccount(),
-      config: getNextAccount(),
-      redemptionOp: getNextAccount(),
-      tokenMinimum: getNextAccount(),
-      tokenMint: getNextAccount(),
+      mintAuthority: getNextAccount(),
+      mint: getNextAccount(),
+      vaultAuthority: getNextAccount(),
+      redemptionConfig: getNextAccount(),
+      redemptionOperation: getNextAccount(),
+      payer: getNextAccount(),
       systemProgram: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      selfProgram: getNextAccount(),
     },
     data: getOnRedeemInstructionDataDecoder().decode(instruction.data),
   };

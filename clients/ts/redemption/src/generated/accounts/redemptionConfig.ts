@@ -13,12 +13,16 @@ import {
   decodeAccount,
   fetchEncodedAccount,
   fetchEncodedAccounts,
+  fixDecoderSize,
+  fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
+  getBytesDecoder,
+  getBytesEncoder,
+  getI64Decoder,
+  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -30,26 +34,27 @@ import {
   type FixedSizeEncoder,
   type MaybeAccount,
   type MaybeEncodedAccount,
+  type ReadonlyUint8Array,
 } from "@solana/kit";
-import { findRedemptionConfigPda } from "../pdas";
 
-export const REDEMPTION_CONFIG_DISCRIMINATOR = 1;
+export const REDEMPTION_CONFIG_DISCRIMINATOR = new Uint8Array([
+  173, 1, 86, 47, 27, 204, 146, 185,
+]);
 
 export function getRedemptionConfigDiscriminatorBytes() {
-  return getU8Encoder().encode(REDEMPTION_CONFIG_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    REDEMPTION_CONFIG_DISCRIMINATOR,
+  );
 }
 
 export type RedemptionConfig = {
-  discriminator: number;
-  version: number;
-  bump: number;
+  discriminator: ReadonlyUint8Array;
+  deadlineDelay: bigint;
   permissionManager: Address;
 };
 
 export type RedemptionConfigArgs = {
-  discriminator?: number;
-  version?: number;
-  bump: number;
+  deadlineDelay: number | bigint;
   permissionManager: Address;
 };
 
@@ -57,25 +62,19 @@ export type RedemptionConfigArgs = {
 export function getRedemptionConfigEncoder(): FixedSizeEncoder<RedemptionConfigArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["version", getU8Encoder()],
-      ["bump", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["deadlineDelay", getI64Encoder()],
       ["permissionManager", getAddressEncoder()],
     ]),
-    (value) => ({
-      ...value,
-      discriminator: value.discriminator ?? REDEMPTION_CONFIG_DISCRIMINATOR,
-      version: value.version ?? 1,
-    }),
+    (value) => ({ ...value, discriminator: REDEMPTION_CONFIG_DISCRIMINATOR }),
   );
 }
 
 /** Gets the decoder for {@link RedemptionConfig} account data. */
 export function getRedemptionConfigDecoder(): FixedSizeDecoder<RedemptionConfig> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["version", getU8Decoder()],
-    ["bump", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["deadlineDelay", getI64Decoder()],
     ["permissionManager", getAddressDecoder()],
   ]);
 }
@@ -154,22 +153,6 @@ export async function fetchAllMaybeRedemptionConfig(
   );
 }
 
-export async function fetchRedemptionConfigFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<Account<RedemptionConfig>> {
-  const maybeAccount = await fetchMaybeRedemptionConfigFromSeeds(rpc, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
-}
-
-export async function fetchMaybeRedemptionConfigFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<MaybeAccount<RedemptionConfig>> {
-  const { programAddress, ...fetchConfig } = config;
-  const [address] = await findRedemptionConfigPda({ programAddress });
-  return await fetchMaybeRedemptionConfig(rpc, address, fetchConfig);
+export function getRedemptionConfigSize(): number {
+  return 48;
 }

@@ -1,12 +1,11 @@
-pub mod cancel_redemption;
-pub mod definition;
-pub mod execute_redemption;
+pub mod cancel;
+pub mod create_vault;
+pub mod execute;
 pub mod initialize;
 pub mod on_redeem;
-pub mod set_minimum;
 
-pub use cancel_redemption::CancelRedemption;
-pub use execute_redemption::ExecuteRedemption;
-pub use initialize::InitializeRedemption;
-pub use on_redeem::OnRedeem;
-pub use set_minimum::SetMinimum;
+pub use cancel::*;
+pub use create_vault::*;
+pub use execute::*;
+pub use initialize::*;
+pub use on_redeem::*;

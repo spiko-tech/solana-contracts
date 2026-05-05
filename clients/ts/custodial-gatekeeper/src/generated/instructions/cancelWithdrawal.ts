@@ -8,14 +8,16 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -32,38 +34,39 @@ import {
   type TransactionSigner,
   type WritableAccount,
 } from "@solana/kit";
+import {
+  findGatekeeperConfigPda,
+  findVaultAuthorityPda,
+  findWithdrawalOperationPda,
+} from "../pdas";
 import { CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS } from "../programs";
-import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
+import {
+  expectSome,
+  getAccountMetaFactory,
+  type ResolvedAccount,
+} from "../shared";
 
-export const CANCEL_WITHDRAWAL_DISCRIMINATOR = 4;
+export const CANCEL_WITHDRAWAL_DISCRIMINATOR = new Uint8Array([
+  183, 104, 181, 250, 28, 128, 210, 70,
+]);
 
 export function getCancelWithdrawalDiscriminatorBytes() {
-  return getU8Encoder().encode(CANCEL_WITHDRAWAL_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    CANCEL_WITHDRAWAL_DISCRIMINATOR,
+  );
 }
 
 export type CancelWithdrawalInstruction<
   TProgram extends string = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
   TAccountCaller extends string | AccountMeta<string> = string,
-  TAccountConfig extends string | AccountMeta<string> = string,
-  TAccountWithdrawalOp extends string | AccountMeta<string> = string,
+  TAccountGatekeeperConfig extends string | AccountMeta<string> = string,
+  TAccountWithdrawalOperation extends string | AccountMeta<string> = string,
+  TAccountMint extends string | AccountMeta<string> = string,
   TAccountVaultTokenAccount extends string | AccountMeta<string> = string,
   TAccountSenderTokenAccount extends string | AccountMeta<string> = string,
   TAccountVaultAuthority extends string | AccountMeta<string> = string,
-  TAccountTokenMint extends string | AccountMeta<string> = string,
-  TAccountToken2022Program extends string | AccountMeta<string> =
-    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-  TAccountExtraAccountMetaList extends string | AccountMeta<string> = string,
-  TAccountPermissionManagerProgram extends string | AccountMeta<string> =
-    string,
-  TAccountSpikoTokenProgram extends string | AccountMeta<string> = string,
-  TAccountTokenConfig extends string | AccountMeta<string> = string,
-  TAccountVaultAuthorityPerms extends string | AccountMeta<string> = string,
-  TAccountSenderPerms extends string | AccountMeta<string> = string,
-  TAccountHookEventAuthority extends string | AccountMeta<string> = string,
-  TAccountHookProgram extends string | AccountMeta<string> = string,
-  TAccountEventAuthority extends string | AccountMeta<string> = string,
-  TAccountSelfProgram extends string | AccountMeta<string> =
-    "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY",
+  TAccountTokenProgram extends string | AccountMeta<string> =
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -73,12 +76,15 @@ export type CancelWithdrawalInstruction<
         ? ReadonlySignerAccount<TAccountCaller> &
             AccountSignerMeta<TAccountCaller>
         : TAccountCaller,
-      TAccountConfig extends string
-        ? ReadonlyAccount<TAccountConfig>
-        : TAccountConfig,
-      TAccountWithdrawalOp extends string
-        ? WritableAccount<TAccountWithdrawalOp>
-        : TAccountWithdrawalOp,
+      TAccountGatekeeperConfig extends string
+        ? ReadonlyAccount<TAccountGatekeeperConfig>
+        : TAccountGatekeeperConfig,
+      TAccountWithdrawalOperation extends string
+        ? WritableAccount<TAccountWithdrawalOperation>
+        : TAccountWithdrawalOperation,
+      TAccountMint extends string
+        ? ReadonlyAccount<TAccountMint>
+        : TAccountMint,
       TAccountVaultTokenAccount extends string
         ? WritableAccount<TAccountVaultTokenAccount>
         : TAccountVaultTokenAccount,
@@ -88,54 +94,23 @@ export type CancelWithdrawalInstruction<
       TAccountVaultAuthority extends string
         ? ReadonlyAccount<TAccountVaultAuthority>
         : TAccountVaultAuthority,
-      TAccountTokenMint extends string
-        ? ReadonlyAccount<TAccountTokenMint>
-        : TAccountTokenMint,
-      TAccountToken2022Program extends string
-        ? ReadonlyAccount<TAccountToken2022Program>
-        : TAccountToken2022Program,
-      TAccountExtraAccountMetaList extends string
-        ? ReadonlyAccount<TAccountExtraAccountMetaList>
-        : TAccountExtraAccountMetaList,
-      TAccountPermissionManagerProgram extends string
-        ? ReadonlyAccount<TAccountPermissionManagerProgram>
-        : TAccountPermissionManagerProgram,
-      TAccountSpikoTokenProgram extends string
-        ? ReadonlyAccount<TAccountSpikoTokenProgram>
-        : TAccountSpikoTokenProgram,
-      TAccountTokenConfig extends string
-        ? ReadonlyAccount<TAccountTokenConfig>
-        : TAccountTokenConfig,
-      TAccountVaultAuthorityPerms extends string
-        ? ReadonlyAccount<TAccountVaultAuthorityPerms>
-        : TAccountVaultAuthorityPerms,
-      TAccountSenderPerms extends string
-        ? ReadonlyAccount<TAccountSenderPerms>
-        : TAccountSenderPerms,
-      TAccountHookEventAuthority extends string
-        ? ReadonlyAccount<TAccountHookEventAuthority>
-        : TAccountHookEventAuthority,
-      TAccountHookProgram extends string
-        ? ReadonlyAccount<TAccountHookProgram>
-        : TAccountHookProgram,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountSelfProgram extends string
-        ? ReadonlyAccount<TAccountSelfProgram>
-        : TAccountSelfProgram,
+      TAccountTokenProgram extends string
+        ? ReadonlyAccount<TAccountTokenProgram>
+        : TAccountTokenProgram,
       ...TRemainingAccounts,
     ]
   >;
 
 export type CancelWithdrawalInstructionData = {
-  discriminator: number;
+  discriminator: ReadonlyUint8Array;
+  operationId: ReadonlyUint8Array;
   recipient: Address;
   amount: bigint;
   salt: bigint;
 };
 
 export type CancelWithdrawalInstructionDataArgs = {
+  operationId: ReadonlyUint8Array;
   recipient: Address;
   amount: number | bigint;
   salt: number | bigint;
@@ -144,7 +119,8 @@ export type CancelWithdrawalInstructionDataArgs = {
 export function getCancelWithdrawalInstructionDataEncoder(): FixedSizeEncoder<CancelWithdrawalInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["operationId", fixEncoderSize(getBytesEncoder(), 32)],
       ["recipient", getAddressEncoder()],
       ["amount", getU64Encoder()],
       ["salt", getU64Encoder()],
@@ -155,7 +131,8 @@ export function getCancelWithdrawalInstructionDataEncoder(): FixedSizeEncoder<Ca
 
 export function getCancelWithdrawalInstructionDataDecoder(): FixedSizeDecoder<CancelWithdrawalInstructionData> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["operationId", fixDecoderSize(getBytesDecoder(), 32)],
     ["recipient", getAddressDecoder()],
     ["amount", getU64Decoder()],
     ["salt", getU64Decoder()],
@@ -172,129 +149,64 @@ export function getCancelWithdrawalInstructionDataCodec(): FixedSizeCodec<
   );
 }
 
-export type CancelWithdrawalInput<
+export type CancelWithdrawalAsyncInput<
   TAccountCaller extends string = string,
-  TAccountConfig extends string = string,
-  TAccountWithdrawalOp extends string = string,
+  TAccountGatekeeperConfig extends string = string,
+  TAccountWithdrawalOperation extends string = string,
+  TAccountMint extends string = string,
   TAccountVaultTokenAccount extends string = string,
   TAccountSenderTokenAccount extends string = string,
   TAccountVaultAuthority extends string = string,
-  TAccountTokenMint extends string = string,
-  TAccountToken2022Program extends string = string,
-  TAccountExtraAccountMetaList extends string = string,
-  TAccountPermissionManagerProgram extends string = string,
-  TAccountSpikoTokenProgram extends string = string,
-  TAccountTokenConfig extends string = string,
-  TAccountVaultAuthorityPerms extends string = string,
-  TAccountSenderPerms extends string = string,
-  TAccountHookEventAuthority extends string = string,
-  TAccountHookProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
+  TAccountTokenProgram extends string = string,
 > = {
-  /** Anyone (no permission check) */
   caller: TransactionSigner<TAccountCaller>;
-  /** GatekeeperConfig PDA */
-  config: Address<TAccountConfig>;
-  /** WithdrawalOperation PDA */
-  withdrawalOp: Address<TAccountWithdrawalOp>;
-  /** Vault token account */
+  gatekeeperConfig?: Address<TAccountGatekeeperConfig>;
+  withdrawalOperation?: Address<TAccountWithdrawalOperation>;
+  mint: Address<TAccountMint>;
   vaultTokenAccount: Address<TAccountVaultTokenAccount>;
-  /** Sender's token account (refund destination) */
   senderTokenAccount: Address<TAccountSenderTokenAccount>;
-  /** Vault authority PDA */
-  vaultAuthority: Address<TAccountVaultAuthority>;
-  /** Token-2022 Mint */
-  tokenMint: Address<TAccountTokenMint>;
-  /** Token-2022 program */
-  token2022Program?: Address<TAccountToken2022Program>;
-  /** ExtraAccountMetaList PDA */
-  extraAccountMetaList: Address<TAccountExtraAccountMetaList>;
-  /** PermissionManager program */
-  permissionManagerProgram: Address<TAccountPermissionManagerProgram>;
-  /** SpikoToken program */
-  spikoTokenProgram: Address<TAccountSpikoTokenProgram>;
-  /** TokenConfig PDA (spiko-token) */
-  tokenConfig: Address<TAccountTokenConfig>;
-  /** Vault authority's UserPermissions PDA */
-  vaultAuthorityPerms: Address<TAccountVaultAuthorityPerms>;
-  /** Sender's UserPermissions PDA */
-  senderPerms: Address<TAccountSenderPerms>;
-  /** Hook event authority PDA */
-  hookEventAuthority: Address<TAccountHookEventAuthority>;
-  /** Hook program (spiko-transfer-hook) */
-  hookProgram: Address<TAccountHookProgram>;
-  /** Event authority PDA */
-  eventAuthority: Address<TAccountEventAuthority>;
-  /** CustodialGatekeeper program (self) */
-  selfProgram?: Address<TAccountSelfProgram>;
+  vaultAuthority?: Address<TAccountVaultAuthority>;
+  tokenProgram?: Address<TAccountTokenProgram>;
+  operationId: CancelWithdrawalInstructionDataArgs["operationId"];
   recipient: CancelWithdrawalInstructionDataArgs["recipient"];
   amount: CancelWithdrawalInstructionDataArgs["amount"];
   salt: CancelWithdrawalInstructionDataArgs["salt"];
 };
 
-export function getCancelWithdrawalInstruction<
+export async function getCancelWithdrawalInstructionAsync<
   TAccountCaller extends string,
-  TAccountConfig extends string,
-  TAccountWithdrawalOp extends string,
+  TAccountGatekeeperConfig extends string,
+  TAccountWithdrawalOperation extends string,
+  TAccountMint extends string,
   TAccountVaultTokenAccount extends string,
   TAccountSenderTokenAccount extends string,
   TAccountVaultAuthority extends string,
-  TAccountTokenMint extends string,
-  TAccountToken2022Program extends string,
-  TAccountExtraAccountMetaList extends string,
-  TAccountPermissionManagerProgram extends string,
-  TAccountSpikoTokenProgram extends string,
-  TAccountTokenConfig extends string,
-  TAccountVaultAuthorityPerms extends string,
-  TAccountSenderPerms extends string,
-  TAccountHookEventAuthority extends string,
-  TAccountHookProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
+  TAccountTokenProgram extends string,
   TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
 >(
-  input: CancelWithdrawalInput<
+  input: CancelWithdrawalAsyncInput<
     TAccountCaller,
-    TAccountConfig,
-    TAccountWithdrawalOp,
+    TAccountGatekeeperConfig,
+    TAccountWithdrawalOperation,
+    TAccountMint,
     TAccountVaultTokenAccount,
     TAccountSenderTokenAccount,
     TAccountVaultAuthority,
-    TAccountTokenMint,
-    TAccountToken2022Program,
-    TAccountExtraAccountMetaList,
-    TAccountPermissionManagerProgram,
-    TAccountSpikoTokenProgram,
-    TAccountTokenConfig,
-    TAccountVaultAuthorityPerms,
-    TAccountSenderPerms,
-    TAccountHookEventAuthority,
-    TAccountHookProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountTokenProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): CancelWithdrawalInstruction<
-  TProgramAddress,
-  TAccountCaller,
-  TAccountConfig,
-  TAccountWithdrawalOp,
-  TAccountVaultTokenAccount,
-  TAccountSenderTokenAccount,
-  TAccountVaultAuthority,
-  TAccountTokenMint,
-  TAccountToken2022Program,
-  TAccountExtraAccountMetaList,
-  TAccountPermissionManagerProgram,
-  TAccountSpikoTokenProgram,
-  TAccountTokenConfig,
-  TAccountVaultAuthorityPerms,
-  TAccountSenderPerms,
-  TAccountHookEventAuthority,
-  TAccountHookProgram,
-  TAccountEventAuthority,
-  TAccountSelfProgram
+): Promise<
+  CancelWithdrawalInstruction<
+    TProgramAddress,
+    TAccountCaller,
+    TAccountGatekeeperConfig,
+    TAccountWithdrawalOperation,
+    TAccountMint,
+    TAccountVaultTokenAccount,
+    TAccountSenderTokenAccount,
+    TAccountVaultAuthority,
+    TAccountTokenProgram
+  >
 > {
   // Program address.
   const programAddress =
@@ -303,8 +215,15 @@ export function getCancelWithdrawalInstruction<
   // Original accounts.
   const originalAccounts = {
     caller: { value: input.caller ?? null, isWritable: false },
-    config: { value: input.config ?? null, isWritable: false },
-    withdrawalOp: { value: input.withdrawalOp ?? null, isWritable: true },
+    gatekeeperConfig: {
+      value: input.gatekeeperConfig ?? null,
+      isWritable: false,
+    },
+    withdrawalOperation: {
+      value: input.withdrawalOperation ?? null,
+      isWritable: true,
+    },
+    mint: { value: input.mint ?? null, isWritable: false },
     vaultTokenAccount: {
       value: input.vaultTokenAccount ?? null,
       isWritable: true,
@@ -314,36 +233,7 @@ export function getCancelWithdrawalInstruction<
       isWritable: true,
     },
     vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
-    tokenMint: { value: input.tokenMint ?? null, isWritable: false },
-    token2022Program: {
-      value: input.token2022Program ?? null,
-      isWritable: false,
-    },
-    extraAccountMetaList: {
-      value: input.extraAccountMetaList ?? null,
-      isWritable: false,
-    },
-    permissionManagerProgram: {
-      value: input.permissionManagerProgram ?? null,
-      isWritable: false,
-    },
-    spikoTokenProgram: {
-      value: input.spikoTokenProgram ?? null,
-      isWritable: false,
-    },
-    tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
-    vaultAuthorityPerms: {
-      value: input.vaultAuthorityPerms ?? null,
-      isWritable: false,
-    },
-    senderPerms: { value: input.senderPerms ?? null, isWritable: false },
-    hookEventAuthority: {
-      value: input.hookEventAuthority ?? null,
-      isWritable: false,
-    },
-    hookProgram: { value: input.hookProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
+    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -354,36 +244,33 @@ export function getCancelWithdrawalInstruction<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.token2022Program.value) {
-    accounts.token2022Program.value =
-      "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" as Address<"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb">;
+  if (!accounts.gatekeeperConfig.value) {
+    accounts.gatekeeperConfig.value = await findGatekeeperConfigPda();
   }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY" as Address<"4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY">;
+  if (!accounts.withdrawalOperation.value) {
+    accounts.withdrawalOperation.value = await findWithdrawalOperationPda({
+      operationId: expectSome(args.operationId),
+    });
+  }
+  if (!accounts.vaultAuthority.value) {
+    accounts.vaultAuthority.value = await findVaultAuthorityPda();
+  }
+  if (!accounts.tokenProgram.value) {
+    accounts.tokenProgram.value =
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.caller),
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.withdrawalOp),
+      getAccountMeta(accounts.gatekeeperConfig),
+      getAccountMeta(accounts.withdrawalOperation),
+      getAccountMeta(accounts.mint),
       getAccountMeta(accounts.vaultTokenAccount),
       getAccountMeta(accounts.senderTokenAccount),
       getAccountMeta(accounts.vaultAuthority),
-      getAccountMeta(accounts.tokenMint),
-      getAccountMeta(accounts.token2022Program),
-      getAccountMeta(accounts.extraAccountMetaList),
-      getAccountMeta(accounts.permissionManagerProgram),
-      getAccountMeta(accounts.spikoTokenProgram),
-      getAccountMeta(accounts.tokenConfig),
-      getAccountMeta(accounts.vaultAuthorityPerms),
-      getAccountMeta(accounts.senderPerms),
-      getAccountMeta(accounts.hookEventAuthority),
-      getAccountMeta(accounts.hookProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
+      getAccountMeta(accounts.tokenProgram),
     ],
     data: getCancelWithdrawalInstructionDataEncoder().encode(
       args as CancelWithdrawalInstructionDataArgs,
@@ -392,23 +279,140 @@ export function getCancelWithdrawalInstruction<
   } as CancelWithdrawalInstruction<
     TProgramAddress,
     TAccountCaller,
-    TAccountConfig,
-    TAccountWithdrawalOp,
+    TAccountGatekeeperConfig,
+    TAccountWithdrawalOperation,
+    TAccountMint,
     TAccountVaultTokenAccount,
     TAccountSenderTokenAccount,
     TAccountVaultAuthority,
-    TAccountTokenMint,
-    TAccountToken2022Program,
-    TAccountExtraAccountMetaList,
-    TAccountPermissionManagerProgram,
-    TAccountSpikoTokenProgram,
-    TAccountTokenConfig,
-    TAccountVaultAuthorityPerms,
-    TAccountSenderPerms,
-    TAccountHookEventAuthority,
-    TAccountHookProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountTokenProgram
+  >);
+}
+
+export type CancelWithdrawalInput<
+  TAccountCaller extends string = string,
+  TAccountGatekeeperConfig extends string = string,
+  TAccountWithdrawalOperation extends string = string,
+  TAccountMint extends string = string,
+  TAccountVaultTokenAccount extends string = string,
+  TAccountSenderTokenAccount extends string = string,
+  TAccountVaultAuthority extends string = string,
+  TAccountTokenProgram extends string = string,
+> = {
+  caller: TransactionSigner<TAccountCaller>;
+  gatekeeperConfig: Address<TAccountGatekeeperConfig>;
+  withdrawalOperation: Address<TAccountWithdrawalOperation>;
+  mint: Address<TAccountMint>;
+  vaultTokenAccount: Address<TAccountVaultTokenAccount>;
+  senderTokenAccount: Address<TAccountSenderTokenAccount>;
+  vaultAuthority: Address<TAccountVaultAuthority>;
+  tokenProgram?: Address<TAccountTokenProgram>;
+  operationId: CancelWithdrawalInstructionDataArgs["operationId"];
+  recipient: CancelWithdrawalInstructionDataArgs["recipient"];
+  amount: CancelWithdrawalInstructionDataArgs["amount"];
+  salt: CancelWithdrawalInstructionDataArgs["salt"];
+};
+
+export function getCancelWithdrawalInstruction<
+  TAccountCaller extends string,
+  TAccountGatekeeperConfig extends string,
+  TAccountWithdrawalOperation extends string,
+  TAccountMint extends string,
+  TAccountVaultTokenAccount extends string,
+  TAccountSenderTokenAccount extends string,
+  TAccountVaultAuthority extends string,
+  TAccountTokenProgram extends string,
+  TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
+>(
+  input: CancelWithdrawalInput<
+    TAccountCaller,
+    TAccountGatekeeperConfig,
+    TAccountWithdrawalOperation,
+    TAccountMint,
+    TAccountVaultTokenAccount,
+    TAccountSenderTokenAccount,
+    TAccountVaultAuthority,
+    TAccountTokenProgram
+  >,
+  config?: { programAddress?: TProgramAddress },
+): CancelWithdrawalInstruction<
+  TProgramAddress,
+  TAccountCaller,
+  TAccountGatekeeperConfig,
+  TAccountWithdrawalOperation,
+  TAccountMint,
+  TAccountVaultTokenAccount,
+  TAccountSenderTokenAccount,
+  TAccountVaultAuthority,
+  TAccountTokenProgram
+> {
+  // Program address.
+  const programAddress =
+    config?.programAddress ?? CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS;
+
+  // Original accounts.
+  const originalAccounts = {
+    caller: { value: input.caller ?? null, isWritable: false },
+    gatekeeperConfig: {
+      value: input.gatekeeperConfig ?? null,
+      isWritable: false,
+    },
+    withdrawalOperation: {
+      value: input.withdrawalOperation ?? null,
+      isWritable: true,
+    },
+    mint: { value: input.mint ?? null, isWritable: false },
+    vaultTokenAccount: {
+      value: input.vaultTokenAccount ?? null,
+      isWritable: true,
+    },
+    senderTokenAccount: {
+      value: input.senderTokenAccount ?? null,
+      isWritable: true,
+    },
+    vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
+    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+  };
+  const accounts = originalAccounts as Record<
+    keyof typeof originalAccounts,
+    ResolvedAccount
+  >;
+
+  // Original args.
+  const args = { ...input };
+
+  // Resolve default values.
+  if (!accounts.tokenProgram.value) {
+    accounts.tokenProgram.value =
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
+  }
+
+  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
+  return Object.freeze({
+    accounts: [
+      getAccountMeta(accounts.caller),
+      getAccountMeta(accounts.gatekeeperConfig),
+      getAccountMeta(accounts.withdrawalOperation),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.vaultTokenAccount),
+      getAccountMeta(accounts.senderTokenAccount),
+      getAccountMeta(accounts.vaultAuthority),
+      getAccountMeta(accounts.tokenProgram),
+    ],
+    data: getCancelWithdrawalInstructionDataEncoder().encode(
+      args as CancelWithdrawalInstructionDataArgs,
+    ),
+    programAddress,
+  } as CancelWithdrawalInstruction<
+    TProgramAddress,
+    TAccountCaller,
+    TAccountGatekeeperConfig,
+    TAccountWithdrawalOperation,
+    TAccountMint,
+    TAccountVaultTokenAccount,
+    TAccountSenderTokenAccount,
+    TAccountVaultAuthority,
+    TAccountTokenProgram
   >);
 }
 
@@ -418,42 +422,14 @@ export type ParsedCancelWithdrawalInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Anyone (no permission check) */
     caller: TAccountMetas[0];
-    /** GatekeeperConfig PDA */
-    config: TAccountMetas[1];
-    /** WithdrawalOperation PDA */
-    withdrawalOp: TAccountMetas[2];
-    /** Vault token account */
-    vaultTokenAccount: TAccountMetas[3];
-    /** Sender's token account (refund destination) */
-    senderTokenAccount: TAccountMetas[4];
-    /** Vault authority PDA */
-    vaultAuthority: TAccountMetas[5];
-    /** Token-2022 Mint */
-    tokenMint: TAccountMetas[6];
-    /** Token-2022 program */
-    token2022Program: TAccountMetas[7];
-    /** ExtraAccountMetaList PDA */
-    extraAccountMetaList: TAccountMetas[8];
-    /** PermissionManager program */
-    permissionManagerProgram: TAccountMetas[9];
-    /** SpikoToken program */
-    spikoTokenProgram: TAccountMetas[10];
-    /** TokenConfig PDA (spiko-token) */
-    tokenConfig: TAccountMetas[11];
-    /** Vault authority's UserPermissions PDA */
-    vaultAuthorityPerms: TAccountMetas[12];
-    /** Sender's UserPermissions PDA */
-    senderPerms: TAccountMetas[13];
-    /** Hook event authority PDA */
-    hookEventAuthority: TAccountMetas[14];
-    /** Hook program (spiko-transfer-hook) */
-    hookProgram: TAccountMetas[15];
-    /** Event authority PDA */
-    eventAuthority: TAccountMetas[16];
-    /** CustodialGatekeeper program (self) */
-    selfProgram: TAccountMetas[17];
+    gatekeeperConfig: TAccountMetas[1];
+    withdrawalOperation: TAccountMetas[2];
+    mint: TAccountMetas[3];
+    vaultTokenAccount: TAccountMetas[4];
+    senderTokenAccount: TAccountMetas[5];
+    vaultAuthority: TAccountMetas[6];
+    tokenProgram: TAccountMetas[7];
   };
   data: CancelWithdrawalInstructionData;
 };
@@ -466,7 +442,7 @@ export function parseCancelWithdrawalInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCancelWithdrawalInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 18) {
+  if (instruction.accounts.length < 8) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -480,23 +456,13 @@ export function parseCancelWithdrawalInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       caller: getNextAccount(),
-      config: getNextAccount(),
-      withdrawalOp: getNextAccount(),
+      gatekeeperConfig: getNextAccount(),
+      withdrawalOperation: getNextAccount(),
+      mint: getNextAccount(),
       vaultTokenAccount: getNextAccount(),
       senderTokenAccount: getNextAccount(),
       vaultAuthority: getNextAccount(),
-      tokenMint: getNextAccount(),
-      token2022Program: getNextAccount(),
-      extraAccountMetaList: getNextAccount(),
-      permissionManagerProgram: getNextAccount(),
-      spikoTokenProgram: getNextAccount(),
-      tokenConfig: getNextAccount(),
-      vaultAuthorityPerms: getNextAccount(),
-      senderPerms: getNextAccount(),
-      hookEventAuthority: getNextAccount(),
-      hookProgram: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      selfProgram: getNextAccount(),
+      tokenProgram: getNextAccount(),
     },
     data: getCancelWithdrawalInstructionDataDecoder().decode(instruction.data),
   };

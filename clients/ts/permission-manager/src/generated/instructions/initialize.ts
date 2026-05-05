@@ -8,10 +8,12 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -28,31 +30,24 @@ import {
   type WritableAccount,
   type WritableSignerAccount,
 } from "@solana/kit";
-import { findPermissionConfigPda, findUserPermissionsPda } from "../pdas";
+import { findConfigPda } from "../pdas";
 import { PERMISSION_MANAGER_PROGRAM_ADDRESS } from "../programs";
-import {
-  expectAddress,
-  getAccountMetaFactory,
-  type ResolvedAccount,
-} from "../shared";
+import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
-export const INITIALIZE_DISCRIMINATOR = 0;
+export const INITIALIZE_DISCRIMINATOR = new Uint8Array([
+  175, 175, 109, 31, 13, 152, 155, 237,
+]);
 
 export function getInitializeDiscriminatorBytes() {
-  return getU8Encoder().encode(INITIALIZE_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(INITIALIZE_DISCRIMINATOR);
 }
 
 export type InitializeInstruction<
   TProgram extends string = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
   TAccountAdmin extends string | AccountMeta<string> = string,
   TAccountConfig extends string | AccountMeta<string> = string,
-  TAccountAdminPerms extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
-  TAccountEventAuthority extends string | AccountMeta<string> =
-    "H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs",
-  TAccountSelfProgram extends string | AccountMeta<string> =
-    "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -65,35 +60,28 @@ export type InitializeInstruction<
       TAccountConfig extends string
         ? WritableAccount<TAccountConfig>
         : TAccountConfig,
-      TAccountAdminPerms extends string
-        ? WritableAccount<TAccountAdminPerms>
-        : TAccountAdminPerms,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountSelfProgram extends string
-        ? ReadonlyAccount<TAccountSelfProgram>
-        : TAccountSelfProgram,
       ...TRemainingAccounts,
     ]
   >;
 
-export type InitializeInstructionData = { discriminator: number };
+export type InitializeInstructionData = { discriminator: ReadonlyUint8Array };
 
 export type InitializeInstructionDataArgs = {};
 
 export function getInitializeInstructionDataEncoder(): FixedSizeEncoder<InitializeInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([["discriminator", getU8Encoder()]]),
+    getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
     (value) => ({ ...value, discriminator: INITIALIZE_DISCRIMINATOR }),
   );
 }
 
 export function getInitializeInstructionDataDecoder(): FixedSizeDecoder<InitializeInstructionData> {
-  return getStructDecoder([["discriminator", getU8Decoder()]]);
+  return getStructDecoder([
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+  ]);
 }
 
 export function getInitializeInstructionDataCodec(): FixedSizeCodec<
@@ -109,41 +97,23 @@ export function getInitializeInstructionDataCodec(): FixedSizeCodec<
 export type InitializeAsyncInput<
   TAccountAdmin extends string = string,
   TAccountConfig extends string = string,
-  TAccountAdminPerms extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
 > = {
-  /** Admin / deployer (payer, becomes initial admin) */
   admin: TransactionSigner<TAccountAdmin>;
-  /** PermissionConfig PDA to be created */
   config?: Address<TAccountConfig>;
-  /** Admin's UserPermissions PDA to be created */
-  adminPerms?: Address<TAccountAdminPerms>;
-  /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
-  /** Event authority PDA for CPI event emission */
-  eventAuthority?: Address<TAccountEventAuthority>;
-  /** Permission Manager program (self) for CPI event emission */
-  selfProgram?: Address<TAccountSelfProgram>;
 };
 
 export async function getInitializeInstructionAsync<
   TAccountAdmin extends string,
   TAccountConfig extends string,
-  TAccountAdminPerms extends string,
   TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
   input: InitializeAsyncInput<
     TAccountAdmin,
     TAccountConfig,
-    TAccountAdminPerms,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -151,10 +121,7 @@ export async function getInitializeInstructionAsync<
     TProgramAddress,
     TAccountAdmin,
     TAccountConfig,
-    TAccountAdminPerms,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountSystemProgram
   >
 > {
   // Program address.
@@ -165,10 +132,7 @@ export async function getInitializeInstructionAsync<
   const originalAccounts = {
     admin: { value: input.admin ?? null, isWritable: true },
     config: { value: input.config ?? null, isWritable: true },
-    adminPerms: { value: input.adminPerms ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -177,24 +141,11 @@ export async function getInitializeInstructionAsync<
 
   // Resolve default values.
   if (!accounts.config.value) {
-    accounts.config.value = await findPermissionConfigPda();
-  }
-  if (!accounts.adminPerms.value) {
-    accounts.adminPerms.value = await findUserPermissionsPda({
-      user: expectAddress(accounts.admin.value),
-    });
+    accounts.config.value = await findConfigPda();
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
-  }
-  if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value =
-      "H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs" as Address<"H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs">;
-  }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc" as Address<"2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc">;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
@@ -202,10 +153,7 @@ export async function getInitializeInstructionAsync<
     accounts: [
       getAccountMeta(accounts.admin),
       getAccountMeta(accounts.config),
-      getAccountMeta(accounts.adminPerms),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
     ],
     data: getInitializeInstructionDataEncoder().encode({}),
     programAddress,
@@ -213,61 +161,33 @@ export async function getInitializeInstructionAsync<
     TProgramAddress,
     TAccountAdmin,
     TAccountConfig,
-    TAccountAdminPerms,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountSystemProgram
   >);
 }
 
 export type InitializeInput<
   TAccountAdmin extends string = string,
   TAccountConfig extends string = string,
-  TAccountAdminPerms extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
 > = {
-  /** Admin / deployer (payer, becomes initial admin) */
   admin: TransactionSigner<TAccountAdmin>;
-  /** PermissionConfig PDA to be created */
   config: Address<TAccountConfig>;
-  /** Admin's UserPermissions PDA to be created */
-  adminPerms: Address<TAccountAdminPerms>;
-  /** System program */
   systemProgram?: Address<TAccountSystemProgram>;
-  /** Event authority PDA for CPI event emission */
-  eventAuthority?: Address<TAccountEventAuthority>;
-  /** Permission Manager program (self) for CPI event emission */
-  selfProgram?: Address<TAccountSelfProgram>;
 };
 
 export function getInitializeInstruction<
   TAccountAdmin extends string,
   TAccountConfig extends string,
-  TAccountAdminPerms extends string,
   TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
-  input: InitializeInput<
-    TAccountAdmin,
-    TAccountConfig,
-    TAccountAdminPerms,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
-  >,
+  input: InitializeInput<TAccountAdmin, TAccountConfig, TAccountSystemProgram>,
   config?: { programAddress?: TProgramAddress },
 ): InitializeInstruction<
   TProgramAddress,
   TAccountAdmin,
   TAccountConfig,
-  TAccountAdminPerms,
-  TAccountSystemProgram,
-  TAccountEventAuthority,
-  TAccountSelfProgram
+  TAccountSystemProgram
 > {
   // Program address.
   const programAddress =
@@ -277,10 +197,7 @@ export function getInitializeInstruction<
   const originalAccounts = {
     admin: { value: input.admin ?? null, isWritable: true },
     config: { value: input.config ?? null, isWritable: true },
-    adminPerms: { value: input.adminPerms ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -292,24 +209,13 @@ export function getInitializeInstruction<
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
   }
-  if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value =
-      "H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs" as Address<"H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs">;
-  }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc" as Address<"2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc">;
-  }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.admin),
       getAccountMeta(accounts.config),
-      getAccountMeta(accounts.adminPerms),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
     ],
     data: getInitializeInstructionDataEncoder().encode({}),
     programAddress,
@@ -317,10 +223,7 @@ export function getInitializeInstruction<
     TProgramAddress,
     TAccountAdmin,
     TAccountConfig,
-    TAccountAdminPerms,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountSystemProgram
   >);
 }
 
@@ -330,18 +233,9 @@ export type ParsedInitializeInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Admin / deployer (payer, becomes initial admin) */
     admin: TAccountMetas[0];
-    /** PermissionConfig PDA to be created */
     config: TAccountMetas[1];
-    /** Admin's UserPermissions PDA to be created */
-    adminPerms: TAccountMetas[2];
-    /** System program */
-    systemProgram: TAccountMetas[3];
-    /** Event authority PDA for CPI event emission */
-    eventAuthority: TAccountMetas[4];
-    /** Permission Manager program (self) for CPI event emission */
-    selfProgram: TAccountMetas[5];
+    systemProgram: TAccountMetas[2];
   };
   data: InitializeInstructionData;
 };
@@ -354,7 +248,7 @@ export function parseInitializeInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 6) {
+  if (instruction.accounts.length < 3) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -369,10 +263,7 @@ export function parseInitializeInstruction<
     accounts: {
       admin: getNextAccount(),
       config: getNextAccount(),
-      adminPerms: getNextAccount(),
       systemProgram: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      selfProgram: getNextAccount(),
     },
     data: getInitializeInstructionDataDecoder().decode(instruction.data),
   };

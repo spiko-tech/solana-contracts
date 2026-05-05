@@ -6,6 +6,8 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./dailyLimit";
+export * from "./mintDailyLimit";
 export * from "./minterConfig";
 export * from "./mintOperation";
+export * from "./permissionConfig";
+export * from "./userPermissions";

@@ -9,7 +9,8 @@
 import {
   assertIsInstructionWithAccounts,
   containsBytes,
-  getU8Encoder,
+  fixEncoderSize,
+  getBytesEncoder,
   type Address,
   type Instruction,
   type InstructionWithData,
@@ -29,10 +30,13 @@ import {
 } from "../instructions";
 
 export const CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS =
-  "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY" as Address<"4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY">;
+  "7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg" as Address<"7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg">;
 
 export enum CustodialGatekeeperAccount {
   GatekeeperConfig,
+  PermissionConfig,
+  UserPermissions,
+  VaultAuthority,
   WithdrawalDailyLimit,
   WithdrawalOperation,
 }
@@ -41,13 +45,70 @@ export function identifyCustodialGatekeeperAccount(
   account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): CustodialGatekeeperAccount {
   const data = "data" in account ? account.data : account;
-  if (containsBytes(data, getU8Encoder().encode(1), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([2, 250, 100, 194, 146, 175, 44, 31]),
+      ),
+      0,
+    )
+  ) {
     return CustodialGatekeeperAccount.GatekeeperConfig;
   }
-  if (containsBytes(data, getU8Encoder().encode(2), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
+      ),
+      0,
+    )
+  ) {
+    return CustodialGatekeeperAccount.PermissionConfig;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([195, 173, 80, 32, 40, 216, 78, 110]),
+      ),
+      0,
+    )
+  ) {
+    return CustodialGatekeeperAccount.UserPermissions;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([132, 34, 187, 202, 202, 195, 211, 53]),
+      ),
+      0,
+    )
+  ) {
+    return CustodialGatekeeperAccount.VaultAuthority;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([158, 82, 223, 66, 49, 239, 244, 42]),
+      ),
+      0,
+    )
+  ) {
     return CustodialGatekeeperAccount.WithdrawalDailyLimit;
   }
-  if (containsBytes(data, getU8Encoder().encode(3), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([3, 158, 136, 253, 83, 76, 98, 34]),
+      ),
+      0,
+    )
+  ) {
     return CustodialGatekeeperAccount.WithdrawalOperation;
   }
   throw new Error(
@@ -56,31 +117,71 @@ export function identifyCustodialGatekeeperAccount(
 }
 
 export enum CustodialGatekeeperInstruction {
-  Initialize,
-  SetDailyLimit,
-  CustodialWithdraw,
   ApproveWithdrawal,
   CancelWithdrawal,
+  CustodialWithdraw,
+  Initialize,
+  SetDailyLimit,
 }
 
 export function identifyCustodialGatekeeperInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): CustodialGatekeeperInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
-  if (containsBytes(data, getU8Encoder().encode(0), 0)) {
-    return CustodialGatekeeperInstruction.Initialize;
-  }
-  if (containsBytes(data, getU8Encoder().encode(1), 0)) {
-    return CustodialGatekeeperInstruction.SetDailyLimit;
-  }
-  if (containsBytes(data, getU8Encoder().encode(2), 0)) {
-    return CustodialGatekeeperInstruction.CustodialWithdraw;
-  }
-  if (containsBytes(data, getU8Encoder().encode(3), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([75, 48, 146, 122, 201, 158, 210, 123]),
+      ),
+      0,
+    )
+  ) {
     return CustodialGatekeeperInstruction.ApproveWithdrawal;
   }
-  if (containsBytes(data, getU8Encoder().encode(4), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([183, 104, 181, 250, 28, 128, 210, 70]),
+      ),
+      0,
+    )
+  ) {
     return CustodialGatekeeperInstruction.CancelWithdrawal;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([49, 115, 229, 233, 155, 39, 195, 52]),
+      ),
+      0,
+    )
+  ) {
+    return CustodialGatekeeperInstruction.CustodialWithdraw;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([175, 175, 109, 31, 13, 152, 155, 237]),
+      ),
+      0,
+    )
+  ) {
+    return CustodialGatekeeperInstruction.Initialize;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([0, 229, 100, 68, 254, 3, 185, 75]),
+      ),
+      0,
+    )
+  ) {
+    return CustodialGatekeeperInstruction.SetDailyLimit;
   }
   throw new Error(
     "The provided instruction could not be identified as a custodialGatekeeper instruction.",
@@ -88,50 +189,29 @@ export function identifyCustodialGatekeeperInstruction(
 }
 
 export type ParsedCustodialGatekeeperInstruction<
-  TProgram extends string = "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY",
+  TProgram extends string = "7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg",
 > =
-  | ({
-      instructionType: CustodialGatekeeperInstruction.Initialize;
-    } & ParsedInitializeInstruction<TProgram>)
-  | ({
-      instructionType: CustodialGatekeeperInstruction.SetDailyLimit;
-    } & ParsedSetDailyLimitInstruction<TProgram>)
-  | ({
-      instructionType: CustodialGatekeeperInstruction.CustodialWithdraw;
-    } & ParsedCustodialWithdrawInstruction<TProgram>)
   | ({
       instructionType: CustodialGatekeeperInstruction.ApproveWithdrawal;
     } & ParsedApproveWithdrawalInstruction<TProgram>)
   | ({
       instructionType: CustodialGatekeeperInstruction.CancelWithdrawal;
-    } & ParsedCancelWithdrawalInstruction<TProgram>);
+    } & ParsedCancelWithdrawalInstruction<TProgram>)
+  | ({
+      instructionType: CustodialGatekeeperInstruction.CustodialWithdraw;
+    } & ParsedCustodialWithdrawInstruction<TProgram>)
+  | ({
+      instructionType: CustodialGatekeeperInstruction.Initialize;
+    } & ParsedInitializeInstruction<TProgram>)
+  | ({
+      instructionType: CustodialGatekeeperInstruction.SetDailyLimit;
+    } & ParsedSetDailyLimitInstruction<TProgram>);
 
 export function parseCustodialGatekeeperInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCustodialGatekeeperInstruction<TProgram> {
   const instructionType = identifyCustodialGatekeeperInstruction(instruction);
   switch (instructionType) {
-    case CustodialGatekeeperInstruction.Initialize: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: CustodialGatekeeperInstruction.Initialize,
-        ...parseInitializeInstruction(instruction),
-      };
-    }
-    case CustodialGatekeeperInstruction.SetDailyLimit: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: CustodialGatekeeperInstruction.SetDailyLimit,
-        ...parseSetDailyLimitInstruction(instruction),
-      };
-    }
-    case CustodialGatekeeperInstruction.CustodialWithdraw: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: CustodialGatekeeperInstruction.CustodialWithdraw,
-        ...parseCustodialWithdrawInstruction(instruction),
-      };
-    }
     case CustodialGatekeeperInstruction.ApproveWithdrawal: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -144,6 +224,27 @@ export function parseCustodialGatekeeperInstruction<TProgram extends string>(
       return {
         instructionType: CustodialGatekeeperInstruction.CancelWithdrawal,
         ...parseCancelWithdrawalInstruction(instruction),
+      };
+    }
+    case CustodialGatekeeperInstruction.CustodialWithdraw: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: CustodialGatekeeperInstruction.CustodialWithdraw,
+        ...parseCustodialWithdrawInstruction(instruction),
+      };
+    }
+    case CustodialGatekeeperInstruction.Initialize: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: CustodialGatekeeperInstruction.Initialize,
+        ...parseInitializeInstruction(instruction),
+      };
+    }
+    case CustodialGatekeeperInstruction.SetDailyLimit: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: CustodialGatekeeperInstruction.SetDailyLimit,
+        ...parseSetDailyLimitInstruction(instruction),
       };
     }
     default:

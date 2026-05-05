@@ -14,25 +14,19 @@ import {
 } from "@solana/kit";
 import { PERMISSION_MANAGER_PROGRAM_ADDRESS } from "../programs";
 
-export const PERMISSION_MANAGER_ERROR__ALREADY_INITIALIZED = 0x0; // 0
-export const PERMISSION_MANAGER_ERROR__NOT_INITIALIZED = 0x1; // 1
-export const PERMISSION_MANAGER_ERROR__UNAUTHORIZED = 0x2; // 2
-export const PERMISSION_MANAGER_ERROR__INVALID_ROLE = 0x3; // 3
-export const PERMISSION_MANAGER_ERROR__INVALID_PDA = 0x4; // 4
-export const PERMISSION_MANAGER_ERROR__NO_PENDING_ADMIN = 0x5; // 5
-export const PERMISSION_MANAGER_ERROR__NOT_PENDING_ADMIN = 0x6; // 6
-export const PERMISSION_MANAGER_ERROR__GROUP_EXCLUSION = 0x7; // 7
-export const PERMISSION_MANAGER_ERROR__GROUP_PROTECTED = 0x8; // 8
+/** Unauthorized: Unauthorized */
+export const PERMISSION_MANAGER_ERROR__UNAUTHORIZED = 0x1770; // 6000
+/** InvalidRole: Invalid role combination */
+export const PERMISSION_MANAGER_ERROR__INVALID_ROLE = 0x1771; // 6001
+/** RoleNotWhitelistManageable: Whitelister can only grant WHITELISTED or WHITELISTED_EXT */
+export const PERMISSION_MANAGER_ERROR__ROLE_NOT_WHITELIST_MANAGEABLE = 0x1772; // 6002
+/** MutualExclusionViolation: Cannot grant WHITELISTED and WHITELISTED_EXT to the same address */
+export const PERMISSION_MANAGER_ERROR__MUTUAL_EXCLUSION_VIOLATION = 0x1773; // 6003
 
 export type PermissionManagerError =
-  | typeof PERMISSION_MANAGER_ERROR__ALREADY_INITIALIZED
-  | typeof PERMISSION_MANAGER_ERROR__GROUP_EXCLUSION
-  | typeof PERMISSION_MANAGER_ERROR__GROUP_PROTECTED
-  | typeof PERMISSION_MANAGER_ERROR__INVALID_PDA
   | typeof PERMISSION_MANAGER_ERROR__INVALID_ROLE
-  | typeof PERMISSION_MANAGER_ERROR__NO_PENDING_ADMIN
-  | typeof PERMISSION_MANAGER_ERROR__NOT_INITIALIZED
-  | typeof PERMISSION_MANAGER_ERROR__NOT_PENDING_ADMIN
+  | typeof PERMISSION_MANAGER_ERROR__MUTUAL_EXCLUSION_VIOLATION
+  | typeof PERMISSION_MANAGER_ERROR__ROLE_NOT_WHITELIST_MANAGEABLE
   | typeof PERMISSION_MANAGER_ERROR__UNAUTHORIZED;
 
 let permissionManagerErrorMessages:
@@ -40,15 +34,10 @@ let permissionManagerErrorMessages:
   | undefined;
 if (process.env.NODE_ENV !== "production") {
   permissionManagerErrorMessages = {
-    [PERMISSION_MANAGER_ERROR__ALREADY_INITIALIZED]: `Program has already been initialized`,
-    [PERMISSION_MANAGER_ERROR__GROUP_EXCLUSION]: `Cannot grant role due to group exclusion`,
-    [PERMISSION_MANAGER_ERROR__GROUP_PROTECTED]: `Cannot revoke role due to group protection`,
-    [PERMISSION_MANAGER_ERROR__INVALID_PDA]: `Invalid PDA derivation`,
-    [PERMISSION_MANAGER_ERROR__INVALID_ROLE]: `Invalid role identifier`,
-    [PERMISSION_MANAGER_ERROR__NO_PENDING_ADMIN]: `No pending admin set`,
-    [PERMISSION_MANAGER_ERROR__NOT_INITIALIZED]: `Program has not been initialized`,
-    [PERMISSION_MANAGER_ERROR__NOT_PENDING_ADMIN]: `Caller is not the pending admin`,
-    [PERMISSION_MANAGER_ERROR__UNAUTHORIZED]: `Caller is not authorized for this operation`,
+    [PERMISSION_MANAGER_ERROR__INVALID_ROLE]: `Invalid role combination`,
+    [PERMISSION_MANAGER_ERROR__MUTUAL_EXCLUSION_VIOLATION]: `Cannot grant WHITELISTED and WHITELISTED_EXT to the same address`,
+    [PERMISSION_MANAGER_ERROR__ROLE_NOT_WHITELIST_MANAGEABLE]: `Whitelister can only grant WHITELISTED or WHITELISTED_EXT`,
+    [PERMISSION_MANAGER_ERROR__UNAUTHORIZED]: `Unauthorized`,
   };
 }
 

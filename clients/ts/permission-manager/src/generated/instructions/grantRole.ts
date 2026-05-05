@@ -8,10 +8,14 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  getU8Decoder,
-  getU8Encoder,
+  getU16Decoder,
+  getU16Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -28,7 +32,7 @@ import {
   type WritableAccount,
   type WritableSignerAccount,
 } from "@solana/kit";
-import { findUserPermissionsPda } from "../pdas";
+import { findConfigPda, findUserPermissionsPda } from "../pdas";
 import { PERMISSION_MANAGER_PROGRAM_ADDRESS } from "../programs";
 import {
   expectAddress,
@@ -36,71 +40,59 @@ import {
   type ResolvedAccount,
 } from "../shared";
 
-export const GRANT_ROLE_DISCRIMINATOR = 1;
+export const GRANT_ROLE_DISCRIMINATOR = new Uint8Array([
+  218, 234, 128, 15, 82, 33, 236, 253,
+]);
 
 export function getGrantRoleDiscriminatorBytes() {
-  return getU8Encoder().encode(GRANT_ROLE_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(GRANT_ROLE_DISCRIMINATOR);
 }
 
 export type GrantRoleInstruction<
   TProgram extends string = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
-  TAccountCaller extends string | AccountMeta<string> = string,
+  TAccountAdmin extends string | AccountMeta<string> = string,
   TAccountConfig extends string | AccountMeta<string> = string,
-  TAccountUserPerms extends string | AccountMeta<string> = string,
+  TAccountUserPermissions extends string | AccountMeta<string> = string,
+  TAccountUser extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
-  TAccountTargetUser extends string | AccountMeta<string> = string,
-  TAccountCallerPerms extends string | AccountMeta<string> = string,
-  TAccountEventAuthority extends string | AccountMeta<string> =
-    "H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs",
-  TAccountSelfProgram extends string | AccountMeta<string> =
-    "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountCaller extends string
-        ? WritableSignerAccount<TAccountCaller> &
-            AccountSignerMeta<TAccountCaller>
-        : TAccountCaller,
+      TAccountAdmin extends string
+        ? WritableSignerAccount<TAccountAdmin> &
+            AccountSignerMeta<TAccountAdmin>
+        : TAccountAdmin,
       TAccountConfig extends string
         ? ReadonlyAccount<TAccountConfig>
         : TAccountConfig,
-      TAccountUserPerms extends string
-        ? WritableAccount<TAccountUserPerms>
-        : TAccountUserPerms,
+      TAccountUserPermissions extends string
+        ? WritableAccount<TAccountUserPermissions>
+        : TAccountUserPermissions,
+      TAccountUser extends string
+        ? ReadonlyAccount<TAccountUser>
+        : TAccountUser,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
-      TAccountTargetUser extends string
-        ? ReadonlyAccount<TAccountTargetUser>
-        : TAccountTargetUser,
-      TAccountCallerPerms extends string
-        ? ReadonlyAccount<TAccountCallerPerms>
-        : TAccountCallerPerms,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountSelfProgram extends string
-        ? ReadonlyAccount<TAccountSelfProgram>
-        : TAccountSelfProgram,
       ...TRemainingAccounts,
     ]
   >;
 
 export type GrantRoleInstructionData = {
-  discriminator: number;
-  roleId: number;
+  discriminator: ReadonlyUint8Array;
+  role: number;
 };
 
-export type GrantRoleInstructionDataArgs = { roleId: number };
+export type GrantRoleInstructionDataArgs = { role: number };
 
 export function getGrantRoleInstructionDataEncoder(): FixedSizeEncoder<GrantRoleInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["roleId", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["role", getU16Encoder()],
     ]),
     (value) => ({ ...value, discriminator: GRANT_ROLE_DISCRIMINATOR }),
   );
@@ -108,8 +100,8 @@ export function getGrantRoleInstructionDataEncoder(): FixedSizeEncoder<GrantRole
 
 export function getGrantRoleInstructionDataDecoder(): FixedSizeDecoder<GrantRoleInstructionData> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["roleId", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["role", getU16Decoder()],
   ]);
 }
 
@@ -124,67 +116,44 @@ export function getGrantRoleInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type GrantRoleAsyncInput<
-  TAccountCaller extends string = string,
+  TAccountAdmin extends string = string,
   TAccountConfig extends string = string,
-  TAccountUserPerms extends string = string,
+  TAccountUserPermissions extends string = string,
+  TAccountUser extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountTargetUser extends string = string,
-  TAccountCallerPerms extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
 > = {
-  /** Caller (payer if target PDA needs creation) */
-  caller: TransactionSigner<TAccountCaller>;
-  /** PermissionConfig PDA */
-  config: Address<TAccountConfig>;
-  /** Target user's UserPermissions PDA (created if needed) */
-  userPerms?: Address<TAccountUserPerms>;
-  /** System program */
+  admin: TransactionSigner<TAccountAdmin>;
+  config?: Address<TAccountConfig>;
+  userPermissions?: Address<TAccountUserPermissions>;
+  user: Address<TAccountUser>;
   systemProgram?: Address<TAccountSystemProgram>;
-  /** Target user address (for PDA derivation) */
-  targetUser: Address<TAccountTargetUser>;
-  /** Caller's UserPermissions PDA (for role-hierarchy check) */
-  callerPerms?: Address<TAccountCallerPerms>;
-  /** Event authority PDA for CPI event emission */
-  eventAuthority?: Address<TAccountEventAuthority>;
-  /** Permission Manager program (self) for CPI event emission */
-  selfProgram?: Address<TAccountSelfProgram>;
-  roleId: GrantRoleInstructionDataArgs["roleId"];
+  role: GrantRoleInstructionDataArgs["role"];
 };
 
 export async function getGrantRoleInstructionAsync<
-  TAccountCaller extends string,
+  TAccountAdmin extends string,
   TAccountConfig extends string,
-  TAccountUserPerms extends string,
+  TAccountUserPermissions extends string,
+  TAccountUser extends string,
   TAccountSystemProgram extends string,
-  TAccountTargetUser extends string,
-  TAccountCallerPerms extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
   input: GrantRoleAsyncInput<
-    TAccountCaller,
+    TAccountAdmin,
     TAccountConfig,
-    TAccountUserPerms,
-    TAccountSystemProgram,
-    TAccountTargetUser,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountUserPermissions,
+    TAccountUser,
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
   GrantRoleInstruction<
     TProgramAddress,
-    TAccountCaller,
+    TAccountAdmin,
     TAccountConfig,
-    TAccountUserPerms,
-    TAccountSystemProgram,
-    TAccountTargetUser,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountUserPermissions,
+    TAccountUser,
+    TAccountSystemProgram
   >
 > {
   // Program address.
@@ -193,14 +162,11 @@ export async function getGrantRoleInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    caller: { value: input.caller ?? null, isWritable: true },
+    admin: { value: input.admin ?? null, isWritable: true },
     config: { value: input.config ?? null, isWritable: false },
-    userPerms: { value: input.userPerms ?? null, isWritable: true },
+    userPermissions: { value: input.userPermissions ?? null, isWritable: true },
+    user: { value: input.user ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    targetUser: { value: input.targetUser ?? null, isWritable: false },
-    callerPerms: { value: input.callerPerms ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -211,40 +177,28 @@ export async function getGrantRoleInstructionAsync<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.userPerms.value) {
-    accounts.userPerms.value = await findUserPermissionsPda({
-      user: expectAddress(accounts.targetUser.value),
+  if (!accounts.config.value) {
+    accounts.config.value = await findConfigPda();
+  }
+  if (!accounts.userPermissions.value) {
+    accounts.userPermissions.value = await findUserPermissionsPda({
+      user: expectAddress(accounts.user.value),
+      config: expectAddress(accounts.config.value),
     });
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
   }
-  if (!accounts.callerPerms.value) {
-    accounts.callerPerms.value = await findUserPermissionsPda({
-      user: expectAddress(accounts.caller.value),
-    });
-  }
-  if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value =
-      "H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs" as Address<"H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs">;
-  }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc" as Address<"2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc">;
-  }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.caller),
+      getAccountMeta(accounts.admin),
       getAccountMeta(accounts.config),
-      getAccountMeta(accounts.userPerms),
+      getAccountMeta(accounts.userPermissions),
+      getAccountMeta(accounts.user),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.targetUser),
-      getAccountMeta(accounts.callerPerms),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
     ],
     data: getGrantRoleInstructionDataEncoder().encode(
       args as GrantRoleInstructionDataArgs,
@@ -252,78 +206,52 @@ export async function getGrantRoleInstructionAsync<
     programAddress,
   } as GrantRoleInstruction<
     TProgramAddress,
-    TAccountCaller,
+    TAccountAdmin,
     TAccountConfig,
-    TAccountUserPerms,
-    TAccountSystemProgram,
-    TAccountTargetUser,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountUserPermissions,
+    TAccountUser,
+    TAccountSystemProgram
   >);
 }
 
 export type GrantRoleInput<
-  TAccountCaller extends string = string,
+  TAccountAdmin extends string = string,
   TAccountConfig extends string = string,
-  TAccountUserPerms extends string = string,
+  TAccountUserPermissions extends string = string,
+  TAccountUser extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountTargetUser extends string = string,
-  TAccountCallerPerms extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
 > = {
-  /** Caller (payer if target PDA needs creation) */
-  caller: TransactionSigner<TAccountCaller>;
-  /** PermissionConfig PDA */
+  admin: TransactionSigner<TAccountAdmin>;
   config: Address<TAccountConfig>;
-  /** Target user's UserPermissions PDA (created if needed) */
-  userPerms: Address<TAccountUserPerms>;
-  /** System program */
+  userPermissions: Address<TAccountUserPermissions>;
+  user: Address<TAccountUser>;
   systemProgram?: Address<TAccountSystemProgram>;
-  /** Target user address (for PDA derivation) */
-  targetUser: Address<TAccountTargetUser>;
-  /** Caller's UserPermissions PDA (for role-hierarchy check) */
-  callerPerms: Address<TAccountCallerPerms>;
-  /** Event authority PDA for CPI event emission */
-  eventAuthority?: Address<TAccountEventAuthority>;
-  /** Permission Manager program (self) for CPI event emission */
-  selfProgram?: Address<TAccountSelfProgram>;
-  roleId: GrantRoleInstructionDataArgs["roleId"];
+  role: GrantRoleInstructionDataArgs["role"];
 };
 
 export function getGrantRoleInstruction<
-  TAccountCaller extends string,
+  TAccountAdmin extends string,
   TAccountConfig extends string,
-  TAccountUserPerms extends string,
+  TAccountUserPermissions extends string,
+  TAccountUser extends string,
   TAccountSystemProgram extends string,
-  TAccountTargetUser extends string,
-  TAccountCallerPerms extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
   input: GrantRoleInput<
-    TAccountCaller,
+    TAccountAdmin,
     TAccountConfig,
-    TAccountUserPerms,
-    TAccountSystemProgram,
-    TAccountTargetUser,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountUserPermissions,
+    TAccountUser,
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): GrantRoleInstruction<
   TProgramAddress,
-  TAccountCaller,
+  TAccountAdmin,
   TAccountConfig,
-  TAccountUserPerms,
-  TAccountSystemProgram,
-  TAccountTargetUser,
-  TAccountCallerPerms,
-  TAccountEventAuthority,
-  TAccountSelfProgram
+  TAccountUserPermissions,
+  TAccountUser,
+  TAccountSystemProgram
 > {
   // Program address.
   const programAddress =
@@ -331,14 +259,11 @@ export function getGrantRoleInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    caller: { value: input.caller ?? null, isWritable: true },
+    admin: { value: input.admin ?? null, isWritable: true },
     config: { value: input.config ?? null, isWritable: false },
-    userPerms: { value: input.userPerms ?? null, isWritable: true },
+    userPermissions: { value: input.userPermissions ?? null, isWritable: true },
+    user: { value: input.user ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    targetUser: { value: input.targetUser ?? null, isWritable: false },
-    callerPerms: { value: input.callerPerms ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -353,26 +278,15 @@ export function getGrantRoleInstruction<
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
   }
-  if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value =
-      "H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs" as Address<"H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs">;
-  }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc" as Address<"2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc">;
-  }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.caller),
+      getAccountMeta(accounts.admin),
       getAccountMeta(accounts.config),
-      getAccountMeta(accounts.userPerms),
+      getAccountMeta(accounts.userPermissions),
+      getAccountMeta(accounts.user),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.targetUser),
-      getAccountMeta(accounts.callerPerms),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
     ],
     data: getGrantRoleInstructionDataEncoder().encode(
       args as GrantRoleInstructionDataArgs,
@@ -380,14 +294,11 @@ export function getGrantRoleInstruction<
     programAddress,
   } as GrantRoleInstruction<
     TProgramAddress,
-    TAccountCaller,
+    TAccountAdmin,
     TAccountConfig,
-    TAccountUserPerms,
-    TAccountSystemProgram,
-    TAccountTargetUser,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountUserPermissions,
+    TAccountUser,
+    TAccountSystemProgram
   >);
 }
 
@@ -397,22 +308,11 @@ export type ParsedGrantRoleInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Caller (payer if target PDA needs creation) */
-    caller: TAccountMetas[0];
-    /** PermissionConfig PDA */
+    admin: TAccountMetas[0];
     config: TAccountMetas[1];
-    /** Target user's UserPermissions PDA (created if needed) */
-    userPerms: TAccountMetas[2];
-    /** System program */
-    systemProgram: TAccountMetas[3];
-    /** Target user address (for PDA derivation) */
-    targetUser: TAccountMetas[4];
-    /** Caller's UserPermissions PDA (for role-hierarchy check) */
-    callerPerms: TAccountMetas[5];
-    /** Event authority PDA for CPI event emission */
-    eventAuthority: TAccountMetas[6];
-    /** Permission Manager program (self) for CPI event emission */
-    selfProgram: TAccountMetas[7];
+    userPermissions: TAccountMetas[2];
+    user: TAccountMetas[3];
+    systemProgram: TAccountMetas[4];
   };
   data: GrantRoleInstructionData;
 };
@@ -425,7 +325,7 @@ export function parseGrantRoleInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedGrantRoleInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 8) {
+  if (instruction.accounts.length < 5) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -438,14 +338,11 @@ export function parseGrantRoleInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      caller: getNextAccount(),
+      admin: getNextAccount(),
       config: getNextAccount(),
-      userPerms: getNextAccount(),
+      userPermissions: getNextAccount(),
+      user: getNextAccount(),
       systemProgram: getNextAccount(),
-      targetUser: getNextAccount(),
-      callerPerms: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      selfProgram: getNextAccount(),
     },
     data: getGrantRoleInstructionDataDecoder().decode(instruction.data),
   };

@@ -9,46 +9,95 @@
 import {
   assertIsInstructionWithAccounts,
   containsBytes,
-  getU8Encoder,
+  fixEncoderSize,
+  getBytesEncoder,
   type Address,
   type Instruction,
   type InstructionWithData,
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
-  parseCancelRedemptionInstruction,
-  parseExecuteRedemptionInstruction,
-  parseInitializeRedemptionInstruction,
+  parseCancelInstruction,
+  parseCreateVaultInstruction,
+  parseExecuteInstruction,
+  parseInitializeInstruction,
   parseOnRedeemInstruction,
-  parseSetMinimumInstruction,
-  type ParsedCancelRedemptionInstruction,
-  type ParsedExecuteRedemptionInstruction,
-  type ParsedInitializeRedemptionInstruction,
+  type ParsedCancelInstruction,
+  type ParsedCreateVaultInstruction,
+  type ParsedExecuteInstruction,
+  type ParsedInitializeInstruction,
   type ParsedOnRedeemInstruction,
-  type ParsedSetMinimumInstruction,
 } from "../instructions";
 
 export const REDEMPTION_PROGRAM_ADDRESS =
-  "8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX" as Address<"8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX">;
+  "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu" as Address<"F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu">;
 
 export enum RedemptionAccount {
+  PermissionConfig,
   RedemptionConfig,
-  TokenMinimum,
   RedemptionOperation,
+  UserPermissions,
+  VaultAuthority,
 }
 
 export function identifyRedemptionAccount(
   account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): RedemptionAccount {
   const data = "data" in account ? account.data : account;
-  if (containsBytes(data, getU8Encoder().encode(1), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
+      ),
+      0,
+    )
+  ) {
+    return RedemptionAccount.PermissionConfig;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([173, 1, 86, 47, 27, 204, 146, 185]),
+      ),
+      0,
+    )
+  ) {
     return RedemptionAccount.RedemptionConfig;
   }
-  if (containsBytes(data, getU8Encoder().encode(2), 0)) {
-    return RedemptionAccount.TokenMinimum;
-  }
-  if (containsBytes(data, getU8Encoder().encode(4), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([35, 191, 240, 189, 29, 46, 219, 210]),
+      ),
+      0,
+    )
+  ) {
     return RedemptionAccount.RedemptionOperation;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([195, 173, 80, 32, 40, 216, 78, 110]),
+      ),
+      0,
+    )
+  ) {
+    return RedemptionAccount.UserPermissions;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([132, 34, 187, 202, 202, 195, 211, 53]),
+      ),
+      0,
+    )
+  ) {
+    return RedemptionAccount.VaultAuthority;
   }
   throw new Error(
     "The provided account could not be identified as a redemption account.",
@@ -56,10 +105,10 @@ export function identifyRedemptionAccount(
 }
 
 export enum RedemptionInstruction {
-  InitializeRedemption,
-  ExecuteRedemption,
-  CancelRedemption,
-  SetMinimum,
+  Cancel,
+  CreateVault,
+  Execute,
+  Initialize,
   OnRedeem,
 }
 
@@ -67,19 +116,59 @@ export function identifyRedemptionInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): RedemptionInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
-  if (containsBytes(data, getU8Encoder().encode(0), 0)) {
-    return RedemptionInstruction.InitializeRedemption;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([232, 219, 223, 41, 219, 236, 220, 190]),
+      ),
+      0,
+    )
+  ) {
+    return RedemptionInstruction.Cancel;
   }
-  if (containsBytes(data, getU8Encoder().encode(1), 0)) {
-    return RedemptionInstruction.ExecuteRedemption;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([29, 237, 247, 208, 193, 82, 54, 135]),
+      ),
+      0,
+    )
+  ) {
+    return RedemptionInstruction.CreateVault;
   }
-  if (containsBytes(data, getU8Encoder().encode(2), 0)) {
-    return RedemptionInstruction.CancelRedemption;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([130, 221, 242, 154, 13, 193, 189, 29]),
+      ),
+      0,
+    )
+  ) {
+    return RedemptionInstruction.Execute;
   }
-  if (containsBytes(data, getU8Encoder().encode(3), 0)) {
-    return RedemptionInstruction.SetMinimum;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([175, 175, 109, 31, 13, 152, 155, 237]),
+      ),
+      0,
+    )
+  ) {
+    return RedemptionInstruction.Initialize;
   }
-  if (containsBytes(data, getU8Encoder().encode(4), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([223, 206, 53, 237, 249, 236, 62, 45]),
+      ),
+      0,
+    )
+  ) {
     return RedemptionInstruction.OnRedeem;
   }
   throw new Error(
@@ -88,20 +177,20 @@ export function identifyRedemptionInstruction(
 }
 
 export type ParsedRedemptionInstruction<
-  TProgram extends string = "8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX",
+  TProgram extends string = "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu",
 > =
   | ({
-      instructionType: RedemptionInstruction.InitializeRedemption;
-    } & ParsedInitializeRedemptionInstruction<TProgram>)
+      instructionType: RedemptionInstruction.Cancel;
+    } & ParsedCancelInstruction<TProgram>)
   | ({
-      instructionType: RedemptionInstruction.ExecuteRedemption;
-    } & ParsedExecuteRedemptionInstruction<TProgram>)
+      instructionType: RedemptionInstruction.CreateVault;
+    } & ParsedCreateVaultInstruction<TProgram>)
   | ({
-      instructionType: RedemptionInstruction.CancelRedemption;
-    } & ParsedCancelRedemptionInstruction<TProgram>)
+      instructionType: RedemptionInstruction.Execute;
+    } & ParsedExecuteInstruction<TProgram>)
   | ({
-      instructionType: RedemptionInstruction.SetMinimum;
-    } & ParsedSetMinimumInstruction<TProgram>)
+      instructionType: RedemptionInstruction.Initialize;
+    } & ParsedInitializeInstruction<TProgram>)
   | ({
       instructionType: RedemptionInstruction.OnRedeem;
     } & ParsedOnRedeemInstruction<TProgram>);
@@ -111,32 +200,32 @@ export function parseRedemptionInstruction<TProgram extends string>(
 ): ParsedRedemptionInstruction<TProgram> {
   const instructionType = identifyRedemptionInstruction(instruction);
   switch (instructionType) {
-    case RedemptionInstruction.InitializeRedemption: {
+    case RedemptionInstruction.Cancel: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: RedemptionInstruction.InitializeRedemption,
-        ...parseInitializeRedemptionInstruction(instruction),
+        instructionType: RedemptionInstruction.Cancel,
+        ...parseCancelInstruction(instruction),
       };
     }
-    case RedemptionInstruction.ExecuteRedemption: {
+    case RedemptionInstruction.CreateVault: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: RedemptionInstruction.ExecuteRedemption,
-        ...parseExecuteRedemptionInstruction(instruction),
+        instructionType: RedemptionInstruction.CreateVault,
+        ...parseCreateVaultInstruction(instruction),
       };
     }
-    case RedemptionInstruction.CancelRedemption: {
+    case RedemptionInstruction.Execute: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: RedemptionInstruction.CancelRedemption,
-        ...parseCancelRedemptionInstruction(instruction),
+        instructionType: RedemptionInstruction.Execute,
+        ...parseExecuteInstruction(instruction),
       };
     }
-    case RedemptionInstruction.SetMinimum: {
+    case RedemptionInstruction.Initialize: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: RedemptionInstruction.SetMinimum,
-        ...parseSetMinimumInstruction(instruction),
+        instructionType: RedemptionInstruction.Initialize,
+        ...parseInitializeInstruction(instruction),
       };
     }
     case RedemptionInstruction.OnRedeem: {

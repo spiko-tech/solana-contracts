@@ -13,10 +13,15 @@ import {
   decodeAccount,
   fetchEncodedAccount,
   fetchEncodedAccounts,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
   getU8Decoder,
   getU8Encoder,
+  transformEncoder,
   type Account,
   type Address,
   type EncodedAccount,
@@ -27,21 +32,40 @@ import {
   type FixedSizeEncoder,
   type MaybeAccount,
   type MaybeEncodedAccount,
+  type ReadonlyUint8Array,
 } from "@solana/kit";
-import { findMintAuthorityPda, MintAuthoritySeeds } from "../pdas";
 
-export type MintAuthority = { bump: number };
+export const MINT_AUTHORITY_DISCRIMINATOR = new Uint8Array([
+  148, 0, 219, 228, 254, 237, 76, 128,
+]);
 
-export type MintAuthorityArgs = MintAuthority;
+export function getMintAuthorityDiscriminatorBytes() {
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    MINT_AUTHORITY_DISCRIMINATOR,
+  );
+}
+
+export type MintAuthority = { discriminator: ReadonlyUint8Array; bump: number };
+
+export type MintAuthorityArgs = { bump: number };
 
 /** Gets the encoder for {@link MintAuthorityArgs} account data. */
 export function getMintAuthorityEncoder(): FixedSizeEncoder<MintAuthorityArgs> {
-  return getStructEncoder([["bump", getU8Encoder()]]);
+  return transformEncoder(
+    getStructEncoder([
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["bump", getU8Encoder()],
+    ]),
+    (value) => ({ ...value, discriminator: MINT_AUTHORITY_DISCRIMINATOR }),
+  );
 }
 
 /** Gets the decoder for {@link MintAuthority} account data. */
 export function getMintAuthorityDecoder(): FixedSizeDecoder<MintAuthority> {
-  return getStructDecoder([["bump", getU8Decoder()]]);
+  return getStructDecoder([
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["bump", getU8Decoder()],
+  ]);
 }
 
 /** Gets the codec for {@link MintAuthority} account data. */
@@ -109,26 +133,6 @@ export async function fetchAllMaybeMintAuthority(
   return maybeAccounts.map((maybeAccount) => decodeMintAuthority(maybeAccount));
 }
 
-export async function fetchMintAuthorityFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: MintAuthoritySeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<Account<MintAuthority>> {
-  const maybeAccount = await fetchMaybeMintAuthorityFromSeeds(
-    rpc,
-    seeds,
-    config,
-  );
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
-}
-
-export async function fetchMaybeMintAuthorityFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: MintAuthoritySeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<MaybeAccount<MintAuthority>> {
-  const { programAddress, ...fetchConfig } = config;
-  const [address] = await findMintAuthorityPda(seeds, { programAddress });
-  return await fetchMaybeMintAuthority(rpc, address, fetchConfig);
+export function getMintAuthoritySize(): number {
+  return 9;
 }

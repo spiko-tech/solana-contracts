@@ -8,8 +8,8 @@
 
 import {
   getAddressEncoder,
+  getBytesEncoder,
   getProgramDerivedAddress,
-  getUtf8Encoder,
   type Address,
   type ProgramDerivedAddress,
 } from "@solana/kit";
@@ -23,12 +23,17 @@ export async function findWithdrawalDailyLimitPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY" as Address<"4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY">,
+    programAddress = "7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg" as Address<"7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
     seeds: [
-      getUtf8Encoder().encode("withdrawal_limit"),
+      getBytesEncoder().encode(
+        new Uint8Array([
+          119, 105, 116, 104, 100, 114, 97, 119, 97, 108, 95, 108, 105, 109,
+          105, 116,
+        ]),
+      ),
       getAddressEncoder().encode(seeds.mint),
     ],
   });

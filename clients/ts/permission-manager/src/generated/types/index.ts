@@ -6,8 +6,8 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./ownershipTransferredEvent";
-export * from "./ownershipTransferStartedEvent";
-export * from "./permissionManagerInitializedEvent";
-export * from "./roleGrantedEvent";
-export * from "./roleRemovedEvent";
+export * from "./adminTransferAccepted";
+export * from "./adminTransferRequested";
+export * from "./configInitialized";
+export * from "./roleGranted";
+export * from "./roleRevoked";

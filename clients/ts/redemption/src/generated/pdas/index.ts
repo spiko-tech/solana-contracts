@@ -8,4 +8,4 @@
 
 export * from "./redemptionConfig";
 export * from "./redemptionOperation";
-export * from "./tokenMinimum";
+export * from "./vaultAuthority";

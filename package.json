@@ -8,10 +8,13 @@
     "@solana-program/system": "^0.7"
   },
   "devDependencies": {
-    "codama": "^1.5.0",
-    "@codama/renderers-js": "^1.7.0",
     "@codama/nodes-from-anchor": "^1.3.8",
+    "@codama/renderers-js": "^1.7.0",
+    "codama": "^1.5.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "generate-clients": "tsx scripts/generate-ts-clients.ts"
   }
 }
