@@ -8,12 +8,15 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
+  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -38,70 +41,66 @@ import {
   type ResolvedAccount,
 } from "../shared";
 
-export const BURN_FROM_DISCRIMINATOR = 8;
+export const BURN_FROM_DISCRIMINATOR = new Uint8Array([
+  165, 68, 216, 150, 175, 145, 137, 69,
+]);
 
 export function getBurnFromDiscriminatorBytes() {
-  return getU8Encoder().encode(BURN_FROM_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(BURN_FROM_DISCRIMINATOR);
 }
 
 export type BurnFromInstruction<
   TProgram extends string = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
-  TAccountCaller extends string | AccountMeta<string> = string,
-  TAccountConfig extends string | AccountMeta<string> = string,
+  TAccountAdmin extends string | AccountMeta<string> = string,
+  TAccountTokenConfig extends string | AccountMeta<string> = string,
   TAccountMint extends string | AccountMeta<string> = string,
-  TAccountSourceTokenAccount extends string | AccountMeta<string> = string,
+  TAccountSource extends string | AccountMeta<string> = string,
+  TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
   TAccountMintAuthority extends string | AccountMeta<string> = string,
-  TAccountPermConfig extends string | AccountMeta<string> = string,
-  TAccountToken2022Program extends string | AccountMeta<string> =
-    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
-  TAccountEventAuthority extends string | AccountMeta<string> = string,
-  TAccountSelfProgram extends string | AccountMeta<string> =
-    "3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd",
+  TAccountTokenProgram extends string | AccountMeta<string> =
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountCaller extends string
-        ? ReadonlySignerAccount<TAccountCaller> &
-            AccountSignerMeta<TAccountCaller>
-        : TAccountCaller,
-      TAccountConfig extends string
-        ? ReadonlyAccount<TAccountConfig>
-        : TAccountConfig,
+      TAccountAdmin extends string
+        ? ReadonlySignerAccount<TAccountAdmin> &
+            AccountSignerMeta<TAccountAdmin>
+        : TAccountAdmin,
+      TAccountTokenConfig extends string
+        ? ReadonlyAccount<TAccountTokenConfig>
+        : TAccountTokenConfig,
       TAccountMint extends string
         ? WritableAccount<TAccountMint>
         : TAccountMint,
-      TAccountSourceTokenAccount extends string
-        ? WritableAccount<TAccountSourceTokenAccount>
-        : TAccountSourceTokenAccount,
+      TAccountSource extends string
+        ? WritableAccount<TAccountSource>
+        : TAccountSource,
+      TAccountPermissionManagerConfig extends string
+        ? ReadonlyAccount<TAccountPermissionManagerConfig>
+        : TAccountPermissionManagerConfig,
       TAccountMintAuthority extends string
         ? ReadonlyAccount<TAccountMintAuthority>
         : TAccountMintAuthority,
-      TAccountPermConfig extends string
-        ? ReadonlyAccount<TAccountPermConfig>
-        : TAccountPermConfig,
-      TAccountToken2022Program extends string
-        ? ReadonlyAccount<TAccountToken2022Program>
-        : TAccountToken2022Program,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountSelfProgram extends string
-        ? ReadonlyAccount<TAccountSelfProgram>
-        : TAccountSelfProgram,
+      TAccountTokenProgram extends string
+        ? ReadonlyAccount<TAccountTokenProgram>
+        : TAccountTokenProgram,
       ...TRemainingAccounts,
     ]
   >;
 
-export type BurnFromInstructionData = { discriminator: number; amount: bigint };
+export type BurnFromInstructionData = {
+  discriminator: ReadonlyUint8Array;
+  amount: bigint;
+};
 
 export type BurnFromInstructionDataArgs = { amount: number | bigint };
 
 export function getBurnFromInstructionDataEncoder(): FixedSizeEncoder<BurnFromInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["amount", getU64Encoder()],
     ]),
     (value) => ({ ...value, discriminator: BURN_FROM_DISCRIMINATOR }),
@@ -110,7 +109,7 @@ export function getBurnFromInstructionDataEncoder(): FixedSizeEncoder<BurnFromIn
 
 export function getBurnFromInstructionDataDecoder(): FixedSizeDecoder<BurnFromInstructionData> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["amount", getU64Decoder()],
   ]);
 }
@@ -126,73 +125,54 @@ export function getBurnFromInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type BurnFromAsyncInput<
-  TAccountCaller extends string = string,
-  TAccountConfig extends string = string,
+  TAccountAdmin extends string = string,
+  TAccountTokenConfig extends string = string,
   TAccountMint extends string = string,
-  TAccountSourceTokenAccount extends string = string,
+  TAccountSource extends string = string,
+  TAccountPermissionManagerConfig extends string = string,
   TAccountMintAuthority extends string = string,
-  TAccountPermConfig extends string = string,
-  TAccountToken2022Program extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
+  TAccountTokenProgram extends string = string,
 > = {
-  /** Must be admin */
-  caller: TransactionSigner<TAccountCaller>;
-  /** TokenConfig PDA */
-  config: Address<TAccountConfig>;
-  /** Token-2022 Mint */
+  admin: TransactionSigner<TAccountAdmin>;
+  tokenConfig: Address<TAccountTokenConfig>;
   mint: Address<TAccountMint>;
-  /** Any account (admin can burn from anyone via PermanentDelegate) */
-  sourceTokenAccount: Address<TAccountSourceTokenAccount>;
-  /** Mint authority PDA */
+  source: Address<TAccountSource>;
+  permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
   mintAuthority?: Address<TAccountMintAuthority>;
-  /** PermissionConfig PDA (proves admin) */
-  permConfig: Address<TAccountPermConfig>;
-  /** Token-2022 program */
-  token2022Program?: Address<TAccountToken2022Program>;
-  /** Event authority PDA */
-  eventAuthority: Address<TAccountEventAuthority>;
-  /** This program */
-  selfProgram?: Address<TAccountSelfProgram>;
+  tokenProgram?: Address<TAccountTokenProgram>;
   amount: BurnFromInstructionDataArgs["amount"];
 };
 
 export async function getBurnFromInstructionAsync<
-  TAccountCaller extends string,
-  TAccountConfig extends string,
+  TAccountAdmin extends string,
+  TAccountTokenConfig extends string,
   TAccountMint extends string,
-  TAccountSourceTokenAccount extends string,
+  TAccountSource extends string,
+  TAccountPermissionManagerConfig extends string,
   TAccountMintAuthority extends string,
-  TAccountPermConfig extends string,
-  TAccountToken2022Program extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
+  TAccountTokenProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
 >(
   input: BurnFromAsyncInput<
-    TAccountCaller,
-    TAccountConfig,
+    TAccountAdmin,
+    TAccountTokenConfig,
     TAccountMint,
-    TAccountSourceTokenAccount,
+    TAccountSource,
+    TAccountPermissionManagerConfig,
     TAccountMintAuthority,
-    TAccountPermConfig,
-    TAccountToken2022Program,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountTokenProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
   BurnFromInstruction<
     TProgramAddress,
-    TAccountCaller,
-    TAccountConfig,
+    TAccountAdmin,
+    TAccountTokenConfig,
     TAccountMint,
-    TAccountSourceTokenAccount,
+    TAccountSource,
+    TAccountPermissionManagerConfig,
     TAccountMintAuthority,
-    TAccountPermConfig,
-    TAccountToken2022Program,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountTokenProgram
   >
 > {
   // Program address.
@@ -200,21 +180,16 @@ export async function getBurnFromInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    caller: { value: input.caller ?? null, isWritable: false },
-    config: { value: input.config ?? null, isWritable: false },
+    admin: { value: input.admin ?? null, isWritable: false },
+    tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
     mint: { value: input.mint ?? null, isWritable: true },
-    sourceTokenAccount: {
-      value: input.sourceTokenAccount ?? null,
-      isWritable: true,
-    },
-    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
-    permConfig: { value: input.permConfig ?? null, isWritable: false },
-    token2022Program: {
-      value: input.token2022Program ?? null,
+    source: { value: input.source ?? null, isWritable: true },
+    permissionManagerConfig: {
+      value: input.permissionManagerConfig ?? null,
       isWritable: false,
     },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
+    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
+    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -225,32 +200,35 @@ export async function getBurnFromInstructionAsync<
   const args = { ...input };
 
   // Resolve default values.
+  if (!accounts.permissionManagerConfig.value) {
+    accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
+      programAddress:
+        "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">,
+      seeds: [
+        getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
+      ],
+    });
+  }
   if (!accounts.mintAuthority.value) {
     accounts.mintAuthority.value = await findMintAuthorityPda({
       mint: expectAddress(accounts.mint.value),
     });
   }
-  if (!accounts.token2022Program.value) {
-    accounts.token2022Program.value =
-      "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" as Address<"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb">;
-  }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd" as Address<"3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd">;
+  if (!accounts.tokenProgram.value) {
+    accounts.tokenProgram.value =
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.caller),
-      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.admin),
+      getAccountMeta(accounts.tokenConfig),
       getAccountMeta(accounts.mint),
-      getAccountMeta(accounts.sourceTokenAccount),
+      getAccountMeta(accounts.source),
+      getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.mintAuthority),
-      getAccountMeta(accounts.permConfig),
-      getAccountMeta(accounts.token2022Program),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
+      getAccountMeta(accounts.tokenProgram),
     ],
     data: getBurnFromInstructionDataEncoder().encode(
       args as BurnFromInstructionDataArgs,
@@ -258,106 +236,80 @@ export async function getBurnFromInstructionAsync<
     programAddress,
   } as BurnFromInstruction<
     TProgramAddress,
-    TAccountCaller,
-    TAccountConfig,
+    TAccountAdmin,
+    TAccountTokenConfig,
     TAccountMint,
-    TAccountSourceTokenAccount,
+    TAccountSource,
+    TAccountPermissionManagerConfig,
     TAccountMintAuthority,
-    TAccountPermConfig,
-    TAccountToken2022Program,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountTokenProgram
   >);
 }
 
 export type BurnFromInput<
-  TAccountCaller extends string = string,
-  TAccountConfig extends string = string,
+  TAccountAdmin extends string = string,
+  TAccountTokenConfig extends string = string,
   TAccountMint extends string = string,
-  TAccountSourceTokenAccount extends string = string,
+  TAccountSource extends string = string,
+  TAccountPermissionManagerConfig extends string = string,
   TAccountMintAuthority extends string = string,
-  TAccountPermConfig extends string = string,
-  TAccountToken2022Program extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
+  TAccountTokenProgram extends string = string,
 > = {
-  /** Must be admin */
-  caller: TransactionSigner<TAccountCaller>;
-  /** TokenConfig PDA */
-  config: Address<TAccountConfig>;
-  /** Token-2022 Mint */
+  admin: TransactionSigner<TAccountAdmin>;
+  tokenConfig: Address<TAccountTokenConfig>;
   mint: Address<TAccountMint>;
-  /** Any account (admin can burn from anyone via PermanentDelegate) */
-  sourceTokenAccount: Address<TAccountSourceTokenAccount>;
-  /** Mint authority PDA */
+  source: Address<TAccountSource>;
+  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
   mintAuthority: Address<TAccountMintAuthority>;
-  /** PermissionConfig PDA (proves admin) */
-  permConfig: Address<TAccountPermConfig>;
-  /** Token-2022 program */
-  token2022Program?: Address<TAccountToken2022Program>;
-  /** Event authority PDA */
-  eventAuthority: Address<TAccountEventAuthority>;
-  /** This program */
-  selfProgram?: Address<TAccountSelfProgram>;
+  tokenProgram?: Address<TAccountTokenProgram>;
   amount: BurnFromInstructionDataArgs["amount"];
 };
 
 export function getBurnFromInstruction<
-  TAccountCaller extends string,
-  TAccountConfig extends string,
+  TAccountAdmin extends string,
+  TAccountTokenConfig extends string,
   TAccountMint extends string,
-  TAccountSourceTokenAccount extends string,
+  TAccountSource extends string,
+  TAccountPermissionManagerConfig extends string,
   TAccountMintAuthority extends string,
-  TAccountPermConfig extends string,
-  TAccountToken2022Program extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
+  TAccountTokenProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
 >(
   input: BurnFromInput<
-    TAccountCaller,
-    TAccountConfig,
+    TAccountAdmin,
+    TAccountTokenConfig,
     TAccountMint,
-    TAccountSourceTokenAccount,
+    TAccountSource,
+    TAccountPermissionManagerConfig,
     TAccountMintAuthority,
-    TAccountPermConfig,
-    TAccountToken2022Program,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountTokenProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): BurnFromInstruction<
   TProgramAddress,
-  TAccountCaller,
-  TAccountConfig,
+  TAccountAdmin,
+  TAccountTokenConfig,
   TAccountMint,
-  TAccountSourceTokenAccount,
+  TAccountSource,
+  TAccountPermissionManagerConfig,
   TAccountMintAuthority,
-  TAccountPermConfig,
-  TAccountToken2022Program,
-  TAccountEventAuthority,
-  TAccountSelfProgram
+  TAccountTokenProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? SPIKO_TOKEN_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    caller: { value: input.caller ?? null, isWritable: false },
-    config: { value: input.config ?? null, isWritable: false },
+    admin: { value: input.admin ?? null, isWritable: false },
+    tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
     mint: { value: input.mint ?? null, isWritable: true },
-    sourceTokenAccount: {
-      value: input.sourceTokenAccount ?? null,
-      isWritable: true,
-    },
-    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
-    permConfig: { value: input.permConfig ?? null, isWritable: false },
-    token2022Program: {
-      value: input.token2022Program ?? null,
+    source: { value: input.source ?? null, isWritable: true },
+    permissionManagerConfig: {
+      value: input.permissionManagerConfig ?? null,
       isWritable: false,
     },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
+    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
+    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -368,27 +320,21 @@ export function getBurnFromInstruction<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.token2022Program.value) {
-    accounts.token2022Program.value =
-      "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" as Address<"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb">;
-  }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd" as Address<"3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd">;
+  if (!accounts.tokenProgram.value) {
+    accounts.tokenProgram.value =
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.caller),
-      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.admin),
+      getAccountMeta(accounts.tokenConfig),
       getAccountMeta(accounts.mint),
-      getAccountMeta(accounts.sourceTokenAccount),
+      getAccountMeta(accounts.source),
+      getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.mintAuthority),
-      getAccountMeta(accounts.permConfig),
-      getAccountMeta(accounts.token2022Program),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
+      getAccountMeta(accounts.tokenProgram),
     ],
     data: getBurnFromInstructionDataEncoder().encode(
       args as BurnFromInstructionDataArgs,
@@ -396,15 +342,13 @@ export function getBurnFromInstruction<
     programAddress,
   } as BurnFromInstruction<
     TProgramAddress,
-    TAccountCaller,
-    TAccountConfig,
+    TAccountAdmin,
+    TAccountTokenConfig,
     TAccountMint,
-    TAccountSourceTokenAccount,
+    TAccountSource,
+    TAccountPermissionManagerConfig,
     TAccountMintAuthority,
-    TAccountPermConfig,
-    TAccountToken2022Program,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountTokenProgram
   >);
 }
 
@@ -414,24 +358,13 @@ export type ParsedBurnFromInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Must be admin */
-    caller: TAccountMetas[0];
-    /** TokenConfig PDA */
-    config: TAccountMetas[1];
-    /** Token-2022 Mint */
+    admin: TAccountMetas[0];
+    tokenConfig: TAccountMetas[1];
     mint: TAccountMetas[2];
-    /** Any account (admin can burn from anyone via PermanentDelegate) */
-    sourceTokenAccount: TAccountMetas[3];
-    /** Mint authority PDA */
-    mintAuthority: TAccountMetas[4];
-    /** PermissionConfig PDA (proves admin) */
-    permConfig: TAccountMetas[5];
-    /** Token-2022 program */
-    token2022Program: TAccountMetas[6];
-    /** Event authority PDA */
-    eventAuthority: TAccountMetas[7];
-    /** This program */
-    selfProgram: TAccountMetas[8];
+    source: TAccountMetas[3];
+    permissionManagerConfig: TAccountMetas[4];
+    mintAuthority: TAccountMetas[5];
+    tokenProgram: TAccountMetas[6];
   };
   data: BurnFromInstructionData;
 };
@@ -444,7 +377,7 @@ export function parseBurnFromInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedBurnFromInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 9) {
+  if (instruction.accounts.length < 7) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -457,15 +390,13 @@ export function parseBurnFromInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      caller: getNextAccount(),
-      config: getNextAccount(),
+      admin: getNextAccount(),
+      tokenConfig: getNextAccount(),
       mint: getNextAccount(),
-      sourceTokenAccount: getNextAccount(),
+      source: getNextAccount(),
+      permissionManagerConfig: getNextAccount(),
       mintAuthority: getNextAccount(),
-      permConfig: getNextAccount(),
-      token2022Program: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      selfProgram: getNextAccount(),
+      tokenProgram: getNextAccount(),
     },
     data: getBurnFromInstructionDataDecoder().decode(instruction.data),
   };

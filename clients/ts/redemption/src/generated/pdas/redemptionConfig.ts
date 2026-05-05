@@ -7,8 +7,8 @@
  */
 
 import {
+  getBytesEncoder,
   getProgramDerivedAddress,
-  getUtf8Encoder,
   type Address,
   type ProgramDerivedAddress,
 } from "@solana/kit";
@@ -17,10 +17,17 @@ export async function findRedemptionConfigPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX" as Address<"8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX">,
+    programAddress = "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu" as Address<"F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
-    seeds: [getUtf8Encoder().encode("redemption_config")],
+    seeds: [
+      getBytesEncoder().encode(
+        new Uint8Array([
+          114, 101, 100, 101, 109, 112, 116, 105, 111, 110, 95, 99, 111, 110,
+          102, 105, 103,
+        ]),
+      ),
+    ],
   });
 }

@@ -1,20 +1,15 @@
 pub mod burn;
 pub mod burn_from;
-pub mod definition;
 pub mod initialize;
 pub mod mint;
 pub mod pause;
 pub mod redeem;
-pub mod set_redemption_contract;
-pub mod transfer;
 pub mod unpause;
 
-pub use burn::BurnToken;
-pub use burn_from::BurnFrom;
-pub use initialize::InitializeToken;
-pub use mint::MintToken;
-pub use pause::Pause;
-pub use redeem::RedeemToken;
-pub use set_redemption_contract::SetRedemptionContract;
-pub use transfer::TransferToken;
-pub use unpause::Unpause;
+pub use burn::*;
+pub use burn_from::*;
+pub use initialize::*;
+pub use mint::*;
+pub use pause::*;
+pub use redeem::*;
+pub use unpause::*;

@@ -8,7 +8,6 @@
 
 export * from "./approveMint";
 export * from "./cancelMint";
-export * from "./initializeMinter";
+export * from "./initialize";
 export * from "./initiateMint";
 export * from "./setDailyLimit";
-export * from "./setMaxDelay";

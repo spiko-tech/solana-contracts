@@ -9,7 +9,8 @@
 import {
   assertIsInstructionWithAccounts,
   containsBytes,
-  getU8Encoder,
+  fixEncoderSize,
+  getBytesEncoder,
   type Address,
   type Instruction,
   type InstructionWithData,
@@ -17,39 +18,78 @@ import {
 } from "@solana/kit";
 import {
   parseBurnFromInstruction,
-  parseBurnTokenInstruction,
-  parseInitializeTokenInstruction,
-  parseMintTokenInstruction,
+  parseBurnInstruction,
+  parseInitializeInstruction,
+  parseMintInstruction,
   parsePauseInstruction,
-  parseRedeemTokenInstruction,
-  parseSetRedemptionContractInstruction,
-  parseTransferTokenInstruction,
+  parseRedeemInstruction,
   parseUnpauseInstruction,
   type ParsedBurnFromInstruction,
-  type ParsedBurnTokenInstruction,
-  type ParsedInitializeTokenInstruction,
-  type ParsedMintTokenInstruction,
+  type ParsedBurnInstruction,
+  type ParsedInitializeInstruction,
+  type ParsedMintInstruction,
   type ParsedPauseInstruction,
-  type ParsedRedeemTokenInstruction,
-  type ParsedSetRedemptionContractInstruction,
-  type ParsedTransferTokenInstruction,
+  type ParsedRedeemInstruction,
   type ParsedUnpauseInstruction,
 } from "../instructions";
 
 export const SPIKO_TOKEN_PROGRAM_ADDRESS =
-  "3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd" as Address<"3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd">;
+  "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ" as Address<"6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ">;
 
 export enum SpikoTokenAccount {
-  TokenConfig,
   MintAuthority,
+  PermissionConfig,
+  TokenConfig,
+  UserPermissions,
 }
 
 export function identifySpikoTokenAccount(
   account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): SpikoTokenAccount {
   const data = "data" in account ? account.data : account;
-  if (containsBytes(data, getU8Encoder().encode(1), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([148, 0, 219, 228, 254, 237, 76, 128]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTokenAccount.MintAuthority;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTokenAccount.PermissionConfig;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([92, 73, 255, 43, 107, 51, 117, 101]),
+      ),
+      0,
+    )
+  ) {
     return SpikoTokenAccount.TokenConfig;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([195, 173, 80, 32, 40, 216, 78, 110]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTokenAccount.UserPermissions;
   }
   throw new Error(
     "The provided account could not be identified as a spikoToken account.",
@@ -57,47 +97,95 @@ export function identifySpikoTokenAccount(
 }
 
 export enum SpikoTokenInstruction {
-  InitializeToken,
-  MintToken,
-  BurnToken,
-  TransferToken,
-  Pause,
-  Unpause,
-  RedeemToken,
-  SetRedemptionContract,
+  Burn,
   BurnFrom,
+  Initialize,
+  Mint,
+  Pause,
+  Redeem,
+  Unpause,
 }
 
 export function identifySpikoTokenInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): SpikoTokenInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
-  if (containsBytes(data, getU8Encoder().encode(0), 0)) {
-    return SpikoTokenInstruction.InitializeToken;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([116, 110, 29, 56, 107, 219, 42, 93]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTokenInstruction.Burn;
   }
-  if (containsBytes(data, getU8Encoder().encode(1), 0)) {
-    return SpikoTokenInstruction.MintToken;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([165, 68, 216, 150, 175, 145, 137, 69]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTokenInstruction.BurnFrom;
   }
-  if (containsBytes(data, getU8Encoder().encode(2), 0)) {
-    return SpikoTokenInstruction.BurnToken;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([175, 175, 109, 31, 13, 152, 155, 237]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTokenInstruction.Initialize;
   }
-  if (containsBytes(data, getU8Encoder().encode(3), 0)) {
-    return SpikoTokenInstruction.TransferToken;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([51, 57, 225, 47, 182, 146, 137, 166]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTokenInstruction.Mint;
   }
-  if (containsBytes(data, getU8Encoder().encode(4), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([211, 22, 221, 251, 74, 121, 193, 47]),
+      ),
+      0,
+    )
+  ) {
     return SpikoTokenInstruction.Pause;
   }
-  if (containsBytes(data, getU8Encoder().encode(5), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([184, 12, 86, 149, 70, 196, 97, 225]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTokenInstruction.Redeem;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([169, 144, 4, 38, 10, 141, 188, 255]),
+      ),
+      0,
+    )
+  ) {
     return SpikoTokenInstruction.Unpause;
-  }
-  if (containsBytes(data, getU8Encoder().encode(6), 0)) {
-    return SpikoTokenInstruction.RedeemToken;
-  }
-  if (containsBytes(data, getU8Encoder().encode(7), 0)) {
-    return SpikoTokenInstruction.SetRedemptionContract;
-  }
-  if (containsBytes(data, getU8Encoder().encode(8), 0)) {
-    return SpikoTokenInstruction.BurnFrom;
   }
   throw new Error(
     "The provided instruction could not be identified as a spikoToken instruction.",
@@ -105,67 +193,61 @@ export function identifySpikoTokenInstruction(
 }
 
 export type ParsedSpikoTokenInstruction<
-  TProgram extends string = "3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd",
+  TProgram extends string = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ",
 > =
   | ({
-      instructionType: SpikoTokenInstruction.InitializeToken;
-    } & ParsedInitializeTokenInstruction<TProgram>)
+      instructionType: SpikoTokenInstruction.Burn;
+    } & ParsedBurnInstruction<TProgram>)
   | ({
-      instructionType: SpikoTokenInstruction.MintToken;
-    } & ParsedMintTokenInstruction<TProgram>)
+      instructionType: SpikoTokenInstruction.BurnFrom;
+    } & ParsedBurnFromInstruction<TProgram>)
   | ({
-      instructionType: SpikoTokenInstruction.BurnToken;
-    } & ParsedBurnTokenInstruction<TProgram>)
+      instructionType: SpikoTokenInstruction.Initialize;
+    } & ParsedInitializeInstruction<TProgram>)
   | ({
-      instructionType: SpikoTokenInstruction.TransferToken;
-    } & ParsedTransferTokenInstruction<TProgram>)
+      instructionType: SpikoTokenInstruction.Mint;
+    } & ParsedMintInstruction<TProgram>)
   | ({
       instructionType: SpikoTokenInstruction.Pause;
     } & ParsedPauseInstruction<TProgram>)
   | ({
+      instructionType: SpikoTokenInstruction.Redeem;
+    } & ParsedRedeemInstruction<TProgram>)
+  | ({
       instructionType: SpikoTokenInstruction.Unpause;
-    } & ParsedUnpauseInstruction<TProgram>)
-  | ({
-      instructionType: SpikoTokenInstruction.RedeemToken;
-    } & ParsedRedeemTokenInstruction<TProgram>)
-  | ({
-      instructionType: SpikoTokenInstruction.SetRedemptionContract;
-    } & ParsedSetRedemptionContractInstruction<TProgram>)
-  | ({
-      instructionType: SpikoTokenInstruction.BurnFrom;
-    } & ParsedBurnFromInstruction<TProgram>);
+    } & ParsedUnpauseInstruction<TProgram>);
 
 export function parseSpikoTokenInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
 ): ParsedSpikoTokenInstruction<TProgram> {
   const instructionType = identifySpikoTokenInstruction(instruction);
   switch (instructionType) {
-    case SpikoTokenInstruction.InitializeToken: {
+    case SpikoTokenInstruction.Burn: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: SpikoTokenInstruction.InitializeToken,
-        ...parseInitializeTokenInstruction(instruction),
+        instructionType: SpikoTokenInstruction.Burn,
+        ...parseBurnInstruction(instruction),
       };
     }
-    case SpikoTokenInstruction.MintToken: {
+    case SpikoTokenInstruction.BurnFrom: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: SpikoTokenInstruction.MintToken,
-        ...parseMintTokenInstruction(instruction),
+        instructionType: SpikoTokenInstruction.BurnFrom,
+        ...parseBurnFromInstruction(instruction),
       };
     }
-    case SpikoTokenInstruction.BurnToken: {
+    case SpikoTokenInstruction.Initialize: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: SpikoTokenInstruction.BurnToken,
-        ...parseBurnTokenInstruction(instruction),
+        instructionType: SpikoTokenInstruction.Initialize,
+        ...parseInitializeInstruction(instruction),
       };
     }
-    case SpikoTokenInstruction.TransferToken: {
+    case SpikoTokenInstruction.Mint: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: SpikoTokenInstruction.TransferToken,
-        ...parseTransferTokenInstruction(instruction),
+        instructionType: SpikoTokenInstruction.Mint,
+        ...parseMintInstruction(instruction),
       };
     }
     case SpikoTokenInstruction.Pause: {
@@ -175,32 +257,18 @@ export function parseSpikoTokenInstruction<TProgram extends string>(
         ...parsePauseInstruction(instruction),
       };
     }
+    case SpikoTokenInstruction.Redeem: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: SpikoTokenInstruction.Redeem,
+        ...parseRedeemInstruction(instruction),
+      };
+    }
     case SpikoTokenInstruction.Unpause: {
       assertIsInstructionWithAccounts(instruction);
       return {
         instructionType: SpikoTokenInstruction.Unpause,
         ...parseUnpauseInstruction(instruction),
-      };
-    }
-    case SpikoTokenInstruction.RedeemToken: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: SpikoTokenInstruction.RedeemToken,
-        ...parseRedeemTokenInstruction(instruction),
-      };
-    }
-    case SpikoTokenInstruction.SetRedemptionContract: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: SpikoTokenInstruction.SetRedemptionContract,
-        ...parseSetRedemptionContractInstruction(instruction),
-      };
-    }
-    case SpikoTokenInstruction.BurnFrom: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: SpikoTokenInstruction.BurnFrom,
-        ...parseBurnFromInstruction(instruction),
       };
     }
     default:

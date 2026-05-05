@@ -13,12 +13,16 @@ import {
   decodeAccount,
   fetchEncodedAccount,
   fetchEncodedAccounts,
+  fixDecoderSize,
+  fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
+  getBooleanDecoder,
+  getBooleanEncoder,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -30,69 +34,52 @@ import {
   type FixedSizeEncoder,
   type MaybeAccount,
   type MaybeEncodedAccount,
+  type ReadonlyUint8Array,
 } from "@solana/kit";
-import { findTokenConfigPda, TokenConfigSeeds } from "../pdas";
 
-export const TOKEN_CONFIG_DISCRIMINATOR = 1;
+export const TOKEN_CONFIG_DISCRIMINATOR = new Uint8Array([
+  92, 73, 255, 43, 107, 51, 117, 101,
+]);
 
 export function getTokenConfigDiscriminatorBytes() {
-  return getU8Encoder().encode(TOKEN_CONFIG_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    TOKEN_CONFIG_DISCRIMINATOR,
+  );
 }
 
 export type TokenConfig = {
-  discriminator: number;
-  version: number;
-  bump: number;
-  paused: number;
-  mintAuthorityBump: number;
+  discriminator: ReadonlyUint8Array;
+  paused: boolean;
   permissionManager: Address;
-  splMint: Address;
-  redemptionContract: Address;
+  mint: Address;
 };
 
 export type TokenConfigArgs = {
-  discriminator?: number;
-  version?: number;
-  bump: number;
-  paused: number;
-  mintAuthorityBump: number;
+  paused: boolean;
   permissionManager: Address;
-  splMint: Address;
-  redemptionContract: Address;
+  mint: Address;
 };
 
 /** Gets the encoder for {@link TokenConfigArgs} account data. */
 export function getTokenConfigEncoder(): FixedSizeEncoder<TokenConfigArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["version", getU8Encoder()],
-      ["bump", getU8Encoder()],
-      ["paused", getU8Encoder()],
-      ["mintAuthorityBump", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["paused", getBooleanEncoder()],
       ["permissionManager", getAddressEncoder()],
-      ["splMint", getAddressEncoder()],
-      ["redemptionContract", getAddressEncoder()],
+      ["mint", getAddressEncoder()],
     ]),
-    (value) => ({
-      ...value,
-      discriminator: value.discriminator ?? TOKEN_CONFIG_DISCRIMINATOR,
-      version: value.version ?? 1,
-    }),
+    (value) => ({ ...value, discriminator: TOKEN_CONFIG_DISCRIMINATOR }),
   );
 }
 
 /** Gets the decoder for {@link TokenConfig} account data. */
 export function getTokenConfigDecoder(): FixedSizeDecoder<TokenConfig> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["version", getU8Decoder()],
-    ["bump", getU8Decoder()],
-    ["paused", getU8Decoder()],
-    ["mintAuthorityBump", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["paused", getBooleanDecoder()],
     ["permissionManager", getAddressDecoder()],
-    ["splMint", getAddressDecoder()],
-    ["redemptionContract", getAddressDecoder()],
+    ["mint", getAddressDecoder()],
   ]);
 }
 
@@ -157,22 +144,6 @@ export async function fetchAllMaybeTokenConfig(
   return maybeAccounts.map((maybeAccount) => decodeTokenConfig(maybeAccount));
 }
 
-export async function fetchTokenConfigFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: TokenConfigSeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<Account<TokenConfig>> {
-  const maybeAccount = await fetchMaybeTokenConfigFromSeeds(rpc, seeds, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
-}
-
-export async function fetchMaybeTokenConfigFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: TokenConfigSeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<MaybeAccount<TokenConfig>> {
-  const { programAddress, ...fetchConfig } = config;
-  const [address] = await findTokenConfigPda(seeds, { programAddress });
-  return await fetchMaybeTokenConfig(rpc, address, fetchConfig);
+export function getTokenConfigSize(): number {
+  return 73;
 }

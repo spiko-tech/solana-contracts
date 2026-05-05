@@ -9,30 +9,117 @@
 import {
   assertIsInstructionWithAccounts,
   containsBytes,
-  getU8Encoder,
+  fixEncoderSize,
+  getBytesEncoder,
   type Address,
   type Instruction,
   type InstructionWithData,
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
-  parseInitExtraAccountMetasInstruction,
-  type ParsedInitExtraAccountMetasInstruction,
+  parseExecuteInstruction,
+  parseInitializeInstruction,
+  parsePauseHookInstruction,
+  parseUnpauseHookInstruction,
+  type ParsedExecuteInstruction,
+  type ParsedInitializeInstruction,
+  type ParsedPauseHookInstruction,
+  type ParsedUnpauseHookInstruction,
 } from "../instructions";
 
 export const SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS =
-  "CKV53PkgjvoTmfpzdkbuQc9fMukqu7Qey7kLoSiTwYmY" as Address<"CKV53PkgjvoTmfpzdkbuQc9fMukqu7Qey7kLoSiTwYmY">;
+  "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">;
+
+export enum SpikoTransferHookAccount {
+  HookConfig,
+  PermissionConfig,
+}
+
+export function identifySpikoTransferHookAccount(
+  account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
+): SpikoTransferHookAccount {
+  const data = "data" in account ? account.data : account;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([137, 155, 101, 95, 138, 72, 8, 182]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTransferHookAccount.HookConfig;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTransferHookAccount.PermissionConfig;
+  }
+  throw new Error(
+    "The provided account could not be identified as a spikoTransferHook account.",
+  );
+}
 
 export enum SpikoTransferHookInstruction {
-  InitExtraAccountMetas,
+  Execute,
+  Initialize,
+  PauseHook,
+  UnpauseHook,
 }
 
 export function identifySpikoTransferHookInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): SpikoTransferHookInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
-  if (containsBytes(data, getU8Encoder().encode(0), 0)) {
-    return SpikoTransferHookInstruction.InitExtraAccountMetas;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([130, 221, 242, 154, 13, 193, 189, 29]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTransferHookInstruction.Execute;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([175, 175, 109, 31, 13, 152, 155, 237]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTransferHookInstruction.Initialize;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([58, 153, 195, 229, 188, 32, 230, 199]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTransferHookInstruction.PauseHook;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([7, 217, 254, 136, 32, 179, 7, 226]),
+      ),
+      0,
+    )
+  ) {
+    return SpikoTransferHookInstruction.UnpauseHook;
   }
   throw new Error(
     "The provided instruction could not be identified as a spikoTransferHook instruction.",
@@ -40,21 +127,52 @@ export function identifySpikoTransferHookInstruction(
 }
 
 export type ParsedSpikoTransferHookInstruction<
-  TProgram extends string = "CKV53PkgjvoTmfpzdkbuQc9fMukqu7Qey7kLoSiTwYmY",
-> = {
-  instructionType: SpikoTransferHookInstruction.InitExtraAccountMetas;
-} & ParsedInitExtraAccountMetasInstruction<TProgram>;
+  TProgram extends string = "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86",
+> =
+  | ({
+      instructionType: SpikoTransferHookInstruction.Execute;
+    } & ParsedExecuteInstruction<TProgram>)
+  | ({
+      instructionType: SpikoTransferHookInstruction.Initialize;
+    } & ParsedInitializeInstruction<TProgram>)
+  | ({
+      instructionType: SpikoTransferHookInstruction.PauseHook;
+    } & ParsedPauseHookInstruction<TProgram>)
+  | ({
+      instructionType: SpikoTransferHookInstruction.UnpauseHook;
+    } & ParsedUnpauseHookInstruction<TProgram>);
 
 export function parseSpikoTransferHookInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
 ): ParsedSpikoTransferHookInstruction<TProgram> {
   const instructionType = identifySpikoTransferHookInstruction(instruction);
   switch (instructionType) {
-    case SpikoTransferHookInstruction.InitExtraAccountMetas: {
+    case SpikoTransferHookInstruction.Execute: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: SpikoTransferHookInstruction.InitExtraAccountMetas,
-        ...parseInitExtraAccountMetasInstruction(instruction),
+        instructionType: SpikoTransferHookInstruction.Execute,
+        ...parseExecuteInstruction(instruction),
+      };
+    }
+    case SpikoTransferHookInstruction.Initialize: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: SpikoTransferHookInstruction.Initialize,
+        ...parseInitializeInstruction(instruction),
+      };
+    }
+    case SpikoTransferHookInstruction.PauseHook: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: SpikoTransferHookInstruction.PauseHook,
+        ...parsePauseHookInstruction(instruction),
+      };
+    }
+    case SpikoTransferHookInstruction.UnpauseHook: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: SpikoTransferHookInstruction.UnpauseHook,
+        ...parseUnpauseHookInstruction(instruction),
       };
     }
     default:

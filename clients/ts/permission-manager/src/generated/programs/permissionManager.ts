@@ -9,27 +9,30 @@
 import {
   assertIsInstructionWithAccounts,
   containsBytes,
-  getU8Encoder,
+  fixEncoderSize,
+  getBytesEncoder,
   type Address,
   type Instruction,
   type InstructionWithData,
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
-  parseAcceptOwnershipInstruction,
+  parseAcceptAdminInstruction,
   parseGrantRoleInstruction,
+  parseGrantRoleWhitelisterInstruction,
   parseInitializeInstruction,
   parseRevokeRoleInstruction,
-  parseTransferOwnershipInstruction,
-  type ParsedAcceptOwnershipInstruction,
+  parseTransferAdminInstruction,
+  type ParsedAcceptAdminInstruction,
   type ParsedGrantRoleInstruction,
+  type ParsedGrantRoleWhitelisterInstruction,
   type ParsedInitializeInstruction,
   type ParsedRevokeRoleInstruction,
-  type ParsedTransferOwnershipInstruction,
+  type ParsedTransferAdminInstruction,
 } from "../instructions";
 
 export const PERMISSION_MANAGER_PROGRAM_ADDRESS =
-  "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc" as Address<"2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc">;
+  "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">;
 
 export enum PermissionManagerAccount {
   PermissionConfig,
@@ -40,10 +43,26 @@ export function identifyPermissionManagerAccount(
   account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): PermissionManagerAccount {
   const data = "data" in account ? account.data : account;
-  if (containsBytes(data, getU8Encoder().encode(1), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
+      ),
+      0,
+    )
+  ) {
     return PermissionManagerAccount.PermissionConfig;
   }
-  if (containsBytes(data, getU8Encoder().encode(2), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([195, 173, 80, 32, 40, 216, 78, 110]),
+      ),
+      0,
+    )
+  ) {
     return PermissionManagerAccount.UserPermissions;
   }
   throw new Error(
@@ -52,31 +71,83 @@ export function identifyPermissionManagerAccount(
 }
 
 export enum PermissionManagerInstruction {
-  Initialize,
+  AcceptAdmin,
   GrantRole,
+  GrantRoleWhitelister,
+  Initialize,
   RevokeRole,
-  TransferOwnership,
-  AcceptOwnership,
+  TransferAdmin,
 }
 
 export function identifyPermissionManagerInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): PermissionManagerInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
-  if (containsBytes(data, getU8Encoder().encode(0), 0)) {
-    return PermissionManagerInstruction.Initialize;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([112, 42, 45, 90, 116, 181, 13, 170]),
+      ),
+      0,
+    )
+  ) {
+    return PermissionManagerInstruction.AcceptAdmin;
   }
-  if (containsBytes(data, getU8Encoder().encode(1), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([218, 234, 128, 15, 82, 33, 236, 253]),
+      ),
+      0,
+    )
+  ) {
     return PermissionManagerInstruction.GrantRole;
   }
-  if (containsBytes(data, getU8Encoder().encode(2), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([198, 186, 238, 102, 15, 21, 137, 29]),
+      ),
+      0,
+    )
+  ) {
+    return PermissionManagerInstruction.GrantRoleWhitelister;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([175, 175, 109, 31, 13, 152, 155, 237]),
+      ),
+      0,
+    )
+  ) {
+    return PermissionManagerInstruction.Initialize;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([179, 232, 2, 180, 48, 227, 82, 7]),
+      ),
+      0,
+    )
+  ) {
     return PermissionManagerInstruction.RevokeRole;
   }
-  if (containsBytes(data, getU8Encoder().encode(3), 0)) {
-    return PermissionManagerInstruction.TransferOwnership;
-  }
-  if (containsBytes(data, getU8Encoder().encode(4), 0)) {
-    return PermissionManagerInstruction.AcceptOwnership;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([42, 242, 66, 106, 228, 10, 111, 156]),
+      ),
+      0,
+    )
+  ) {
+    return PermissionManagerInstruction.TransferAdmin;
   }
   throw new Error(
     "The provided instruction could not be identified as a permissionManager instruction.",
@@ -84,34 +155,37 @@ export function identifyPermissionManagerInstruction(
 }
 
 export type ParsedPermissionManagerInstruction<
-  TProgram extends string = "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc",
+  TProgram extends string = "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE",
 > =
   | ({
-      instructionType: PermissionManagerInstruction.Initialize;
-    } & ParsedInitializeInstruction<TProgram>)
+      instructionType: PermissionManagerInstruction.AcceptAdmin;
+    } & ParsedAcceptAdminInstruction<TProgram>)
   | ({
       instructionType: PermissionManagerInstruction.GrantRole;
     } & ParsedGrantRoleInstruction<TProgram>)
   | ({
+      instructionType: PermissionManagerInstruction.GrantRoleWhitelister;
+    } & ParsedGrantRoleWhitelisterInstruction<TProgram>)
+  | ({
+      instructionType: PermissionManagerInstruction.Initialize;
+    } & ParsedInitializeInstruction<TProgram>)
+  | ({
       instructionType: PermissionManagerInstruction.RevokeRole;
     } & ParsedRevokeRoleInstruction<TProgram>)
   | ({
-      instructionType: PermissionManagerInstruction.TransferOwnership;
-    } & ParsedTransferOwnershipInstruction<TProgram>)
-  | ({
-      instructionType: PermissionManagerInstruction.AcceptOwnership;
-    } & ParsedAcceptOwnershipInstruction<TProgram>);
+      instructionType: PermissionManagerInstruction.TransferAdmin;
+    } & ParsedTransferAdminInstruction<TProgram>);
 
 export function parsePermissionManagerInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
 ): ParsedPermissionManagerInstruction<TProgram> {
   const instructionType = identifyPermissionManagerInstruction(instruction);
   switch (instructionType) {
-    case PermissionManagerInstruction.Initialize: {
+    case PermissionManagerInstruction.AcceptAdmin: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: PermissionManagerInstruction.Initialize,
-        ...parseInitializeInstruction(instruction),
+        instructionType: PermissionManagerInstruction.AcceptAdmin,
+        ...parseAcceptAdminInstruction(instruction),
       };
     }
     case PermissionManagerInstruction.GrantRole: {
@@ -121,6 +195,20 @@ export function parsePermissionManagerInstruction<TProgram extends string>(
         ...parseGrantRoleInstruction(instruction),
       };
     }
+    case PermissionManagerInstruction.GrantRoleWhitelister: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PermissionManagerInstruction.GrantRoleWhitelister,
+        ...parseGrantRoleWhitelisterInstruction(instruction),
+      };
+    }
+    case PermissionManagerInstruction.Initialize: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: PermissionManagerInstruction.Initialize,
+        ...parseInitializeInstruction(instruction),
+      };
+    }
     case PermissionManagerInstruction.RevokeRole: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -128,18 +216,11 @@ export function parsePermissionManagerInstruction<TProgram extends string>(
         ...parseRevokeRoleInstruction(instruction),
       };
     }
-    case PermissionManagerInstruction.TransferOwnership: {
+    case PermissionManagerInstruction.TransferAdmin: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: PermissionManagerInstruction.TransferOwnership,
-        ...parseTransferOwnershipInstruction(instruction),
-      };
-    }
-    case PermissionManagerInstruction.AcceptOwnership: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: PermissionManagerInstruction.AcceptOwnership,
-        ...parseAcceptOwnershipInstruction(instruction),
+        instructionType: PermissionManagerInstruction.TransferAdmin,
+        ...parseTransferAdminInstruction(instruction),
       };
     }
     default:

@@ -1,0 +1,25 @@
+[toolchain]
+anchor_version = "0.31.1"
+solana_version = "2.1.0"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+permission_manager = "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE"
+spiko_token = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ"
+spiko_transfer_hook = "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86"
+redemption = "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu"
+minter = "13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ"
+custodial_gatekeeper = "7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "Localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "echo 'No tests configured yet'"

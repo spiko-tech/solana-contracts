@@ -6,8 +6,8 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./redemptionCanceledEvent";
-export * from "./redemptionExecutedEvent";
-export * from "./redemptionInitializedEvent";
-export * from "./redemptionInitiatedEvent";
-export * from "./tokenMinimumUpdatedEvent";
+export * from "./redemptionCanceled";
+export * from "./redemptionExecuted";
+export * from "./redemptionInitialized";
+export * from "./redemptionInitiated";
+export * from "./vaultCreated";

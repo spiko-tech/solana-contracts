@@ -6,10 +6,9 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./dailyLimitUpdatedEvent";
-export * from "./maxDelayUpdatedEvent";
-export * from "./mintApprovedEvent";
-export * from "./mintBlockedEvent";
-export * from "./mintCanceledEvent";
-export * from "./minterInitializedEvent";
-export * from "./mintInitiatedEvent";
+export * from "./dailyLimitUpdated";
+export * from "./mintApproved";
+export * from "./mintBlocked";
+export * from "./mintCanceled";
+export * from "./minterInitialized";
+export * from "./mintInitiated";

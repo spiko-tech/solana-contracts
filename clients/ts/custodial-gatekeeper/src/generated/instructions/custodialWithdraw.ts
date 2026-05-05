@@ -8,14 +8,16 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -32,43 +34,56 @@ import {
   type WritableAccount,
   type WritableSignerAccount,
 } from "@solana/kit";
+import {
+  findGatekeeperConfigPda,
+  findVaultAuthorityPda,
+  findWithdrawalDailyLimitPda,
+  findWithdrawalOperationPda,
+} from "../pdas";
 import { CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS } from "../programs";
-import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
+import {
+  expectAddress,
+  expectSome,
+  getAccountMetaFactory,
+  type ResolvedAccount,
+} from "../shared";
 
-export const CUSTODIAL_WITHDRAW_DISCRIMINATOR = 2;
+export const CUSTODIAL_WITHDRAW_DISCRIMINATOR = new Uint8Array([
+  49, 115, 229, 233, 155, 39, 195, 52,
+]);
 
 export function getCustodialWithdrawDiscriminatorBytes() {
-  return getU8Encoder().encode(CUSTODIAL_WITHDRAW_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    CUSTODIAL_WITHDRAW_DISCRIMINATOR,
+  );
 }
 
 export type CustodialWithdrawInstruction<
   TProgram extends string = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
   TAccountSender extends string | AccountMeta<string> = string,
-  TAccountConfig extends string | AccountMeta<string> = string,
-  TAccountDailyLimit extends string | AccountMeta<string> = string,
-  TAccountWithdrawalOp extends string | AccountMeta<string> = string,
+  TAccountGatekeeperConfig extends string | AccountMeta<string> = string,
+  TAccountWithdrawalDailyLimit extends string | AccountMeta<string> = string,
+  TAccountWithdrawalOperation extends string | AccountMeta<string> = string,
+  TAccountMint extends string | AccountMeta<string> = string,
   TAccountSenderTokenAccount extends string | AccountMeta<string> = string,
   TAccountVaultTokenAccount extends string | AccountMeta<string> = string,
   TAccountRecipientTokenAccount extends string | AccountMeta<string> = string,
   TAccountVaultAuthority extends string | AccountMeta<string> = string,
-  TAccountTokenMint extends string | AccountMeta<string> = string,
-  TAccountSenderPerms extends string | AccountMeta<string> = string,
-  TAccountRecipientPerms extends string | AccountMeta<string> = string,
-  TAccountVaultAuthorityPerms extends string | AccountMeta<string> = string,
-  TAccountToken2022Program extends string | AccountMeta<string> =
-    "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+  TAccountSenderPermissions extends string | AccountMeta<string> = string,
+  TAccountVaultAuthorityPermissions extends string | AccountMeta<string> =
+    string,
+  TAccountRecipientPermissions extends string | AccountMeta<string> = string,
+  TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
+  TAccountPermissionManagerProgram extends string | AccountMeta<string> =
+    "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE",
+  TAccountExtraAccountMetasList extends string | AccountMeta<string> = string,
+  TAccountHookConfig extends string | AccountMeta<string> = string,
+  TAccountTransferHookProgram extends string | AccountMeta<string> =
+    "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86",
+  TAccountTokenProgram extends string | AccountMeta<string> =
+    "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
-  TAccountExtraAccountMetaList extends string | AccountMeta<string> = string,
-  TAccountPermissionManagerProgram extends string | AccountMeta<string> =
-    string,
-  TAccountSpikoTokenProgram extends string | AccountMeta<string> = string,
-  TAccountTokenConfig extends string | AccountMeta<string> = string,
-  TAccountHookEventAuthority extends string | AccountMeta<string> = string,
-  TAccountHookProgram extends string | AccountMeta<string> = string,
-  TAccountEventAuthority extends string | AccountMeta<string> = string,
-  TAccountSelfProgram extends string | AccountMeta<string> =
-    "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -78,15 +93,18 @@ export type CustodialWithdrawInstruction<
         ? WritableSignerAccount<TAccountSender> &
             AccountSignerMeta<TAccountSender>
         : TAccountSender,
-      TAccountConfig extends string
-        ? ReadonlyAccount<TAccountConfig>
-        : TAccountConfig,
-      TAccountDailyLimit extends string
-        ? WritableAccount<TAccountDailyLimit>
-        : TAccountDailyLimit,
-      TAccountWithdrawalOp extends string
-        ? WritableAccount<TAccountWithdrawalOp>
-        : TAccountWithdrawalOp,
+      TAccountGatekeeperConfig extends string
+        ? ReadonlyAccount<TAccountGatekeeperConfig>
+        : TAccountGatekeeperConfig,
+      TAccountWithdrawalDailyLimit extends string
+        ? WritableAccount<TAccountWithdrawalDailyLimit>
+        : TAccountWithdrawalDailyLimit,
+      TAccountWithdrawalOperation extends string
+        ? WritableAccount<TAccountWithdrawalOperation>
+        : TAccountWithdrawalOperation,
+      TAccountMint extends string
+        ? ReadonlyAccount<TAccountMint>
+        : TAccountMint,
       TAccountSenderTokenAccount extends string
         ? WritableAccount<TAccountSenderTokenAccount>
         : TAccountSenderTokenAccount,
@@ -99,60 +117,50 @@ export type CustodialWithdrawInstruction<
       TAccountVaultAuthority extends string
         ? ReadonlyAccount<TAccountVaultAuthority>
         : TAccountVaultAuthority,
-      TAccountTokenMint extends string
-        ? ReadonlyAccount<TAccountTokenMint>
-        : TAccountTokenMint,
-      TAccountSenderPerms extends string
-        ? ReadonlyAccount<TAccountSenderPerms>
-        : TAccountSenderPerms,
-      TAccountRecipientPerms extends string
-        ? ReadonlyAccount<TAccountRecipientPerms>
-        : TAccountRecipientPerms,
-      TAccountVaultAuthorityPerms extends string
-        ? ReadonlyAccount<TAccountVaultAuthorityPerms>
-        : TAccountVaultAuthorityPerms,
-      TAccountToken2022Program extends string
-        ? ReadonlyAccount<TAccountToken2022Program>
-        : TAccountToken2022Program,
-      TAccountSystemProgram extends string
-        ? ReadonlyAccount<TAccountSystemProgram>
-        : TAccountSystemProgram,
-      TAccountExtraAccountMetaList extends string
-        ? ReadonlyAccount<TAccountExtraAccountMetaList>
-        : TAccountExtraAccountMetaList,
+      TAccountSenderPermissions extends string
+        ? ReadonlyAccount<TAccountSenderPermissions>
+        : TAccountSenderPermissions,
+      TAccountVaultAuthorityPermissions extends string
+        ? ReadonlyAccount<TAccountVaultAuthorityPermissions>
+        : TAccountVaultAuthorityPermissions,
+      TAccountRecipientPermissions extends string
+        ? ReadonlyAccount<TAccountRecipientPermissions>
+        : TAccountRecipientPermissions,
+      TAccountPermissionManagerConfig extends string
+        ? ReadonlyAccount<TAccountPermissionManagerConfig>
+        : TAccountPermissionManagerConfig,
       TAccountPermissionManagerProgram extends string
         ? ReadonlyAccount<TAccountPermissionManagerProgram>
         : TAccountPermissionManagerProgram,
-      TAccountSpikoTokenProgram extends string
-        ? ReadonlyAccount<TAccountSpikoTokenProgram>
-        : TAccountSpikoTokenProgram,
-      TAccountTokenConfig extends string
-        ? ReadonlyAccount<TAccountTokenConfig>
-        : TAccountTokenConfig,
-      TAccountHookEventAuthority extends string
-        ? ReadonlyAccount<TAccountHookEventAuthority>
-        : TAccountHookEventAuthority,
-      TAccountHookProgram extends string
-        ? ReadonlyAccount<TAccountHookProgram>
-        : TAccountHookProgram,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountSelfProgram extends string
-        ? ReadonlyAccount<TAccountSelfProgram>
-        : TAccountSelfProgram,
+      TAccountExtraAccountMetasList extends string
+        ? ReadonlyAccount<TAccountExtraAccountMetasList>
+        : TAccountExtraAccountMetasList,
+      TAccountHookConfig extends string
+        ? ReadonlyAccount<TAccountHookConfig>
+        : TAccountHookConfig,
+      TAccountTransferHookProgram extends string
+        ? ReadonlyAccount<TAccountTransferHookProgram>
+        : TAccountTransferHookProgram,
+      TAccountTokenProgram extends string
+        ? ReadonlyAccount<TAccountTokenProgram>
+        : TAccountTokenProgram,
+      TAccountSystemProgram extends string
+        ? ReadonlyAccount<TAccountSystemProgram>
+        : TAccountSystemProgram,
       ...TRemainingAccounts,
     ]
   >;
 
 export type CustodialWithdrawInstructionData = {
-  discriminator: number;
+  discriminator: ReadonlyUint8Array;
+  operationId: ReadonlyUint8Array;
   recipient: Address;
   amount: bigint;
   salt: bigint;
 };
 
 export type CustodialWithdrawInstructionDataArgs = {
+  operationId: ReadonlyUint8Array;
   recipient: Address;
   amount: number | bigint;
   salt: number | bigint;
@@ -161,7 +169,8 @@ export type CustodialWithdrawInstructionDataArgs = {
 export function getCustodialWithdrawInstructionDataEncoder(): FixedSizeEncoder<CustodialWithdrawInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["operationId", fixEncoderSize(getBytesEncoder(), 32)],
       ["recipient", getAddressEncoder()],
       ["amount", getU64Encoder()],
       ["salt", getU64Encoder()],
@@ -172,7 +181,8 @@ export function getCustodialWithdrawInstructionDataEncoder(): FixedSizeEncoder<C
 
 export function getCustodialWithdrawInstructionDataDecoder(): FixedSizeDecoder<CustodialWithdrawInstructionData> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["operationId", fixDecoderSize(getBytesDecoder(), 32)],
     ["recipient", getAddressDecoder()],
     ["amount", getU64Decoder()],
     ["salt", getU64Decoder()],
@@ -189,153 +199,119 @@ export function getCustodialWithdrawInstructionDataCodec(): FixedSizeCodec<
   );
 }
 
-export type CustodialWithdrawInput<
+export type CustodialWithdrawAsyncInput<
   TAccountSender extends string = string,
-  TAccountConfig extends string = string,
-  TAccountDailyLimit extends string = string,
-  TAccountWithdrawalOp extends string = string,
+  TAccountGatekeeperConfig extends string = string,
+  TAccountWithdrawalDailyLimit extends string = string,
+  TAccountWithdrawalOperation extends string = string,
+  TAccountMint extends string = string,
   TAccountSenderTokenAccount extends string = string,
   TAccountVaultTokenAccount extends string = string,
   TAccountRecipientTokenAccount extends string = string,
   TAccountVaultAuthority extends string = string,
-  TAccountTokenMint extends string = string,
-  TAccountSenderPerms extends string = string,
-  TAccountRecipientPerms extends string = string,
-  TAccountVaultAuthorityPerms extends string = string,
-  TAccountToken2022Program extends string = string,
-  TAccountSystemProgram extends string = string,
-  TAccountExtraAccountMetaList extends string = string,
+  TAccountSenderPermissions extends string = string,
+  TAccountVaultAuthorityPermissions extends string = string,
+  TAccountRecipientPermissions extends string = string,
+  TAccountPermissionManagerConfig extends string = string,
   TAccountPermissionManagerProgram extends string = string,
-  TAccountSpikoTokenProgram extends string = string,
-  TAccountTokenConfig extends string = string,
-  TAccountHookEventAuthority extends string = string,
-  TAccountHookProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
+  TAccountExtraAccountMetasList extends string = string,
+  TAccountHookConfig extends string = string,
+  TAccountTransferHookProgram extends string = string,
+  TAccountTokenProgram extends string = string,
+  TAccountSystemProgram extends string = string,
 > = {
-  /** Custodial wallet (WHITELISTED) */
   sender: TransactionSigner<TAccountSender>;
-  /** GatekeeperConfig PDA */
-  config: Address<TAccountConfig>;
-  /** WithdrawalDailyLimit PDA */
-  dailyLimit: Address<TAccountDailyLimit>;
-  /** WithdrawalOperation PDA (created if over limit) */
-  withdrawalOp: Address<TAccountWithdrawalOp>;
-  /** Sender's token account */
+  gatekeeperConfig?: Address<TAccountGatekeeperConfig>;
+  withdrawalDailyLimit?: Address<TAccountWithdrawalDailyLimit>;
+  withdrawalOperation?: Address<TAccountWithdrawalOperation>;
+  mint: Address<TAccountMint>;
   senderTokenAccount: Address<TAccountSenderTokenAccount>;
-  /** Vault token account */
   vaultTokenAccount: Address<TAccountVaultTokenAccount>;
-  /** Recipient's token account */
   recipientTokenAccount: Address<TAccountRecipientTokenAccount>;
-  /** Vault authority PDA */
-  vaultAuthority: Address<TAccountVaultAuthority>;
-  /** Token-2022 Mint */
-  tokenMint: Address<TAccountTokenMint>;
-  /** Sender's UserPermissions PDA */
-  senderPerms: Address<TAccountSenderPerms>;
-  /** Recipient's UserPermissions PDA */
-  recipientPerms: Address<TAccountRecipientPerms>;
-  /** Vault authority's UserPermissions PDA */
-  vaultAuthorityPerms: Address<TAccountVaultAuthorityPerms>;
-  /** Token-2022 program */
-  token2022Program?: Address<TAccountToken2022Program>;
-  /** System program */
+  vaultAuthority?: Address<TAccountVaultAuthority>;
+  senderPermissions: Address<TAccountSenderPermissions>;
+  vaultAuthorityPermissions: Address<TAccountVaultAuthorityPermissions>;
+  recipientPermissions: Address<TAccountRecipientPermissions>;
+  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
+  permissionManagerProgram?: Address<TAccountPermissionManagerProgram>;
+  extraAccountMetasList: Address<TAccountExtraAccountMetasList>;
+  hookConfig: Address<TAccountHookConfig>;
+  transferHookProgram?: Address<TAccountTransferHookProgram>;
+  tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
-  /** ExtraAccountMetaList PDA */
-  extraAccountMetaList: Address<TAccountExtraAccountMetaList>;
-  /** PermissionManager program */
-  permissionManagerProgram: Address<TAccountPermissionManagerProgram>;
-  /** SpikoToken program */
-  spikoTokenProgram: Address<TAccountSpikoTokenProgram>;
-  /** TokenConfig PDA (spiko-token) */
-  tokenConfig: Address<TAccountTokenConfig>;
-  /** Hook event authority PDA */
-  hookEventAuthority: Address<TAccountHookEventAuthority>;
-  /** Hook program (spiko-transfer-hook) */
-  hookProgram: Address<TAccountHookProgram>;
-  /** Event authority PDA */
-  eventAuthority: Address<TAccountEventAuthority>;
-  /** CustodialGatekeeper program (self) */
-  selfProgram?: Address<TAccountSelfProgram>;
+  operationId: CustodialWithdrawInstructionDataArgs["operationId"];
   recipient: CustodialWithdrawInstructionDataArgs["recipient"];
   amount: CustodialWithdrawInstructionDataArgs["amount"];
   salt: CustodialWithdrawInstructionDataArgs["salt"];
 };
 
-export function getCustodialWithdrawInstruction<
+export async function getCustodialWithdrawInstructionAsync<
   TAccountSender extends string,
-  TAccountConfig extends string,
-  TAccountDailyLimit extends string,
-  TAccountWithdrawalOp extends string,
+  TAccountGatekeeperConfig extends string,
+  TAccountWithdrawalDailyLimit extends string,
+  TAccountWithdrawalOperation extends string,
+  TAccountMint extends string,
   TAccountSenderTokenAccount extends string,
   TAccountVaultTokenAccount extends string,
   TAccountRecipientTokenAccount extends string,
   TAccountVaultAuthority extends string,
-  TAccountTokenMint extends string,
-  TAccountSenderPerms extends string,
-  TAccountRecipientPerms extends string,
-  TAccountVaultAuthorityPerms extends string,
-  TAccountToken2022Program extends string,
-  TAccountSystemProgram extends string,
-  TAccountExtraAccountMetaList extends string,
+  TAccountSenderPermissions extends string,
+  TAccountVaultAuthorityPermissions extends string,
+  TAccountRecipientPermissions extends string,
+  TAccountPermissionManagerConfig extends string,
   TAccountPermissionManagerProgram extends string,
-  TAccountSpikoTokenProgram extends string,
-  TAccountTokenConfig extends string,
-  TAccountHookEventAuthority extends string,
-  TAccountHookProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
+  TAccountExtraAccountMetasList extends string,
+  TAccountHookConfig extends string,
+  TAccountTransferHookProgram extends string,
+  TAccountTokenProgram extends string,
+  TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
 >(
-  input: CustodialWithdrawInput<
+  input: CustodialWithdrawAsyncInput<
     TAccountSender,
-    TAccountConfig,
-    TAccountDailyLimit,
-    TAccountWithdrawalOp,
+    TAccountGatekeeperConfig,
+    TAccountWithdrawalDailyLimit,
+    TAccountWithdrawalOperation,
+    TAccountMint,
     TAccountSenderTokenAccount,
     TAccountVaultTokenAccount,
     TAccountRecipientTokenAccount,
     TAccountVaultAuthority,
-    TAccountTokenMint,
-    TAccountSenderPerms,
-    TAccountRecipientPerms,
-    TAccountVaultAuthorityPerms,
-    TAccountToken2022Program,
-    TAccountSystemProgram,
-    TAccountExtraAccountMetaList,
+    TAccountSenderPermissions,
+    TAccountVaultAuthorityPermissions,
+    TAccountRecipientPermissions,
+    TAccountPermissionManagerConfig,
     TAccountPermissionManagerProgram,
-    TAccountSpikoTokenProgram,
-    TAccountTokenConfig,
-    TAccountHookEventAuthority,
-    TAccountHookProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountExtraAccountMetasList,
+    TAccountHookConfig,
+    TAccountTransferHookProgram,
+    TAccountTokenProgram,
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
-): CustodialWithdrawInstruction<
-  TProgramAddress,
-  TAccountSender,
-  TAccountConfig,
-  TAccountDailyLimit,
-  TAccountWithdrawalOp,
-  TAccountSenderTokenAccount,
-  TAccountVaultTokenAccount,
-  TAccountRecipientTokenAccount,
-  TAccountVaultAuthority,
-  TAccountTokenMint,
-  TAccountSenderPerms,
-  TAccountRecipientPerms,
-  TAccountVaultAuthorityPerms,
-  TAccountToken2022Program,
-  TAccountSystemProgram,
-  TAccountExtraAccountMetaList,
-  TAccountPermissionManagerProgram,
-  TAccountSpikoTokenProgram,
-  TAccountTokenConfig,
-  TAccountHookEventAuthority,
-  TAccountHookProgram,
-  TAccountEventAuthority,
-  TAccountSelfProgram
+): Promise<
+  CustodialWithdrawInstruction<
+    TProgramAddress,
+    TAccountSender,
+    TAccountGatekeeperConfig,
+    TAccountWithdrawalDailyLimit,
+    TAccountWithdrawalOperation,
+    TAccountMint,
+    TAccountSenderTokenAccount,
+    TAccountVaultTokenAccount,
+    TAccountRecipientTokenAccount,
+    TAccountVaultAuthority,
+    TAccountSenderPermissions,
+    TAccountVaultAuthorityPermissions,
+    TAccountRecipientPermissions,
+    TAccountPermissionManagerConfig,
+    TAccountPermissionManagerProgram,
+    TAccountExtraAccountMetasList,
+    TAccountHookConfig,
+    TAccountTransferHookProgram,
+    TAccountTokenProgram,
+    TAccountSystemProgram
+  >
 > {
   // Program address.
   const programAddress =
@@ -344,9 +320,19 @@ export function getCustodialWithdrawInstruction<
   // Original accounts.
   const originalAccounts = {
     sender: { value: input.sender ?? null, isWritable: true },
-    config: { value: input.config ?? null, isWritable: false },
-    dailyLimit: { value: input.dailyLimit ?? null, isWritable: true },
-    withdrawalOp: { value: input.withdrawalOp ?? null, isWritable: true },
+    gatekeeperConfig: {
+      value: input.gatekeeperConfig ?? null,
+      isWritable: false,
+    },
+    withdrawalDailyLimit: {
+      value: input.withdrawalDailyLimit ?? null,
+      isWritable: true,
+    },
+    withdrawalOperation: {
+      value: input.withdrawalOperation ?? null,
+      isWritable: true,
+    },
+    mint: { value: input.mint ?? null, isWritable: false },
     senderTokenAccount: {
       value: input.senderTokenAccount ?? null,
       isWritable: true,
@@ -360,38 +346,37 @@ export function getCustodialWithdrawInstruction<
       isWritable: true,
     },
     vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
-    tokenMint: { value: input.tokenMint ?? null, isWritable: false },
-    senderPerms: { value: input.senderPerms ?? null, isWritable: false },
-    recipientPerms: { value: input.recipientPerms ?? null, isWritable: false },
-    vaultAuthorityPerms: {
-      value: input.vaultAuthorityPerms ?? null,
+    senderPermissions: {
+      value: input.senderPermissions ?? null,
       isWritable: false,
     },
-    token2022Program: {
-      value: input.token2022Program ?? null,
+    vaultAuthorityPermissions: {
+      value: input.vaultAuthorityPermissions ?? null,
       isWritable: false,
     },
-    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    extraAccountMetaList: {
-      value: input.extraAccountMetaList ?? null,
+    recipientPermissions: {
+      value: input.recipientPermissions ?? null,
+      isWritable: false,
+    },
+    permissionManagerConfig: {
+      value: input.permissionManagerConfig ?? null,
       isWritable: false,
     },
     permissionManagerProgram: {
       value: input.permissionManagerProgram ?? null,
       isWritable: false,
     },
-    spikoTokenProgram: {
-      value: input.spikoTokenProgram ?? null,
+    extraAccountMetasList: {
+      value: input.extraAccountMetasList ?? null,
       isWritable: false,
     },
-    tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
-    hookEventAuthority: {
-      value: input.hookEventAuthority ?? null,
+    hookConfig: { value: input.hookConfig ?? null, isWritable: false },
+    transferHookProgram: {
+      value: input.transferHookProgram ?? null,
       isWritable: false,
     },
-    hookProgram: { value: input.hookProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
+    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -402,44 +387,61 @@ export function getCustodialWithdrawInstruction<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.token2022Program.value) {
-    accounts.token2022Program.value =
-      "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb" as Address<"TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb">;
+  if (!accounts.gatekeeperConfig.value) {
+    accounts.gatekeeperConfig.value = await findGatekeeperConfigPda();
+  }
+  if (!accounts.withdrawalDailyLimit.value) {
+    accounts.withdrawalDailyLimit.value = await findWithdrawalDailyLimitPda({
+      mint: expectAddress(accounts.mint.value),
+    });
+  }
+  if (!accounts.withdrawalOperation.value) {
+    accounts.withdrawalOperation.value = await findWithdrawalOperationPda({
+      operationId: expectSome(args.operationId),
+    });
+  }
+  if (!accounts.vaultAuthority.value) {
+    accounts.vaultAuthority.value = await findVaultAuthorityPda();
+  }
+  if (!accounts.permissionManagerProgram.value) {
+    accounts.permissionManagerProgram.value =
+      "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">;
+  }
+  if (!accounts.transferHookProgram.value) {
+    accounts.transferHookProgram.value =
+      "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">;
+  }
+  if (!accounts.tokenProgram.value) {
+    accounts.tokenProgram.value =
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
-  }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY" as Address<"4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY">;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.sender),
-      getAccountMeta(accounts.config),
-      getAccountMeta(accounts.dailyLimit),
-      getAccountMeta(accounts.withdrawalOp),
+      getAccountMeta(accounts.gatekeeperConfig),
+      getAccountMeta(accounts.withdrawalDailyLimit),
+      getAccountMeta(accounts.withdrawalOperation),
+      getAccountMeta(accounts.mint),
       getAccountMeta(accounts.senderTokenAccount),
       getAccountMeta(accounts.vaultTokenAccount),
       getAccountMeta(accounts.recipientTokenAccount),
       getAccountMeta(accounts.vaultAuthority),
-      getAccountMeta(accounts.tokenMint),
-      getAccountMeta(accounts.senderPerms),
-      getAccountMeta(accounts.recipientPerms),
-      getAccountMeta(accounts.vaultAuthorityPerms),
-      getAccountMeta(accounts.token2022Program),
-      getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.extraAccountMetaList),
+      getAccountMeta(accounts.senderPermissions),
+      getAccountMeta(accounts.vaultAuthorityPermissions),
+      getAccountMeta(accounts.recipientPermissions),
+      getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.permissionManagerProgram),
-      getAccountMeta(accounts.spikoTokenProgram),
-      getAccountMeta(accounts.tokenConfig),
-      getAccountMeta(accounts.hookEventAuthority),
-      getAccountMeta(accounts.hookProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
+      getAccountMeta(accounts.extraAccountMetasList),
+      getAccountMeta(accounts.hookConfig),
+      getAccountMeta(accounts.transferHookProgram),
+      getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.systemProgram),
     ],
     data: getCustodialWithdrawInstructionDataEncoder().encode(
       args as CustodialWithdrawInstructionDataArgs,
@@ -448,27 +450,278 @@ export function getCustodialWithdrawInstruction<
   } as CustodialWithdrawInstruction<
     TProgramAddress,
     TAccountSender,
-    TAccountConfig,
-    TAccountDailyLimit,
-    TAccountWithdrawalOp,
+    TAccountGatekeeperConfig,
+    TAccountWithdrawalDailyLimit,
+    TAccountWithdrawalOperation,
+    TAccountMint,
     TAccountSenderTokenAccount,
     TAccountVaultTokenAccount,
     TAccountRecipientTokenAccount,
     TAccountVaultAuthority,
-    TAccountTokenMint,
-    TAccountSenderPerms,
-    TAccountRecipientPerms,
-    TAccountVaultAuthorityPerms,
-    TAccountToken2022Program,
-    TAccountSystemProgram,
-    TAccountExtraAccountMetaList,
+    TAccountSenderPermissions,
+    TAccountVaultAuthorityPermissions,
+    TAccountRecipientPermissions,
+    TAccountPermissionManagerConfig,
     TAccountPermissionManagerProgram,
-    TAccountSpikoTokenProgram,
-    TAccountTokenConfig,
-    TAccountHookEventAuthority,
-    TAccountHookProgram,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountExtraAccountMetasList,
+    TAccountHookConfig,
+    TAccountTransferHookProgram,
+    TAccountTokenProgram,
+    TAccountSystemProgram
+  >);
+}
+
+export type CustodialWithdrawInput<
+  TAccountSender extends string = string,
+  TAccountGatekeeperConfig extends string = string,
+  TAccountWithdrawalDailyLimit extends string = string,
+  TAccountWithdrawalOperation extends string = string,
+  TAccountMint extends string = string,
+  TAccountSenderTokenAccount extends string = string,
+  TAccountVaultTokenAccount extends string = string,
+  TAccountRecipientTokenAccount extends string = string,
+  TAccountVaultAuthority extends string = string,
+  TAccountSenderPermissions extends string = string,
+  TAccountVaultAuthorityPermissions extends string = string,
+  TAccountRecipientPermissions extends string = string,
+  TAccountPermissionManagerConfig extends string = string,
+  TAccountPermissionManagerProgram extends string = string,
+  TAccountExtraAccountMetasList extends string = string,
+  TAccountHookConfig extends string = string,
+  TAccountTransferHookProgram extends string = string,
+  TAccountTokenProgram extends string = string,
+  TAccountSystemProgram extends string = string,
+> = {
+  sender: TransactionSigner<TAccountSender>;
+  gatekeeperConfig: Address<TAccountGatekeeperConfig>;
+  withdrawalDailyLimit: Address<TAccountWithdrawalDailyLimit>;
+  withdrawalOperation: Address<TAccountWithdrawalOperation>;
+  mint: Address<TAccountMint>;
+  senderTokenAccount: Address<TAccountSenderTokenAccount>;
+  vaultTokenAccount: Address<TAccountVaultTokenAccount>;
+  recipientTokenAccount: Address<TAccountRecipientTokenAccount>;
+  vaultAuthority: Address<TAccountVaultAuthority>;
+  senderPermissions: Address<TAccountSenderPermissions>;
+  vaultAuthorityPermissions: Address<TAccountVaultAuthorityPermissions>;
+  recipientPermissions: Address<TAccountRecipientPermissions>;
+  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
+  permissionManagerProgram?: Address<TAccountPermissionManagerProgram>;
+  extraAccountMetasList: Address<TAccountExtraAccountMetasList>;
+  hookConfig: Address<TAccountHookConfig>;
+  transferHookProgram?: Address<TAccountTransferHookProgram>;
+  tokenProgram?: Address<TAccountTokenProgram>;
+  systemProgram?: Address<TAccountSystemProgram>;
+  operationId: CustodialWithdrawInstructionDataArgs["operationId"];
+  recipient: CustodialWithdrawInstructionDataArgs["recipient"];
+  amount: CustodialWithdrawInstructionDataArgs["amount"];
+  salt: CustodialWithdrawInstructionDataArgs["salt"];
+};
+
+export function getCustodialWithdrawInstruction<
+  TAccountSender extends string,
+  TAccountGatekeeperConfig extends string,
+  TAccountWithdrawalDailyLimit extends string,
+  TAccountWithdrawalOperation extends string,
+  TAccountMint extends string,
+  TAccountSenderTokenAccount extends string,
+  TAccountVaultTokenAccount extends string,
+  TAccountRecipientTokenAccount extends string,
+  TAccountVaultAuthority extends string,
+  TAccountSenderPermissions extends string,
+  TAccountVaultAuthorityPermissions extends string,
+  TAccountRecipientPermissions extends string,
+  TAccountPermissionManagerConfig extends string,
+  TAccountPermissionManagerProgram extends string,
+  TAccountExtraAccountMetasList extends string,
+  TAccountHookConfig extends string,
+  TAccountTransferHookProgram extends string,
+  TAccountTokenProgram extends string,
+  TAccountSystemProgram extends string,
+  TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
+>(
+  input: CustodialWithdrawInput<
+    TAccountSender,
+    TAccountGatekeeperConfig,
+    TAccountWithdrawalDailyLimit,
+    TAccountWithdrawalOperation,
+    TAccountMint,
+    TAccountSenderTokenAccount,
+    TAccountVaultTokenAccount,
+    TAccountRecipientTokenAccount,
+    TAccountVaultAuthority,
+    TAccountSenderPermissions,
+    TAccountVaultAuthorityPermissions,
+    TAccountRecipientPermissions,
+    TAccountPermissionManagerConfig,
+    TAccountPermissionManagerProgram,
+    TAccountExtraAccountMetasList,
+    TAccountHookConfig,
+    TAccountTransferHookProgram,
+    TAccountTokenProgram,
+    TAccountSystemProgram
+  >,
+  config?: { programAddress?: TProgramAddress },
+): CustodialWithdrawInstruction<
+  TProgramAddress,
+  TAccountSender,
+  TAccountGatekeeperConfig,
+  TAccountWithdrawalDailyLimit,
+  TAccountWithdrawalOperation,
+  TAccountMint,
+  TAccountSenderTokenAccount,
+  TAccountVaultTokenAccount,
+  TAccountRecipientTokenAccount,
+  TAccountVaultAuthority,
+  TAccountSenderPermissions,
+  TAccountVaultAuthorityPermissions,
+  TAccountRecipientPermissions,
+  TAccountPermissionManagerConfig,
+  TAccountPermissionManagerProgram,
+  TAccountExtraAccountMetasList,
+  TAccountHookConfig,
+  TAccountTransferHookProgram,
+  TAccountTokenProgram,
+  TAccountSystemProgram
+> {
+  // Program address.
+  const programAddress =
+    config?.programAddress ?? CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS;
+
+  // Original accounts.
+  const originalAccounts = {
+    sender: { value: input.sender ?? null, isWritable: true },
+    gatekeeperConfig: {
+      value: input.gatekeeperConfig ?? null,
+      isWritable: false,
+    },
+    withdrawalDailyLimit: {
+      value: input.withdrawalDailyLimit ?? null,
+      isWritable: true,
+    },
+    withdrawalOperation: {
+      value: input.withdrawalOperation ?? null,
+      isWritable: true,
+    },
+    mint: { value: input.mint ?? null, isWritable: false },
+    senderTokenAccount: {
+      value: input.senderTokenAccount ?? null,
+      isWritable: true,
+    },
+    vaultTokenAccount: {
+      value: input.vaultTokenAccount ?? null,
+      isWritable: true,
+    },
+    recipientTokenAccount: {
+      value: input.recipientTokenAccount ?? null,
+      isWritable: true,
+    },
+    vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
+    senderPermissions: {
+      value: input.senderPermissions ?? null,
+      isWritable: false,
+    },
+    vaultAuthorityPermissions: {
+      value: input.vaultAuthorityPermissions ?? null,
+      isWritable: false,
+    },
+    recipientPermissions: {
+      value: input.recipientPermissions ?? null,
+      isWritable: false,
+    },
+    permissionManagerConfig: {
+      value: input.permissionManagerConfig ?? null,
+      isWritable: false,
+    },
+    permissionManagerProgram: {
+      value: input.permissionManagerProgram ?? null,
+      isWritable: false,
+    },
+    extraAccountMetasList: {
+      value: input.extraAccountMetasList ?? null,
+      isWritable: false,
+    },
+    hookConfig: { value: input.hookConfig ?? null, isWritable: false },
+    transferHookProgram: {
+      value: input.transferHookProgram ?? null,
+      isWritable: false,
+    },
+    tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+  };
+  const accounts = originalAccounts as Record<
+    keyof typeof originalAccounts,
+    ResolvedAccount
+  >;
+
+  // Original args.
+  const args = { ...input };
+
+  // Resolve default values.
+  if (!accounts.permissionManagerProgram.value) {
+    accounts.permissionManagerProgram.value =
+      "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">;
+  }
+  if (!accounts.transferHookProgram.value) {
+    accounts.transferHookProgram.value =
+      "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">;
+  }
+  if (!accounts.tokenProgram.value) {
+    accounts.tokenProgram.value =
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
+  }
+  if (!accounts.systemProgram.value) {
+    accounts.systemProgram.value =
+      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
+  }
+
+  const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
+  return Object.freeze({
+    accounts: [
+      getAccountMeta(accounts.sender),
+      getAccountMeta(accounts.gatekeeperConfig),
+      getAccountMeta(accounts.withdrawalDailyLimit),
+      getAccountMeta(accounts.withdrawalOperation),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.senderTokenAccount),
+      getAccountMeta(accounts.vaultTokenAccount),
+      getAccountMeta(accounts.recipientTokenAccount),
+      getAccountMeta(accounts.vaultAuthority),
+      getAccountMeta(accounts.senderPermissions),
+      getAccountMeta(accounts.vaultAuthorityPermissions),
+      getAccountMeta(accounts.recipientPermissions),
+      getAccountMeta(accounts.permissionManagerConfig),
+      getAccountMeta(accounts.permissionManagerProgram),
+      getAccountMeta(accounts.extraAccountMetasList),
+      getAccountMeta(accounts.hookConfig),
+      getAccountMeta(accounts.transferHookProgram),
+      getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.systemProgram),
+    ],
+    data: getCustodialWithdrawInstructionDataEncoder().encode(
+      args as CustodialWithdrawInstructionDataArgs,
+    ),
+    programAddress,
+  } as CustodialWithdrawInstruction<
+    TProgramAddress,
+    TAccountSender,
+    TAccountGatekeeperConfig,
+    TAccountWithdrawalDailyLimit,
+    TAccountWithdrawalOperation,
+    TAccountMint,
+    TAccountSenderTokenAccount,
+    TAccountVaultTokenAccount,
+    TAccountRecipientTokenAccount,
+    TAccountVaultAuthority,
+    TAccountSenderPermissions,
+    TAccountVaultAuthorityPermissions,
+    TAccountRecipientPermissions,
+    TAccountPermissionManagerConfig,
+    TAccountPermissionManagerProgram,
+    TAccountExtraAccountMetasList,
+    TAccountHookConfig,
+    TAccountTransferHookProgram,
+    TAccountTokenProgram,
+    TAccountSystemProgram
   >);
 }
 
@@ -478,50 +731,25 @@ export type ParsedCustodialWithdrawInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Custodial wallet (WHITELISTED) */
     sender: TAccountMetas[0];
-    /** GatekeeperConfig PDA */
-    config: TAccountMetas[1];
-    /** WithdrawalDailyLimit PDA */
-    dailyLimit: TAccountMetas[2];
-    /** WithdrawalOperation PDA (created if over limit) */
-    withdrawalOp: TAccountMetas[3];
-    /** Sender's token account */
-    senderTokenAccount: TAccountMetas[4];
-    /** Vault token account */
-    vaultTokenAccount: TAccountMetas[5];
-    /** Recipient's token account */
-    recipientTokenAccount: TAccountMetas[6];
-    /** Vault authority PDA */
-    vaultAuthority: TAccountMetas[7];
-    /** Token-2022 Mint */
-    tokenMint: TAccountMetas[8];
-    /** Sender's UserPermissions PDA */
-    senderPerms: TAccountMetas[9];
-    /** Recipient's UserPermissions PDA */
-    recipientPerms: TAccountMetas[10];
-    /** Vault authority's UserPermissions PDA */
-    vaultAuthorityPerms: TAccountMetas[11];
-    /** Token-2022 program */
-    token2022Program: TAccountMetas[12];
-    /** System program */
-    systemProgram: TAccountMetas[13];
-    /** ExtraAccountMetaList PDA */
-    extraAccountMetaList: TAccountMetas[14];
-    /** PermissionManager program */
-    permissionManagerProgram: TAccountMetas[15];
-    /** SpikoToken program */
-    spikoTokenProgram: TAccountMetas[16];
-    /** TokenConfig PDA (spiko-token) */
-    tokenConfig: TAccountMetas[17];
-    /** Hook event authority PDA */
-    hookEventAuthority: TAccountMetas[18];
-    /** Hook program (spiko-transfer-hook) */
-    hookProgram: TAccountMetas[19];
-    /** Event authority PDA */
-    eventAuthority: TAccountMetas[20];
-    /** CustodialGatekeeper program (self) */
-    selfProgram: TAccountMetas[21];
+    gatekeeperConfig: TAccountMetas[1];
+    withdrawalDailyLimit: TAccountMetas[2];
+    withdrawalOperation: TAccountMetas[3];
+    mint: TAccountMetas[4];
+    senderTokenAccount: TAccountMetas[5];
+    vaultTokenAccount: TAccountMetas[6];
+    recipientTokenAccount: TAccountMetas[7];
+    vaultAuthority: TAccountMetas[8];
+    senderPermissions: TAccountMetas[9];
+    vaultAuthorityPermissions: TAccountMetas[10];
+    recipientPermissions: TAccountMetas[11];
+    permissionManagerConfig: TAccountMetas[12];
+    permissionManagerProgram: TAccountMetas[13];
+    extraAccountMetasList: TAccountMetas[14];
+    hookConfig: TAccountMetas[15];
+    transferHookProgram: TAccountMetas[16];
+    tokenProgram: TAccountMetas[17];
+    systemProgram: TAccountMetas[18];
   };
   data: CustodialWithdrawInstructionData;
 };
@@ -534,7 +762,7 @@ export function parseCustodialWithdrawInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCustodialWithdrawInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 22) {
+  if (instruction.accounts.length < 19) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -548,27 +776,24 @@ export function parseCustodialWithdrawInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       sender: getNextAccount(),
-      config: getNextAccount(),
-      dailyLimit: getNextAccount(),
-      withdrawalOp: getNextAccount(),
+      gatekeeperConfig: getNextAccount(),
+      withdrawalDailyLimit: getNextAccount(),
+      withdrawalOperation: getNextAccount(),
+      mint: getNextAccount(),
       senderTokenAccount: getNextAccount(),
       vaultTokenAccount: getNextAccount(),
       recipientTokenAccount: getNextAccount(),
       vaultAuthority: getNextAccount(),
-      tokenMint: getNextAccount(),
-      senderPerms: getNextAccount(),
-      recipientPerms: getNextAccount(),
-      vaultAuthorityPerms: getNextAccount(),
-      token2022Program: getNextAccount(),
-      systemProgram: getNextAccount(),
-      extraAccountMetaList: getNextAccount(),
+      senderPermissions: getNextAccount(),
+      vaultAuthorityPermissions: getNextAccount(),
+      recipientPermissions: getNextAccount(),
+      permissionManagerConfig: getNextAccount(),
       permissionManagerProgram: getNextAccount(),
-      spikoTokenProgram: getNextAccount(),
-      tokenConfig: getNextAccount(),
-      hookEventAuthority: getNextAccount(),
-      hookProgram: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      selfProgram: getNextAccount(),
+      extraAccountMetasList: getNextAccount(),
+      hookConfig: getNextAccount(),
+      transferHookProgram: getNextAccount(),
+      tokenProgram: getNextAccount(),
+      systemProgram: getNextAccount(),
     },
     data: getCustodialWithdrawInstructionDataDecoder().decode(instruction.data),
   };

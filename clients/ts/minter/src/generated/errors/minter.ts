@@ -14,45 +14,48 @@ import {
 } from "@solana/kit";
 import { MINTER_PROGRAM_ADDRESS } from "../programs";
 
-export const MINTER_ERROR__ALREADY_INITIALIZED = 0x0; // 0
-export const MINTER_ERROR__NOT_INITIALIZED = 0x1; // 1
-export const MINTER_ERROR__UNAUTHORIZED = 0x2; // 2
-export const MINTER_ERROR__INVALID_PDA = 0x3; // 3
-export const MINTER_ERROR__DAILY_LIMIT_EXCEEDED = 0x4; // 4
-export const MINTER_ERROR__MINT_OPERATION_EXISTS = 0x5; // 5
-export const MINTER_ERROR__MINT_OPERATION_NOT_FOUND = 0x6; // 6
-export const MINTER_ERROR__INVALID_MINT_OPERATION_STATUS = 0x7; // 7
-export const MINTER_ERROR__MINT_DEADLINE_PASSED = 0x8; // 8
-export const MINTER_ERROR__MINT_DEADLINE_NOT_PASSED = 0x9; // 9
-export const MINTER_ERROR__ARITHMETIC_OVERFLOW = 0xa; // 10
+/** Unauthorized: Unauthorized */
+export const MINTER_ERROR__UNAUTHORIZED = 0x1770; // 6000
+/** OperationAlreadyExists: Operation already exists */
+export const MINTER_ERROR__OPERATION_ALREADY_EXISTS = 0x1771; // 6001
+/** NotPending: Operation is not pending */
+export const MINTER_ERROR__NOT_PENDING = 0x1772; // 6002
+/** DeadlinePassed: Deadline has passed */
+export const MINTER_ERROR__DEADLINE_PASSED = 0x1773; // 6003
+/** DeadlineNotPassed: Deadline has not passed */
+export const MINTER_ERROR__DEADLINE_NOT_PASSED = 0x1774; // 6004
+/** InvalidMaxDelay: Invalid max delay */
+export const MINTER_ERROR__INVALID_MAX_DELAY = 0x1775; // 6005
+/** InvalidAmount: Invalid amount */
+export const MINTER_ERROR__INVALID_AMOUNT = 0x1776; // 6006
+/** InvalidOperationId: Invalid operation id */
+export const MINTER_ERROR__INVALID_OPERATION_ID = 0x1777; // 6007
+/** ArithmeticOverflow: Arithmetic overflow */
+export const MINTER_ERROR__ARITHMETIC_OVERFLOW = 0x1778; // 6008
 
 export type MinterError =
-  | typeof MINTER_ERROR__ALREADY_INITIALIZED
   | typeof MINTER_ERROR__ARITHMETIC_OVERFLOW
-  | typeof MINTER_ERROR__DAILY_LIMIT_EXCEEDED
-  | typeof MINTER_ERROR__INVALID_MINT_OPERATION_STATUS
-  | typeof MINTER_ERROR__INVALID_PDA
-  | typeof MINTER_ERROR__MINT_DEADLINE_NOT_PASSED
-  | typeof MINTER_ERROR__MINT_DEADLINE_PASSED
-  | typeof MINTER_ERROR__MINT_OPERATION_EXISTS
-  | typeof MINTER_ERROR__MINT_OPERATION_NOT_FOUND
-  | typeof MINTER_ERROR__NOT_INITIALIZED
+  | typeof MINTER_ERROR__DEADLINE_NOT_PASSED
+  | typeof MINTER_ERROR__DEADLINE_PASSED
+  | typeof MINTER_ERROR__INVALID_AMOUNT
+  | typeof MINTER_ERROR__INVALID_MAX_DELAY
+  | typeof MINTER_ERROR__INVALID_OPERATION_ID
+  | typeof MINTER_ERROR__NOT_PENDING
+  | typeof MINTER_ERROR__OPERATION_ALREADY_EXISTS
   | typeof MINTER_ERROR__UNAUTHORIZED;
 
 let minterErrorMessages: Record<MinterError, string> | undefined;
 if (process.env.NODE_ENV !== "production") {
   minterErrorMessages = {
-    [MINTER_ERROR__ALREADY_INITIALIZED]: `Already initialized`,
     [MINTER_ERROR__ARITHMETIC_OVERFLOW]: `Arithmetic overflow`,
-    [MINTER_ERROR__DAILY_LIMIT_EXCEEDED]: `Daily limit exceeded`,
-    [MINTER_ERROR__INVALID_MINT_OPERATION_STATUS]: `Invalid mint operation status`,
-    [MINTER_ERROR__INVALID_PDA]: `Invalid PDA`,
-    [MINTER_ERROR__MINT_DEADLINE_NOT_PASSED]: `Mint deadline not passed`,
-    [MINTER_ERROR__MINT_DEADLINE_PASSED]: `Mint deadline passed`,
-    [MINTER_ERROR__MINT_OPERATION_EXISTS]: `Mint operation already exists`,
-    [MINTER_ERROR__MINT_OPERATION_NOT_FOUND]: `Mint operation not found`,
-    [MINTER_ERROR__NOT_INITIALIZED]: `Not initialized`,
-    [MINTER_ERROR__UNAUTHORIZED]: `Caller is not authorized`,
+    [MINTER_ERROR__DEADLINE_NOT_PASSED]: `Deadline has not passed`,
+    [MINTER_ERROR__DEADLINE_PASSED]: `Deadline has passed`,
+    [MINTER_ERROR__INVALID_AMOUNT]: `Invalid amount`,
+    [MINTER_ERROR__INVALID_MAX_DELAY]: `Invalid max delay`,
+    [MINTER_ERROR__INVALID_OPERATION_ID]: `Invalid operation id`,
+    [MINTER_ERROR__NOT_PENDING]: `Operation is not pending`,
+    [MINTER_ERROR__OPERATION_ALREADY_EXISTS]: `Operation already exists`,
+    [MINTER_ERROR__UNAUTHORIZED]: `Unauthorized`,
   };
 }
 

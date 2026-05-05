@@ -1,1351 +1,915 @@
-use mollusk_svm::{
-    program::{create_program_account_loader_v3, keyed_account_for_system_program},
-    result::Check,
-    Mollusk,
+use anchor_lang::{AnchorDeserialize, InstructionData, ToAccountMetas};
+use custodial_gatekeeper::state::{
+    GatekeeperConfig, VaultAuthority, WithdrawalDailyLimit, WithdrawalOperation,
 };
-use sha2::{Digest, Sha256};
-use solana_account::Account;
-use solana_instruction::{AccountMeta, Instruction};
-use solana_program_error::ProgramError;
-use solana_pubkey::Pubkey;
+use custodial_gatekeeper::utils::compute_operation_id;
+use solana_program_test::*;
+use solana_sdk::{
+    instruction::Instruction,
+    program_pack::Pack,
+    pubkey::Pubkey,
+    signature::Keypair,
+    signer::Signer,
+    system_instruction,
+    transaction::{Transaction, TransactionError},
+};
 
-const EVENT_AUTHORITY_SEED: &[u8] = b"event_authority";
-const GATEKEEPER_CONFIG_SEED: &[u8] = b"gatekeeper_config";
-const WITHDRAWAL_DAILY_LIMIT_SEED: &[u8] = b"withdrawal_limit";
-const WITHDRAWAL_OPERATION_SEED: &[u8] = b"withdrawal_op";
-const VAULT_SEED: &[u8] = b"vault";
+// ---------------------------------------------------------------------------
+// PDA helpers
+// ---------------------------------------------------------------------------
 
-const DISCRIMINATOR_GATEKEEPER_CONFIG: u8 = 1;
-const DISCRIMINATOR_WITHDRAWAL_DAILY_LIMIT: u8 = 2;
-const DISCRIMINATOR_WITHDRAWAL_OPERATION: u8 = 3;
-
-const STATUS_PENDING: u8 = 1;
-const STATUS_DONE: u8 = 2;
-
-const GATEKEEPER_CONFIG_LEN: usize = 43; // disc(1) + ver(1) + bump(1) + max_delay(8) + perm_manager(32)
-const WITHDRAWAL_DAILY_LIMIT_LEN: usize = 27; // disc(1) + ver(1) + bump(1) + limit(8) + used(8) + last_day(8)
-const WITHDRAWAL_OPERATION_LEN: usize = 84; // disc(1) + ver(1) + bump(1) + status(1) + deadline(8) + recipient(32) + mint(32) + amount(8)
-
-const PERMISSION_CONFIG_SEED: &[u8] = b"permission_config";
-const USER_PERMISSION_SEED: &[u8] = b"user_perm";
-const DISCRIMINATOR_PERMISSION_CONFIG: u8 = 1;
-const DISCRIMINATOR_USER_PERMISSION: u8 = 2;
-const PERMISSION_CONFIG_LEN: usize = 67;
-const USER_PERMISSIONS_LEN: usize = 35;
-
-const ROLE_WHITELISTED: u8 = 4;
-const ROLE_WHITELISTED_EXT: u8 = 8;
-const ROLE_CUSTODIAL_GATEKEEPER_APPROVER: u8 = 9;
-
-fn setup() -> (Mollusk, Pubkey) {
-    let program_id = Pubkey::new_unique();
-    std::env::set_var("SBF_OUT_DIR", "../../target/deploy");
-    let mollusk = Mollusk::new(&program_id, "custodial_gatekeeper");
-    (mollusk, program_id)
+fn permission_config_pda() -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[b"config"], &permission_manager::ID)
 }
 
-fn gatekeeper_config_pda(program_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[GATEKEEPER_CONFIG_SEED], program_id)
+fn user_permissions_pda(user: &Pubkey, config: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[b"user_permission", user.as_ref(), config.as_ref()],
+        &permission_manager::ID,
+    )
 }
 
-fn event_authority_pda(program_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[EVENT_AUTHORITY_SEED], program_id)
+fn gatekeeper_config_pda() -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[b"gatekeeper_config"], &custodial_gatekeeper::ID)
 }
 
-fn withdrawal_daily_limit_pda(mint: &Pubkey, program_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[WITHDRAWAL_DAILY_LIMIT_SEED, mint.as_ref()], program_id)
+fn vault_authority_pda() -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[b"vault"], &custodial_gatekeeper::ID)
 }
 
-fn withdrawal_operation_pda(operation_id: &[u8; 32], program_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[WITHDRAWAL_OPERATION_SEED, operation_id], program_id)
+fn withdrawal_daily_limit_pda(mint: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[b"withdrawal_limit", mint.as_ref()],
+        &custodial_gatekeeper::ID,
+    )
 }
 
-fn vault_authority_pda(program_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[VAULT_SEED], program_id)
+fn withdrawal_operation_pda(operation_id: &[u8; 32]) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[b"withdrawal_op", operation_id.as_ref()],
+        &custodial_gatekeeper::ID,
+    )
 }
 
-fn perm_config_pda(perm_manager_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[PERMISSION_CONFIG_SEED], perm_manager_id)
+/// Dummy addresses for transfer hook accounts in tests (no hook on test mint).
+fn extra_account_metas_list_pda(mint: &Pubkey) -> Pubkey {
+    Pubkey::find_program_address(
+        &[b"extra-account-metas", mint.as_ref()],
+        &transfer_hook_program_id(),
+    )
+    .0
 }
 
-fn user_perm_pda(user: &Pubkey, perm_manager_id: &Pubkey) -> (Pubkey, u8) {
-    Pubkey::find_program_address(&[USER_PERMISSION_SEED, user.as_ref()], perm_manager_id)
+fn hook_config_pda(mint: &Pubkey) -> Pubkey {
+    Pubkey::find_program_address(
+        &[b"hook_config", mint.as_ref()],
+        &transfer_hook_program_id(),
+    )
+    .0
 }
 
-fn payer_account() -> Account {
-    Account::new(10_000_000_000, 0, &Pubkey::default())
+fn transfer_hook_program_id() -> Pubkey {
+    custodial_gatekeeper::constants::transfer_hook_program_id()
 }
 
-fn blank_pda_account() -> Account {
-    Account::default()
+// ---------------------------------------------------------------------------
+// Test harness
+// ---------------------------------------------------------------------------
+
+const TOKEN_2022_PROGRAM_ID: Pubkey = spl_token_2022::ID;
+
+fn program_test() -> ProgramTest {
+    let mut pt = ProgramTest::new("custodial_gatekeeper", custodial_gatekeeper::ID, None);
+    pt.add_program("permission_manager", permission_manager::ID, None);
+    pt
 }
 
-fn dummy_account() -> Account {
-    Account {
-        lamports: 0,
-        data: vec![],
-        owner: Pubkey::default(),
-        executable: false,
-        rent_epoch: u64::MAX,
-    }
+async fn create_token2022_mint(
+    banks: &mut BanksClient,
+    payer: &Keypair,
+    mint: &Keypair,
+    decimals: u8,
+    mint_authority: &Pubkey,
+) {
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let space = spl_token_2022::state::Mint::LEN;
+    let rent = banks.get_rent().await.unwrap();
+    let lamports = rent.minimum_balance(space);
+    let ix = vec![
+        system_instruction::create_account(
+            &payer.pubkey(),
+            &mint.pubkey(),
+            lamports,
+            space as u64,
+            &TOKEN_2022_PROGRAM_ID,
+        ),
+        spl_token_2022::instruction::initialize_mint2(
+            &TOKEN_2022_PROGRAM_ID,
+            &mint.pubkey(),
+            mint_authority,
+            None,
+            decimals,
+        )
+        .unwrap(),
+    ];
+    let tx =
+        Transaction::new_signed_with_payer(&ix, Some(&payer.pubkey()), &[payer, mint], blockhash);
+    banks.process_transaction(tx).await.unwrap();
 }
 
-/// Build a pre-populated GatekeeperConfig account.
-fn gatekeeper_config_account(
-    program_id: &Pubkey,
-    bump: u8,
-    max_delay: i64,
-    permission_manager: &Pubkey,
-) -> Account {
-    let mut data = vec![0u8; GATEKEEPER_CONFIG_LEN];
-    data[0] = DISCRIMINATOR_GATEKEEPER_CONFIG;
-    data[1] = 1; // version
-    data[2] = bump;
-    data[3..11].copy_from_slice(&max_delay.to_le_bytes());
-    data[11..43].copy_from_slice(permission_manager.as_ref());
-    Account {
-        lamports: 1_000_000,
-        data,
-        owner: *program_id,
-        executable: false,
-        rent_epoch: u64::MAX,
-    }
-}
-
-/// Build a pre-populated PermissionConfig account (owned by permission_manager program).
-fn perm_config_account(perm_manager_id: &Pubkey, bump: u8, admin: &Pubkey) -> Account {
-    let mut data = vec![0u8; PERMISSION_CONFIG_LEN];
-    data[0] = DISCRIMINATOR_PERMISSION_CONFIG;
-    data[1] = 1; // version
-    data[2] = bump;
-    data[3..35].copy_from_slice(admin.as_ref());
-    // data[35..67] = pending_admin, zeroed
-    Account {
-        lamports: 1_000_000,
-        data,
-        owner: *perm_manager_id,
-        executable: false,
-        rent_epoch: u64::MAX,
-    }
-}
-
-/// Build a pre-populated UserPermissions account (owned by permission_manager).
-fn user_perms_account(perm_manager_id: &Pubkey, bump: u8, roles: &[u8; 32]) -> Account {
-    let mut data = vec![0u8; USER_PERMISSIONS_LEN];
-    data[0] = DISCRIMINATOR_USER_PERMISSION;
-    data[1] = 1; // version
-    data[2] = bump;
-    data[3..35].copy_from_slice(roles);
-    Account {
-        lamports: 1_000_000,
-        data,
-        owner: *perm_manager_id,
-        executable: false,
-        rent_epoch: u64::MAX,
-    }
-}
-
-/// Build a pre-populated WithdrawalDailyLimit account.
-fn withdrawal_daily_limit_account(
-    program_id: &Pubkey,
-    bump: u8,
-    limit: u64,
-    used_amount: u64,
-    last_day: i64,
-) -> Account {
-    let mut data = vec![0u8; WITHDRAWAL_DAILY_LIMIT_LEN];
-    data[0] = DISCRIMINATOR_WITHDRAWAL_DAILY_LIMIT;
-    data[1] = 1; // version
-    data[2] = bump;
-    data[3..11].copy_from_slice(&limit.to_le_bytes());
-    data[11..19].copy_from_slice(&used_amount.to_le_bytes());
-    data[19..27].copy_from_slice(&last_day.to_le_bytes());
-    Account {
-        lamports: 1_000_000,
-        data,
-        owner: *program_id,
-        executable: false,
-        rent_epoch: u64::MAX,
-    }
-}
-
-/// Build a pre-populated WithdrawalOperation account.
-fn withdrawal_operation_account(
-    program_id: &Pubkey,
-    bump: u8,
-    status: u8,
-    deadline: i64,
-    recipient: &Pubkey,
+async fn create_ata(
+    banks: &mut BanksClient,
+    payer: &Keypair,
     mint: &Pubkey,
+    owner: &Pubkey,
+) -> Pubkey {
+    let ata = spl_associated_token_account::get_associated_token_address_with_program_id(
+        owner,
+        mint,
+        &TOKEN_2022_PROGRAM_ID,
+    );
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = spl_associated_token_account::instruction::create_associated_token_account(
+        &payer.pubkey(),
+        owner,
+        mint,
+        &TOKEN_2022_PROGRAM_ID,
+    );
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&payer.pubkey()), &[payer], blockhash);
+    banks.process_transaction(tx).await.unwrap();
+    ata
+}
+
+async fn mint_tokens(
+    banks: &mut BanksClient,
+    payer: &Keypair,
+    mint: &Pubkey,
+    dest: &Pubkey,
+    authority: &Keypair,
     amount: u64,
-) -> Account {
-    let mut data = vec![0u8; WITHDRAWAL_OPERATION_LEN];
-    data[0] = DISCRIMINATOR_WITHDRAWAL_OPERATION;
-    data[1] = 1; // version
-    data[2] = bump;
-    data[3] = status;
-    data[4..12].copy_from_slice(&deadline.to_le_bytes());
-    data[12..44].copy_from_slice(recipient.as_ref());
-    data[44..76].copy_from_slice(mint.as_ref());
-    data[76..84].copy_from_slice(&amount.to_le_bytes());
-    Account {
-        lamports: 1_000_000,
-        data,
-        owner: *program_id,
-        executable: false,
-        rent_epoch: u64::MAX,
-    }
+) {
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = spl_token_2022::instruction::mint_to(
+        &TOKEN_2022_PROGRAM_ID,
+        mint,
+        dest,
+        &authority.pubkey(),
+        &[],
+        amount,
+    )
+    .unwrap();
+    let tx = Transaction::new_signed_with_payer(
+        &[ix],
+        Some(&payer.pubkey()),
+        &[payer, authority],
+        blockhash,
+    );
+    banks.process_transaction(tx).await.unwrap();
 }
 
-/// Set a role bit in a 32-byte bitmask.
-fn set_role_bit(bitmask: &mut [u8; 32], role: u8) {
-    let byte_index = (role / 8) as usize;
-    let bit_index = role % 8;
-    bitmask[byte_index] |= 1 << bit_index;
+async fn setup(max_delay: i64) -> (BanksClient, Keypair, Pubkey, Pubkey, Pubkey) {
+    let ctx = program_test().start_with_context().await;
+    let admin = ctx.payer.insecure_clone();
+    let mut banks = ctx.banks_client.clone();
+    let blockhash = ctx.last_blockhash;
+
+    // Init permission-manager
+    let (pm_config, _) = permission_config_pda();
+    let ix = Instruction {
+        program_id: permission_manager::ID,
+        accounts: permission_manager::accounts::Initialize {
+            admin: admin.pubkey(),
+            config: pm_config,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: permission_manager::instruction::Initialize {}.data(),
+    };
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
+    banks.process_transaction(tx).await.unwrap();
+
+    // Init gatekeeper
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let (gk_config, _) = gatekeeper_config_pda();
+    let (vault_auth, _) = vault_authority_pda();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::Initialize {
+            admin: admin.pubkey(),
+            gatekeeper_config: gk_config,
+            vault_authority: vault_auth,
+            permission_manager_config: pm_config,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::Initialize {
+            permission_manager: pm_config,
+            max_delay,
+        }
+        .data(),
+    };
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
+    banks.process_transaction(tx).await.unwrap();
+
+    (banks, admin, pm_config, gk_config, vault_auth)
 }
 
-/// Compute operation_id = SHA256(recipient || mint || amount_le || salt_le).
-fn compute_operation_id(
-    recipient: &[u8; 32],
-    token_mint: &[u8; 32],
-    amount: u64,
-    salt: u64,
-) -> [u8; 32] {
-    let mut input = [0u8; 80];
-    input[0..32].copy_from_slice(recipient);
-    input[32..64].copy_from_slice(token_mint);
-    input[64..72].copy_from_slice(&amount.to_le_bytes());
-    input[72..80].copy_from_slice(&salt.to_le_bytes());
-    let result = Sha256::digest(&input);
-    let mut out = [0u8; 32];
-    out.copy_from_slice(&result);
-    out
+async fn grant_role(
+    banks: &mut BanksClient,
+    admin: &Keypair,
+    pm_config: Pubkey,
+    user: &Pubkey,
+    role: u16,
+) {
+    let (user_perms_pda, _) = user_permissions_pda(user, &pm_config);
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: permission_manager::ID,
+        accounts: permission_manager::accounts::GrantRole {
+            admin: admin.pubkey(),
+            config: pm_config,
+            user_permissions: user_perms_pda,
+            user: *user,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: permission_manager::instruction::GrantRole { role }.data(),
+    };
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[admin], blockhash);
+    banks.process_transaction(tx).await.unwrap();
 }
 
-/// Discriminator 0: Initialize
-/// Data: [0..32] permission_manager + [32..40] max_delay (i64 LE)
-fn ix_initialize(permission_manager: &Pubkey, max_delay: i64) -> Vec<u8> {
-    let mut data = vec![0u8]; // discriminator
-    data.extend_from_slice(permission_manager.as_ref());
-    data.extend_from_slice(&max_delay.to_le_bytes());
-    data
+async fn fund(banks: &mut BanksClient, payer: &Keypair, to: &Pubkey, lamports: u64) {
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = system_instruction::transfer(&payer.pubkey(), to, lamports);
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&payer.pubkey()), &[payer], blockhash);
+    banks.process_transaction(tx).await.unwrap();
 }
 
-/// Discriminator 1: SetDailyLimit
-/// Data: [0..32] token_mint + [32..40] limit (u64 LE)
-fn ix_set_daily_limit(token_mint: &Pubkey, limit: u64) -> Vec<u8> {
-    let mut data = vec![1u8]; // discriminator
-    data.extend_from_slice(token_mint.as_ref());
-    data.extend_from_slice(&limit.to_le_bytes());
-    data
+async fn get_gatekeeper_config(banks: &mut BanksClient, pda: Pubkey) -> GatekeeperConfig {
+    let account = banks.get_account(pda).await.unwrap().unwrap();
+    GatekeeperConfig::deserialize(&mut &account.data[8..]).unwrap()
 }
 
-/// Discriminator 2: CustodialWithdraw
-/// Data: [0..32] recipient + [32..40] amount (u64 LE) + [40..48] salt (u64 LE)
-fn ix_custodial_withdraw(recipient: &Pubkey, amount: u64, salt: u64) -> Vec<u8> {
-    let mut data = vec![2u8]; // discriminator
-    data.extend_from_slice(recipient.as_ref());
-    data.extend_from_slice(&amount.to_le_bytes());
-    data.extend_from_slice(&salt.to_le_bytes());
-    data
+async fn get_withdrawal_operation(banks: &mut BanksClient, pda: Pubkey) -> WithdrawalOperation {
+    let account = banks.get_account(pda).await.unwrap().unwrap();
+    WithdrawalOperation::deserialize(&mut &account.data[8..]).unwrap()
 }
 
-/// Discriminator 3: ApproveWithdrawal
-/// Data: [0..32] recipient + [32..40] amount (u64 LE) + [40..48] salt (u64 LE)
-fn ix_approve_withdrawal(recipient: &Pubkey, amount: u64, salt: u64) -> Vec<u8> {
-    let mut data = vec![3u8]; // discriminator
-    data.extend_from_slice(recipient.as_ref());
-    data.extend_from_slice(&amount.to_le_bytes());
-    data.extend_from_slice(&salt.to_le_bytes());
-    data
+// ---------------------------------------------------------------------------
+// Initialize
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn test_initialize() {
+    let (mut banks, _admin, pm_config, gk_config, _vault_auth) = setup(3600).await;
+    let cfg = get_gatekeeper_config(&mut banks, gk_config).await;
+    assert_eq!(cfg.max_delay, 3600);
+    assert_eq!(cfg.permission_manager, pm_config);
 }
 
-/// Discriminator 4: CancelWithdrawal
-/// Data: [0..32] recipient + [32..40] amount (u64 LE) + [40..48] salt (u64 LE)
-fn ix_cancel_withdrawal(recipient: &Pubkey, amount: u64, salt: u64) -> Vec<u8> {
-    let mut data = vec![4u8]; // discriminator
-    data.extend_from_slice(recipient.as_ref());
-    data.extend_from_slice(&amount.to_le_bytes());
-    data.extend_from_slice(&salt.to_le_bytes());
-    data
+#[tokio::test]
+async fn test_initialize_unauthorized() {
+    let ctx = program_test().start_with_context().await;
+    let admin = ctx.payer.insecure_clone();
+    let non_admin = Keypair::new();
+    let mut banks = ctx.banks_client.clone();
+    let blockhash = ctx.last_blockhash;
+
+    let (pm_config, _) = permission_config_pda();
+    let ix = Instruction {
+        program_id: permission_manager::ID,
+        accounts: permission_manager::accounts::Initialize {
+            admin: admin.pubkey(),
+            config: pm_config,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: permission_manager::instruction::Initialize {}.data(),
+    };
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
+    banks.process_transaction(tx).await.unwrap();
+
+    fund(&mut banks, &admin, &non_admin.pubkey(), 1_000_000_000).await;
+
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let (gk_config, _) = gatekeeper_config_pda();
+    let (vault_auth, _) = vault_authority_pda();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::Initialize {
+            admin: non_admin.pubkey(),
+            gatekeeper_config: gk_config,
+            vault_authority: vault_auth,
+            permission_manager_config: pm_config,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::Initialize {
+            permission_manager: pm_config,
+            max_delay: 3600,
+        }
+        .data(),
+    };
+    let tx = Transaction::new_signed_with_payer(
+        &[ix],
+        Some(&non_admin.pubkey()),
+        &[&non_admin],
+        blockhash,
+    );
+    let err = banks.process_transaction(tx).await.unwrap_err();
+    assert!(matches!(
+        err,
+        BanksClientError::TransactionError(TransactionError::InstructionError(..))
+    ));
 }
 
-#[test]
-fn test_initialize() {
-    let (mollusk, program_id) = setup();
-    let admin = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let (config_pda, _config_bump) = gatekeeper_config_pda(&program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
+// ---------------------------------------------------------------------------
+// Set daily limit
+// ---------------------------------------------------------------------------
 
-    let max_delay: i64 = 86400;
+#[tokio::test]
+async fn test_set_daily_limit() {
+    let (mut banks, admin, pm_config, gk_config, _vault_auth) = setup(3600).await;
+    let mint_kp = Keypair::new();
+    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
 
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_initialize(&perm_manager, max_delay),
-        vec![
-            AccountMeta::new(admin, true),       // 0: admin
-            AccountMeta::new(config_pda, false), // 1: config PDA
-            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false), // 2: system program
-            AccountMeta::new_readonly(event_authority_key, false), // 3: event_authority
-            AccountMeta::new_readonly(program_id, false),          // 4: self_program
-        ],
-    );
+    let (daily_limit_pda, _) = withdrawal_daily_limit_pda(&mint_kp.pubkey());
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::SetDailyLimit {
+            admin: admin.pubkey(),
+            gatekeeper_config: gk_config,
+            withdrawal_daily_limit: daily_limit_pda,
+            mint: mint_kp.pubkey(),
+            permission_manager_config: pm_config,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::SetDailyLimit { limit: 5_000_000 }.data(),
+    };
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
+    banks.process_transaction(tx).await.unwrap();
 
-    // NOTE: Self-CPI event emission fails in Mollusk tests because the
-    // event_authority PDA bump is derived at compile time from the
-    // hardcoded program ID (crate::ID), which differs from the test's
-    // Pubkey::new_unique(). The core business logic succeeds but the
-    // CPI event call fails.
-    let result = mollusk.process_instruction(
-        &instruction,
-        &[
-            (admin, payer_account()),
-            (config_pda, blank_pda_account()),
-            keyed_account_for_system_program(),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-    );
-    assert!(result.program_result.is_err());
+    let account = banks.get_account(daily_limit_pda).await.unwrap().unwrap();
+    let dl = WithdrawalDailyLimit::deserialize(&mut &account.data[8..]).unwrap();
+    assert_eq!(dl.limit, 5_000_000);
+    assert_eq!(dl.used_amount, 0);
 }
 
-#[test]
-fn test_initialize_already_initialized() {
-    let (mollusk, program_id) = setup();
-    let admin = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
+// ---------------------------------------------------------------------------
+// Custodial withdraw — within limit (immediate transfer)
+// ---------------------------------------------------------------------------
 
-    let max_delay: i64 = 86400;
+#[tokio::test]
+async fn test_custodial_withdraw_within_limit() {
+    let (mut banks, admin, pm_config, gk_config, vault_auth) = setup(3600).await;
+    let mint_kp = Keypair::new();
+    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
 
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_initialize(&perm_manager, max_delay),
-        vec![
-            AccountMeta::new(admin, true),
-            AccountMeta::new(config_pda, false),
-            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
-            AccountMeta::new_readonly(event_authority_key, false),
-            AccountMeta::new_readonly(program_id, false),
-        ],
-    );
+    // Set daily limit
+    let (daily_limit_pda, _) = withdrawal_daily_limit_pda(&mint_kp.pubkey());
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::SetDailyLimit {
+            admin: admin.pubkey(),
+            gatekeeper_config: gk_config,
+            withdrawal_daily_limit: daily_limit_pda,
+            mint: mint_kp.pubkey(),
+            permission_manager_config: pm_config,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::SetDailyLimit { limit: 10_000_000 }.data(),
+    };
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
+    banks.process_transaction(tx).await.unwrap();
 
-    let existing_config = gatekeeper_config_account(&program_id, config_bump, 3600, &perm_manager);
+    // Setup sender (WHITELISTED) and recipient (WHITELISTED_EXT)
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+    fund(&mut banks, &admin, &sender.pubkey(), 2_000_000_000).await;
+    fund(&mut banks, &admin, &recipient.pubkey(), 1_000_000_000).await;
 
-    mollusk.process_and_validate_instruction(
-        &instruction,
-        &[
-            (admin, payer_account()),
-            (config_pda, existing_config),
-            keyed_account_for_system_program(),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-        &[Check::err(ProgramError::Custom(0))], // AlreadyInitialized = 0
-    );
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &sender.pubkey(),
+        permission_manager::constants::ROLE_WHITELISTED,
+    )
+    .await;
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &recipient.pubkey(),
+        permission_manager::constants::ROLE_WHITELISTED_EXT,
+    )
+    .await;
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &vault_auth,
+        permission_manager::constants::ROLE_WHITELISTED,
+    )
+    .await;
+
+    // Create token accounts
+    let sender_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &sender.pubkey()).await;
+    let vault_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &vault_auth).await;
+    let recipient_ata =
+        create_ata(&mut banks, &admin, &mint_kp.pubkey(), &recipient.pubkey()).await;
+
+    // Mint tokens to sender
+    let amount = 1_000_000u64;
+    mint_tokens(
+        &mut banks,
+        &admin,
+        &mint_kp.pubkey(),
+        &sender_ata,
+        &admin,
+        amount,
+    )
+    .await;
+
+    // Custodial withdraw
+    let salt = 1u64;
+    let operation_id = compute_operation_id(&sender.pubkey(), &mint_kp.pubkey(), amount, salt);
+    let (op_pda, _) = withdrawal_operation_pda(&operation_id);
+    let (sender_perms, _) = user_permissions_pda(&sender.pubkey(), &pm_config);
+    let (recipient_perms, _) = user_permissions_pda(&recipient.pubkey(), &pm_config);
+
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::CustodialWithdraw {
+            sender: sender.pubkey(),
+            gatekeeper_config: gk_config,
+            withdrawal_daily_limit: daily_limit_pda,
+            withdrawal_operation: op_pda,
+            mint: mint_kp.pubkey(),
+            sender_token_account: sender_ata,
+            vault_token_account: vault_ata,
+            recipient_token_account: recipient_ata,
+            vault_authority: vault_auth,
+            sender_permissions: sender_perms,
+            vault_authority_permissions: user_permissions_pda(&vault_auth, &pm_config).0,
+            recipient_permissions: recipient_perms,
+            permission_manager_config: pm_config,
+            permission_manager_program: permission_manager::ID,
+            extra_account_metas_list: extra_account_metas_list_pda(&mint_kp.pubkey()),
+            hook_config: hook_config_pda(&mint_kp.pubkey()),
+            transfer_hook_program: transfer_hook_program_id(),
+            token_program: TOKEN_2022_PROGRAM_ID,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::CustodialWithdraw {
+            operation_id,
+            recipient: recipient.pubkey(),
+            amount,
+            salt,
+        }
+        .data(),
+    };
+    let tx =
+        Transaction::new_signed_with_payer(&[ix], Some(&sender.pubkey()), &[&sender], blockhash);
+    banks.process_transaction(tx).await.unwrap();
+
+    // Verify: operation is DONE, recipient got tokens
+    let op = get_withdrawal_operation(&mut banks, op_pda).await;
+    assert_eq!(op.status, 2); // STATUS_DONE
 }
 
-#[test]
-fn test_initialize_invalid_max_delay() {
-    let (mollusk, program_id) = setup();
-    let admin = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let (config_pda, _config_bump) = gatekeeper_config_pda(&program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
+// ---------------------------------------------------------------------------
+// Custodial withdraw — over limit (blocked)
+// ---------------------------------------------------------------------------
 
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_initialize(&perm_manager, 0), // invalid: max_delay <= 0
-        vec![
-            AccountMeta::new(admin, true),
-            AccountMeta::new(config_pda, false),
-            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
-            AccountMeta::new_readonly(event_authority_key, false),
-            AccountMeta::new_readonly(program_id, false),
-        ],
-    );
+#[tokio::test]
+async fn test_custodial_withdraw_over_limit_blocked() {
+    let (mut banks, admin, pm_config, gk_config, vault_auth) = setup(3600).await;
+    let mint_kp = Keypair::new();
+    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
 
-    mollusk.process_and_validate_instruction(
-        &instruction,
-        &[
-            (admin, payer_account()),
-            (config_pda, blank_pda_account()),
-            keyed_account_for_system_program(),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-        &[Check::err(ProgramError::Custom(7))], // InvalidMaxDelay = 7
-    );
+    // Set daily limit to 100
+    let (daily_limit_pda, _) = withdrawal_daily_limit_pda(&mint_kp.pubkey());
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::SetDailyLimit {
+            admin: admin.pubkey(),
+            gatekeeper_config: gk_config,
+            withdrawal_daily_limit: daily_limit_pda,
+            mint: mint_kp.pubkey(),
+            permission_manager_config: pm_config,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::SetDailyLimit { limit: 100 }.data(),
+    };
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
+    banks.process_transaction(tx).await.unwrap();
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+    fund(&mut banks, &admin, &sender.pubkey(), 2_000_000_000).await;
+    fund(&mut banks, &admin, &recipient.pubkey(), 1_000_000_000).await;
+
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &sender.pubkey(),
+        permission_manager::constants::ROLE_WHITELISTED,
+    )
+    .await;
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &recipient.pubkey(),
+        permission_manager::constants::ROLE_WHITELISTED_EXT,
+    )
+    .await;
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &recipient.pubkey(),
+        permission_manager::constants::ROLE_WHITELISTED_EXT,
+    )
+    .await;
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &vault_auth,
+        permission_manager::constants::ROLE_WHITELISTED,
+    )
+    .await;
+
+    let sender_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &sender.pubkey()).await;
+    let vault_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &vault_auth).await;
+    let recipient_ata =
+        create_ata(&mut banks, &admin, &mint_kp.pubkey(), &recipient.pubkey()).await;
+
+    let amount = 500u64; // > 100 limit
+    mint_tokens(
+        &mut banks,
+        &admin,
+        &mint_kp.pubkey(),
+        &sender_ata,
+        &admin,
+        amount,
+    )
+    .await;
+
+    let salt = 1u64;
+    let operation_id = compute_operation_id(&sender.pubkey(), &mint_kp.pubkey(), amount, salt);
+    let (op_pda, _) = withdrawal_operation_pda(&operation_id);
+    let (sender_perms, _) = user_permissions_pda(&sender.pubkey(), &pm_config);
+    let (recipient_perms, _) = user_permissions_pda(&recipient.pubkey(), &pm_config);
+
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::CustodialWithdraw {
+            sender: sender.pubkey(),
+            gatekeeper_config: gk_config,
+            withdrawal_daily_limit: daily_limit_pda,
+            withdrawal_operation: op_pda,
+            mint: mint_kp.pubkey(),
+            sender_token_account: sender_ata,
+            vault_token_account: vault_ata,
+            recipient_token_account: recipient_ata,
+            vault_authority: vault_auth,
+            sender_permissions: sender_perms,
+            vault_authority_permissions: user_permissions_pda(&vault_auth, &pm_config).0,
+            recipient_permissions: recipient_perms,
+            permission_manager_config: pm_config,
+            permission_manager_program: permission_manager::ID,
+            extra_account_metas_list: extra_account_metas_list_pda(&mint_kp.pubkey()),
+            hook_config: hook_config_pda(&mint_kp.pubkey()),
+            transfer_hook_program: transfer_hook_program_id(),
+            token_program: TOKEN_2022_PROGRAM_ID,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::CustodialWithdraw {
+            operation_id,
+            recipient: recipient.pubkey(),
+            amount,
+            salt,
+        }
+        .data(),
+    };
+    let tx =
+        Transaction::new_signed_with_payer(&[ix], Some(&sender.pubkey()), &[&sender], blockhash);
+    banks.process_transaction(tx).await.unwrap();
+
+    // Verify: operation is PENDING (blocked)
+    let op = get_withdrawal_operation(&mut banks, op_pda).await;
+    assert_eq!(op.status, 1); // STATUS_PENDING
+    assert!(op.deadline > 0);
 }
 
-#[test]
-fn test_set_daily_limit() {
-    let (mollusk, program_id) = setup();
-    let admin = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let token_mint = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (perm_cfg_pda, perm_cfg_bump) = perm_config_pda(&perm_manager);
-    let (dl_pda, _dl_bump) = withdrawal_daily_limit_pda(&token_mint, &program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
+// ---------------------------------------------------------------------------
+// Approve withdrawal
+// ---------------------------------------------------------------------------
 
-    let limit: u64 = 1_000_000_00000;
+#[tokio::test]
+async fn test_approve_withdrawal() {
+    let (mut banks, admin, pm_config, gk_config, vault_auth) = setup(86400).await;
+    let mint_kp = Keypair::new();
+    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
 
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_set_daily_limit(&token_mint, limit),
-        vec![
-            AccountMeta::new(admin, true),                  // 0: caller
-            AccountMeta::new_readonly(config_pda, false),   // 1: config
-            AccountMeta::new_readonly(perm_cfg_pda, false), // 2: perm config
-            AccountMeta::new(dl_pda, false),                // 3: daily limit
-            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false), // 4: system
-            AccountMeta::new_readonly(event_authority_key, false), // 5: event auth
-            AccountMeta::new_readonly(program_id, false),   // 6: self
-        ],
+    // Set daily limit to 100 (so 500 will be blocked)
+    let (daily_limit_pda, _) = withdrawal_daily_limit_pda(&mint_kp.pubkey());
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::SetDailyLimit {
+            admin: admin.pubkey(),
+            gatekeeper_config: gk_config,
+            withdrawal_daily_limit: daily_limit_pda,
+            mint: mint_kp.pubkey(),
+            permission_manager_config: pm_config,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::SetDailyLimit { limit: 100 }.data(),
+    };
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
+    banks.process_transaction(tx).await.unwrap();
+
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+    fund(&mut banks, &admin, &sender.pubkey(), 2_000_000_000).await;
+    fund(&mut banks, &admin, &recipient.pubkey(), 1_000_000_000).await;
+
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &sender.pubkey(),
+        permission_manager::constants::ROLE_WHITELISTED,
+    )
+    .await;
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &recipient.pubkey(),
+        permission_manager::constants::ROLE_WHITELISTED_EXT,
+    )
+    .await;
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &vault_auth,
+        permission_manager::constants::ROLE_WHITELISTED,
+    )
+    .await;
+
+    let sender_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &sender.pubkey()).await;
+    let vault_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &vault_auth).await;
+    let recipient_ata =
+        create_ata(&mut banks, &admin, &mint_kp.pubkey(), &recipient.pubkey()).await;
+
+    let amount = 500u64;
+    mint_tokens(
+        &mut banks,
+        &admin,
+        &mint_kp.pubkey(),
+        &sender_ata,
+        &admin,
+        amount,
+    )
+    .await;
+
+    let salt = 1u64;
+    let operation_id = compute_operation_id(&sender.pubkey(), &mint_kp.pubkey(), amount, salt);
+    let (op_pda, _) = withdrawal_operation_pda(&operation_id);
+    let (sender_perms, _) = user_permissions_pda(&sender.pubkey(), &pm_config);
+    let (recipient_perms, _) = user_permissions_pda(&recipient.pubkey(), &pm_config);
+
+    // Create blocked withdrawal
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::CustodialWithdraw {
+            sender: sender.pubkey(),
+            gatekeeper_config: gk_config,
+            withdrawal_daily_limit: daily_limit_pda,
+            withdrawal_operation: op_pda,
+            mint: mint_kp.pubkey(),
+            sender_token_account: sender_ata,
+            vault_token_account: vault_ata,
+            recipient_token_account: recipient_ata,
+            vault_authority: vault_auth,
+            sender_permissions: sender_perms,
+            vault_authority_permissions: user_permissions_pda(&vault_auth, &pm_config).0,
+            recipient_permissions: recipient_perms,
+            permission_manager_config: pm_config,
+            permission_manager_program: permission_manager::ID,
+            extra_account_metas_list: extra_account_metas_list_pda(&mint_kp.pubkey()),
+            hook_config: hook_config_pda(&mint_kp.pubkey()),
+            transfer_hook_program: transfer_hook_program_id(),
+            token_program: TOKEN_2022_PROGRAM_ID,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::CustodialWithdraw {
+            operation_id,
+            recipient: recipient.pubkey(),
+            amount,
+            salt,
+        }
+        .data(),
+    };
+    let tx =
+        Transaction::new_signed_with_payer(&[ix], Some(&sender.pubkey()), &[&sender], blockhash);
+    banks.process_transaction(tx).await.unwrap();
+
+    // Grant CUSTODIAL_GATEKEEPER_APPROVER to approver
+    let approver = Keypair::new();
+    fund(&mut banks, &admin, &approver.pubkey(), 1_000_000_000).await;
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &approver.pubkey(),
+        permission_manager::constants::ROLE_CUSTODIAL_GATEKEEPER_APPROVER,
+    )
+    .await;
+    let (approver_perms, _) = user_permissions_pda(&approver.pubkey(), &pm_config);
+
+    // Approve
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::ApproveWithdrawal {
+            approver: approver.pubkey(),
+            gatekeeper_config: gk_config,
+            withdrawal_operation: op_pda,
+            mint: mint_kp.pubkey(),
+            vault_token_account: vault_ata,
+            recipient_token_account: recipient_ata,
+            vault_authority: vault_auth,
+            approver_permissions: approver_perms,
+            vault_authority_permissions: user_permissions_pda(&vault_auth, &pm_config).0,
+            recipient_permissions: recipient_perms,
+            permission_manager_config: pm_config,
+            permission_manager_program: permission_manager::ID,
+            extra_account_metas_list: extra_account_metas_list_pda(&mint_kp.pubkey()),
+            hook_config: hook_config_pda(&mint_kp.pubkey()),
+            transfer_hook_program: transfer_hook_program_id(),
+            token_program: TOKEN_2022_PROGRAM_ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::ApproveWithdrawal {
+            operation_id,
+            recipient: recipient.pubkey(),
+            amount,
+            salt,
+        }
+        .data(),
+    };
+    let tx = Transaction::new_signed_with_payer(
+        &[ix],
+        Some(&approver.pubkey()),
+        &[&approver],
+        blockhash,
     );
+    banks.process_transaction(tx).await.unwrap();
 
-    let result = mollusk.process_instruction(
-        &instruction,
-        &[
-            (admin, payer_account()),
-            (
-                config_pda,
-                gatekeeper_config_account(&program_id, config_bump, 86400, &perm_manager),
-            ),
-            (
-                perm_cfg_pda,
-                perm_config_account(&perm_manager, perm_cfg_bump, &admin),
-            ),
-            (dl_pda, blank_pda_account()),
-            keyed_account_for_system_program(),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-    );
-    assert!(result.program_result.is_err());
+    let op = get_withdrawal_operation(&mut banks, op_pda).await;
+    assert_eq!(op.status, 2); // STATUS_DONE
 }
 
-#[test]
-fn test_set_daily_limit_update() {
-    let (mollusk, program_id) = setup();
-    let admin = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let token_mint = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (perm_cfg_pda, perm_cfg_bump) = perm_config_pda(&perm_manager);
-    let (dl_pda, dl_bump) = withdrawal_daily_limit_pda(&token_mint, &program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
-
-    let new_limit: u64 = 2_000_000_00000;
-
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_set_daily_limit(&token_mint, new_limit),
-        vec![
-            AccountMeta::new(admin, true),
-            AccountMeta::new_readonly(config_pda, false),
-            AccountMeta::new_readonly(perm_cfg_pda, false),
-            AccountMeta::new(dl_pda, false),
-            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
-            AccountMeta::new_readonly(event_authority_key, false),
-            AccountMeta::new_readonly(program_id, false),
-        ],
-    );
-
-    let existing_dl =
-        withdrawal_daily_limit_account(&program_id, dl_bump, 500_000_00000, 100_000_00000, 19800);
-
-    let result = mollusk.process_instruction(
-        &instruction,
-        &[
-            (admin, payer_account()),
-            (
-                config_pda,
-                gatekeeper_config_account(&program_id, config_bump, 86400, &perm_manager),
-            ),
-            (
-                perm_cfg_pda,
-                perm_config_account(&perm_manager, perm_cfg_bump, &admin),
-            ),
-            (dl_pda, existing_dl),
-            keyed_account_for_system_program(),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-    );
-    assert!(result.program_result.is_err());
-}
-
-#[test]
-fn test_set_daily_limit_unauthorized() {
-    let (mollusk, program_id) = setup();
-    let admin = Pubkey::new_unique();
-    let non_admin = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let token_mint = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (perm_cfg_pda, perm_cfg_bump) = perm_config_pda(&perm_manager);
-    let (dl_pda, _dl_bump) = withdrawal_daily_limit_pda(&token_mint, &program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
-
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_set_daily_limit(&token_mint, 1_000_000),
-        vec![
-            AccountMeta::new(non_admin, true),
-            AccountMeta::new_readonly(config_pda, false),
-            AccountMeta::new_readonly(perm_cfg_pda, false),
-            AccountMeta::new(dl_pda, false),
-            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
-            AccountMeta::new_readonly(event_authority_key, false),
-            AccountMeta::new_readonly(program_id, false),
-        ],
-    );
-
-    mollusk.process_and_validate_instruction(
-        &instruction,
-        &[
-            (non_admin, payer_account()),
-            (
-                config_pda,
-                gatekeeper_config_account(&program_id, config_bump, 86400, &perm_manager),
-            ),
-            (
-                perm_cfg_pda,
-                perm_config_account(&perm_manager, perm_cfg_bump, &admin),
-            ),
-            (dl_pda, blank_pda_account()),
-            keyed_account_for_system_program(),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-        &[Check::err(ProgramError::Custom(2))], // Unauthorized = 2
-    );
-}
-
-#[test]
-fn test_custodial_withdraw_unauthorized_sender() {
-    let (mut mollusk, program_id) = setup();
-    let sender = Pubkey::new_unique();
-    let recipient = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let token_mint = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (dl_pda, dl_bump) = withdrawal_daily_limit_pda(&token_mint, &program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
-    let (vault_authority, _) = vault_authority_pda(&program_id);
-
-    let amount: u64 = 100_00000;
-    let salt: u64 = 1;
-    let operation_id =
-        compute_operation_id(&recipient.to_bytes(), &token_mint.to_bytes(), amount, salt);
-    let (op_pda, _) = withdrawal_operation_pda(&operation_id, &program_id);
-
-    // Sender has NO roles
-    let (sender_perms_pda, sender_perms_bump) = user_perm_pda(&sender, &perm_manager);
-    let roles = [0u8; 32];
-
-    // Recipient perms (has WHITELISTED_EXT)
-    let (recipient_perms_pda, recipient_perms_bump) = user_perm_pda(&recipient, &perm_manager);
-    let mut recipient_roles = [0u8; 32];
-    set_role_bit(&mut recipient_roles, ROLE_WHITELISTED_EXT);
-
-    // Vault authority perms
-    let (vault_perms_pda, vault_perms_bump) = user_perm_pda(&vault_authority, &perm_manager);
-    let mut vault_roles = [0u8; 32];
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED);
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED_EXT);
-
-    mollusk.sysvars.clock.unix_timestamp = 86400 * 19800;
-
-    let sender_token_account = Pubkey::new_unique();
-    let vault_token_account = Pubkey::new_unique();
-    let recipient_token_account = Pubkey::new_unique();
-    let token_2022_program = Pubkey::new_unique();
-    let extra_account_meta_list = Pubkey::new_unique();
-    let permission_manager_program = perm_manager;
-    let spiko_token_program = Pubkey::new_unique();
-    let token_config = Pubkey::new_unique();
-    let hook_event_authority = Pubkey::new_unique();
-    let hook_program = Pubkey::new_unique();
-
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_custodial_withdraw(&recipient, amount, salt),
-        vec![
-            AccountMeta::new(sender, true),                        // 0
-            AccountMeta::new_readonly(config_pda, false),          // 1
-            AccountMeta::new(dl_pda, false),                       // 2
-            AccountMeta::new(op_pda, false),                       // 3
-            AccountMeta::new(sender_token_account, false),         // 4
-            AccountMeta::new(vault_token_account, false),          // 5
-            AccountMeta::new(recipient_token_account, false),      // 6
-            AccountMeta::new_readonly(vault_authority, false),     // 7
-            AccountMeta::new_readonly(token_mint, false),          // 8
-            AccountMeta::new_readonly(sender_perms_pda, false),    // 9
-            AccountMeta::new_readonly(recipient_perms_pda, false), // 10
-            AccountMeta::new_readonly(vault_perms_pda, false),     // 11
-            AccountMeta::new_readonly(token_2022_program, false),  // 12
-            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false), // 13
-            AccountMeta::new_readonly(extra_account_meta_list, false), // 14
-            AccountMeta::new_readonly(permission_manager_program, false), // 15
-            AccountMeta::new_readonly(spiko_token_program, false), // 16
-            AccountMeta::new_readonly(token_config, false),        // 17
-            AccountMeta::new_readonly(hook_event_authority, false), // 18
-            AccountMeta::new_readonly(hook_program, false),        // 19
-            AccountMeta::new_readonly(event_authority_key, false), // 20
-            AccountMeta::new_readonly(program_id, false),          // 21
-        ],
-    );
-
-    mollusk.process_and_validate_instruction(
-        &instruction,
-        &[
-            (sender, payer_account()),
-            (
-                config_pda,
-                gatekeeper_config_account(&program_id, config_bump, 86400, &perm_manager),
-            ),
-            (
-                dl_pda,
-                withdrawal_daily_limit_account(&program_id, dl_bump, 1_000_000_00000, 0, 19800),
-            ),
-            (op_pda, blank_pda_account()),
-            (sender_token_account, dummy_account()),
-            (vault_token_account, dummy_account()),
-            (recipient_token_account, dummy_account()),
-            (vault_authority, dummy_account()),
-            (token_mint, dummy_account()),
-            (
-                sender_perms_pda,
-                user_perms_account(&perm_manager, sender_perms_bump, &roles),
-            ),
-            (
-                recipient_perms_pda,
-                user_perms_account(&perm_manager, recipient_perms_bump, &recipient_roles),
-            ),
-            (
-                vault_perms_pda,
-                user_perms_account(&perm_manager, vault_perms_bump, &vault_roles),
-            ),
-            (token_2022_program, dummy_account()),
-            keyed_account_for_system_program(),
-            (extra_account_meta_list, dummy_account()),
-            (permission_manager_program, dummy_account()),
-            (spiko_token_program, dummy_account()),
-            (token_config, dummy_account()),
-            (hook_event_authority, dummy_account()),
-            (hook_program, dummy_account()),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-        &[Check::err(ProgramError::Custom(8))], // UnauthorizedFrom = 8
-    );
-}
-
-#[test]
-fn test_custodial_withdraw_unauthorized_recipient() {
-    let (mut mollusk, program_id) = setup();
-    let sender = Pubkey::new_unique();
-    let recipient = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let token_mint = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (dl_pda, dl_bump) = withdrawal_daily_limit_pda(&token_mint, &program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
-    let (vault_authority, _) = vault_authority_pda(&program_id);
-
-    let amount: u64 = 100_00000;
-    let salt: u64 = 1;
-    let operation_id =
-        compute_operation_id(&recipient.to_bytes(), &token_mint.to_bytes(), amount, salt);
-    let (op_pda, _) = withdrawal_operation_pda(&operation_id, &program_id);
-
-    // Sender has WHITELISTED
-    let (sender_perms_pda, sender_perms_bump) = user_perm_pda(&sender, &perm_manager);
-    let mut sender_roles = [0u8; 32];
-    set_role_bit(&mut sender_roles, ROLE_WHITELISTED);
-
-    // Recipient has NO roles (missing WHITELISTED_EXT)
-    let (recipient_perms_pda, recipient_perms_bump) = user_perm_pda(&recipient, &perm_manager);
-    let recipient_roles = [0u8; 32];
-
-    let (vault_perms_pda, vault_perms_bump) = user_perm_pda(&vault_authority, &perm_manager);
-    let mut vault_roles = [0u8; 32];
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED);
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED_EXT);
-
-    mollusk.sysvars.clock.unix_timestamp = 86400 * 19800;
-
-    let sender_token_account = Pubkey::new_unique();
-    let vault_token_account = Pubkey::new_unique();
-    let recipient_token_account = Pubkey::new_unique();
-    let token_2022_program = Pubkey::new_unique();
-    let extra_account_meta_list = Pubkey::new_unique();
-    let permission_manager_program = perm_manager;
-    let spiko_token_program = Pubkey::new_unique();
-    let token_config = Pubkey::new_unique();
-    let hook_event_authority = Pubkey::new_unique();
-    let hook_program = Pubkey::new_unique();
-
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_custodial_withdraw(&recipient, amount, salt),
-        vec![
-            AccountMeta::new(sender, true),
-            AccountMeta::new_readonly(config_pda, false),
-            AccountMeta::new(dl_pda, false),
-            AccountMeta::new(op_pda, false),
-            AccountMeta::new(sender_token_account, false),
-            AccountMeta::new(vault_token_account, false),
-            AccountMeta::new(recipient_token_account, false),
-            AccountMeta::new_readonly(vault_authority, false),
-            AccountMeta::new_readonly(token_mint, false),
-            AccountMeta::new_readonly(sender_perms_pda, false),
-            AccountMeta::new_readonly(recipient_perms_pda, false),
-            AccountMeta::new_readonly(vault_perms_pda, false),
-            AccountMeta::new_readonly(token_2022_program, false),
-            AccountMeta::new_readonly(solana_sdk_ids::system_program::ID, false),
-            AccountMeta::new_readonly(extra_account_meta_list, false),
-            AccountMeta::new_readonly(permission_manager_program, false),
-            AccountMeta::new_readonly(spiko_token_program, false),
-            AccountMeta::new_readonly(token_config, false),
-            AccountMeta::new_readonly(hook_event_authority, false),
-            AccountMeta::new_readonly(hook_program, false),
-            AccountMeta::new_readonly(event_authority_key, false),
-            AccountMeta::new_readonly(program_id, false),
-        ],
-    );
-
-    mollusk.process_and_validate_instruction(
-        &instruction,
-        &[
-            (sender, payer_account()),
-            (
-                config_pda,
-                gatekeeper_config_account(&program_id, config_bump, 86400, &perm_manager),
-            ),
-            (
-                dl_pda,
-                withdrawal_daily_limit_account(&program_id, dl_bump, 1_000_000_00000, 0, 19800),
-            ),
-            (op_pda, blank_pda_account()),
-            (sender_token_account, dummy_account()),
-            (vault_token_account, dummy_account()),
-            (recipient_token_account, dummy_account()),
-            (vault_authority, dummy_account()),
-            (token_mint, dummy_account()),
-            (
-                sender_perms_pda,
-                user_perms_account(&perm_manager, sender_perms_bump, &sender_roles),
-            ),
-            (
-                recipient_perms_pda,
-                user_perms_account(&perm_manager, recipient_perms_bump, &recipient_roles),
-            ),
-            (
-                vault_perms_pda,
-                user_perms_account(&perm_manager, vault_perms_bump, &vault_roles),
-            ),
-            (token_2022_program, dummy_account()),
-            keyed_account_for_system_program(),
-            (extra_account_meta_list, dummy_account()),
-            (permission_manager_program, dummy_account()),
-            (spiko_token_program, dummy_account()),
-            (token_config, dummy_account()),
-            (hook_event_authority, dummy_account()),
-            (hook_program, dummy_account()),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-        &[Check::err(ProgramError::Custom(9))], // UnauthorizedTo = 9
-    );
-}
-
-#[test]
-fn test_approve_withdrawal_unauthorized() {
-    let (mut mollusk, program_id) = setup();
-    let approver = Pubkey::new_unique();
-    let recipient = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let token_mint = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
-    let (vault_authority, _) = vault_authority_pda(&program_id);
-
-    let amount: u64 = 100_00000;
-    let salt: u64 = 1;
-    let operation_id =
-        compute_operation_id(&recipient.to_bytes(), &token_mint.to_bytes(), amount, salt);
-    let (op_pda, op_bump) = withdrawal_operation_pda(&operation_id, &program_id);
-
-    // Approver has NO roles (missing CUSTODIAL_GATEKEEPER_APPROVER)
-    let (approver_perms_pda, approver_perms_bump) = user_perm_pda(&approver, &perm_manager);
-    let roles = [0u8; 32];
-
-    let (vault_perms_pda, vault_perms_bump) = user_perm_pda(&vault_authority, &perm_manager);
-    let mut vault_roles = [0u8; 32];
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED);
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED_EXT);
-
-    let (recipient_perms_pda, recipient_perms_bump) = user_perm_pda(&recipient, &perm_manager);
-    let mut recipient_roles = [0u8; 32];
-    set_role_bit(&mut recipient_roles, ROLE_WHITELISTED_EXT);
-
-    mollusk.sysvars.clock.unix_timestamp = 86400 * 19800;
-
-    let deadline: i64 = 86400 * 19800 + 86400;
-
-    let vault_token_account = Pubkey::new_unique();
-    let recipient_token_account = Pubkey::new_unique();
-    let token_2022_program = Pubkey::new_unique();
-    let extra_account_meta_list = Pubkey::new_unique();
-    let permission_manager_program = perm_manager;
-    let spiko_token_program = Pubkey::new_unique();
-    let token_config = Pubkey::new_unique();
-    let hook_event_authority = Pubkey::new_unique();
-    let hook_program = Pubkey::new_unique();
-
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_approve_withdrawal(&recipient, amount, salt),
-        vec![
-            AccountMeta::new_readonly(approver, true),             // 0
-            AccountMeta::new_readonly(config_pda, false),          // 1
-            AccountMeta::new(op_pda, false),                       // 2
-            AccountMeta::new_readonly(approver_perms_pda, false),  // 3
-            AccountMeta::new(vault_token_account, false),          // 4
-            AccountMeta::new(recipient_token_account, false),      // 5
-            AccountMeta::new_readonly(vault_authority, false),     // 6
-            AccountMeta::new_readonly(token_mint, false),          // 7
-            AccountMeta::new_readonly(vault_perms_pda, false),     // 8
-            AccountMeta::new_readonly(recipient_perms_pda, false), // 9
-            AccountMeta::new_readonly(token_2022_program, false),  // 10
-            AccountMeta::new_readonly(extra_account_meta_list, false), // 11
-            AccountMeta::new_readonly(permission_manager_program, false), // 12
-            AccountMeta::new_readonly(spiko_token_program, false), // 13
-            AccountMeta::new_readonly(token_config, false),        // 14
-            AccountMeta::new_readonly(hook_event_authority, false), // 15
-            AccountMeta::new_readonly(hook_program, false),        // 16
-            AccountMeta::new_readonly(event_authority_key, false), // 17
-            AccountMeta::new_readonly(program_id, false),          // 18
-        ],
-    );
-
-    mollusk.process_and_validate_instruction(
-        &instruction,
-        &[
-            (approver, payer_account()),
-            (
-                config_pda,
-                gatekeeper_config_account(&program_id, config_bump, 86400, &perm_manager),
-            ),
-            (
-                op_pda,
-                withdrawal_operation_account(
-                    &program_id,
-                    op_bump,
-                    STATUS_PENDING,
-                    deadline,
-                    &recipient,
-                    &token_mint,
-                    amount,
-                ),
-            ),
-            (
-                approver_perms_pda,
-                user_perms_account(&perm_manager, approver_perms_bump, &roles),
-            ),
-            (vault_token_account, dummy_account()),
-            (recipient_token_account, dummy_account()),
-            (vault_authority, dummy_account()),
-            (token_mint, dummy_account()),
-            (
-                vault_perms_pda,
-                user_perms_account(&perm_manager, vault_perms_bump, &vault_roles),
-            ),
-            (
-                recipient_perms_pda,
-                user_perms_account(&perm_manager, recipient_perms_bump, &recipient_roles),
-            ),
-            (token_2022_program, dummy_account()),
-            (extra_account_meta_list, dummy_account()),
-            (permission_manager_program, dummy_account()),
-            (spiko_token_program, dummy_account()),
-            (token_config, dummy_account()),
-            (hook_event_authority, dummy_account()),
-            (hook_program, dummy_account()),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-        &[Check::err(ProgramError::Custom(2))], // Unauthorized = 2
-    );
-}
-
-#[test]
-fn test_approve_withdrawal_not_pending() {
-    let (mut mollusk, program_id) = setup();
-    let approver = Pubkey::new_unique();
-    let recipient = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let token_mint = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
-    let (vault_authority, _) = vault_authority_pda(&program_id);
-
-    let amount: u64 = 100_00000;
-    let salt: u64 = 1;
-    let operation_id =
-        compute_operation_id(&recipient.to_bytes(), &token_mint.to_bytes(), amount, salt);
-    let (op_pda, op_bump) = withdrawal_operation_pda(&operation_id, &program_id);
-
-    // Approver has correct role
-    let (approver_perms_pda, approver_perms_bump) = user_perm_pda(&approver, &perm_manager);
-    let mut roles = [0u8; 32];
-    set_role_bit(&mut roles, ROLE_CUSTODIAL_GATEKEEPER_APPROVER);
-
-    let (vault_perms_pda, vault_perms_bump) = user_perm_pda(&vault_authority, &perm_manager);
-    let mut vault_roles = [0u8; 32];
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED);
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED_EXT);
-
-    let (recipient_perms_pda, recipient_perms_bump) = user_perm_pda(&recipient, &perm_manager);
-    let mut recipient_roles = [0u8; 32];
-    set_role_bit(&mut recipient_roles, ROLE_WHITELISTED_EXT);
-
-    mollusk.sysvars.clock.unix_timestamp = 86400 * 19800;
-
-    let vault_token_account = Pubkey::new_unique();
-    let recipient_token_account = Pubkey::new_unique();
-    let token_2022_program = Pubkey::new_unique();
-    let extra_account_meta_list = Pubkey::new_unique();
-    let permission_manager_program = perm_manager;
-    let spiko_token_program = Pubkey::new_unique();
-    let token_config = Pubkey::new_unique();
-    let hook_event_authority = Pubkey::new_unique();
-    let hook_program = Pubkey::new_unique();
-
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_approve_withdrawal(&recipient, amount, salt),
-        vec![
-            AccountMeta::new_readonly(approver, true),
-            AccountMeta::new_readonly(config_pda, false),
-            AccountMeta::new(op_pda, false),
-            AccountMeta::new_readonly(approver_perms_pda, false),
-            AccountMeta::new(vault_token_account, false),
-            AccountMeta::new(recipient_token_account, false),
-            AccountMeta::new_readonly(vault_authority, false),
-            AccountMeta::new_readonly(token_mint, false),
-            AccountMeta::new_readonly(vault_perms_pda, false),
-            AccountMeta::new_readonly(recipient_perms_pda, false),
-            AccountMeta::new_readonly(token_2022_program, false),
-            AccountMeta::new_readonly(extra_account_meta_list, false),
-            AccountMeta::new_readonly(permission_manager_program, false),
-            AccountMeta::new_readonly(spiko_token_program, false),
-            AccountMeta::new_readonly(token_config, false),
-            AccountMeta::new_readonly(hook_event_authority, false),
-            AccountMeta::new_readonly(hook_program, false),
-            AccountMeta::new_readonly(event_authority_key, false),
-            AccountMeta::new_readonly(program_id, false),
-        ],
-    );
-
-    // Operation is already DONE
-    mollusk.process_and_validate_instruction(
-        &instruction,
-        &[
-            (approver, payer_account()),
-            (
-                config_pda,
-                gatekeeper_config_account(&program_id, config_bump, 86400, &perm_manager),
-            ),
-            (
-                op_pda,
-                withdrawal_operation_account(
-                    &program_id,
-                    op_bump,
-                    STATUS_DONE,
-                    86400 * 19800 + 86400,
-                    &recipient,
-                    &token_mint,
-                    amount,
-                ),
-            ),
-            (
-                approver_perms_pda,
-                user_perms_account(&perm_manager, approver_perms_bump, &roles),
-            ),
-            (vault_token_account, dummy_account()),
-            (recipient_token_account, dummy_account()),
-            (vault_authority, dummy_account()),
-            (token_mint, dummy_account()),
-            (
-                vault_perms_pda,
-                user_perms_account(&perm_manager, vault_perms_bump, &vault_roles),
-            ),
-            (
-                recipient_perms_pda,
-                user_perms_account(&perm_manager, recipient_perms_bump, &recipient_roles),
-            ),
-            (token_2022_program, dummy_account()),
-            (extra_account_meta_list, dummy_account()),
-            (permission_manager_program, dummy_account()),
-            (spiko_token_program, dummy_account()),
-            (token_config, dummy_account()),
-            (hook_event_authority, dummy_account()),
-            (hook_program, dummy_account()),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-        &[Check::err(ProgramError::Custom(4))], // NotPending = 4
-    );
-}
-
-#[test]
-fn test_approve_withdrawal_deadline_passed() {
-    let (mut mollusk, program_id) = setup();
-    let approver = Pubkey::new_unique();
-    let recipient = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let token_mint = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
-    let (vault_authority, _) = vault_authority_pda(&program_id);
-
-    let amount: u64 = 100_00000;
-    let salt: u64 = 1;
-    let operation_id =
-        compute_operation_id(&recipient.to_bytes(), &token_mint.to_bytes(), amount, salt);
-    let (op_pda, op_bump) = withdrawal_operation_pda(&operation_id, &program_id);
-
-    let (approver_perms_pda, approver_perms_bump) = user_perm_pda(&approver, &perm_manager);
-    let mut roles = [0u8; 32];
-    set_role_bit(&mut roles, ROLE_CUSTODIAL_GATEKEEPER_APPROVER);
-
-    let (vault_perms_pda, vault_perms_bump) = user_perm_pda(&vault_authority, &perm_manager);
-    let mut vault_roles = [0u8; 32];
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED);
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED_EXT);
-
-    let (recipient_perms_pda, recipient_perms_bump) = user_perm_pda(&recipient, &perm_manager);
-    let mut recipient_roles = [0u8; 32];
-    set_role_bit(&mut recipient_roles, ROLE_WHITELISTED_EXT);
-
-    // Clock is AFTER deadline
-    let deadline: i64 = 86400 * 19800;
-    mollusk.sysvars.clock.unix_timestamp = deadline + 1; // past deadline
-
-    let vault_token_account = Pubkey::new_unique();
-    let recipient_token_account = Pubkey::new_unique();
-    let token_2022_program = Pubkey::new_unique();
-    let extra_account_meta_list = Pubkey::new_unique();
-    let permission_manager_program = perm_manager;
-    let spiko_token_program = Pubkey::new_unique();
-    let token_config = Pubkey::new_unique();
-    let hook_event_authority = Pubkey::new_unique();
-    let hook_program = Pubkey::new_unique();
-
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_approve_withdrawal(&recipient, amount, salt),
-        vec![
-            AccountMeta::new_readonly(approver, true),
-            AccountMeta::new_readonly(config_pda, false),
-            AccountMeta::new(op_pda, false),
-            AccountMeta::new_readonly(approver_perms_pda, false),
-            AccountMeta::new(vault_token_account, false),
-            AccountMeta::new(recipient_token_account, false),
-            AccountMeta::new_readonly(vault_authority, false),
-            AccountMeta::new_readonly(token_mint, false),
-            AccountMeta::new_readonly(vault_perms_pda, false),
-            AccountMeta::new_readonly(recipient_perms_pda, false),
-            AccountMeta::new_readonly(token_2022_program, false),
-            AccountMeta::new_readonly(extra_account_meta_list, false),
-            AccountMeta::new_readonly(permission_manager_program, false),
-            AccountMeta::new_readonly(spiko_token_program, false),
-            AccountMeta::new_readonly(token_config, false),
-            AccountMeta::new_readonly(hook_event_authority, false),
-            AccountMeta::new_readonly(hook_program, false),
-            AccountMeta::new_readonly(event_authority_key, false),
-            AccountMeta::new_readonly(program_id, false),
-        ],
-    );
-
-    mollusk.process_and_validate_instruction(
-        &instruction,
-        &[
-            (approver, payer_account()),
-            (
-                config_pda,
-                gatekeeper_config_account(&program_id, config_bump, 86400, &perm_manager),
-            ),
-            (
-                op_pda,
-                withdrawal_operation_account(
-                    &program_id,
-                    op_bump,
-                    STATUS_PENDING,
-                    deadline, // deadline is in the past relative to clock
-                    &recipient,
-                    &token_mint,
-                    amount,
-                ),
-            ),
-            (
-                approver_perms_pda,
-                user_perms_account(&perm_manager, approver_perms_bump, &roles),
-            ),
-            (vault_token_account, dummy_account()),
-            (recipient_token_account, dummy_account()),
-            (vault_authority, dummy_account()),
-            (token_mint, dummy_account()),
-            (
-                vault_perms_pda,
-                user_perms_account(&perm_manager, vault_perms_bump, &vault_roles),
-            ),
-            (
-                recipient_perms_pda,
-                user_perms_account(&perm_manager, recipient_perms_bump, &recipient_roles),
-            ),
-            (token_2022_program, dummy_account()),
-            (extra_account_meta_list, dummy_account()),
-            (permission_manager_program, dummy_account()),
-            (spiko_token_program, dummy_account()),
-            (token_config, dummy_account()),
-            (hook_event_authority, dummy_account()),
-            (hook_program, dummy_account()),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-        &[Check::err(ProgramError::Custom(5))], // DeadlinePassed = 5
-    );
-}
-
-#[test]
-fn test_cancel_withdrawal_not_pending() {
-    let (mut mollusk, program_id) = setup();
-    let caller = Pubkey::new_unique();
-    let recipient = Pubkey::new_unique();
-    let sender = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let token_mint = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
-    let (vault_authority, _) = vault_authority_pda(&program_id);
-
-    let amount: u64 = 100_00000;
-    let salt: u64 = 1;
-    let operation_id =
-        compute_operation_id(&recipient.to_bytes(), &token_mint.to_bytes(), amount, salt);
-    let (op_pda, op_bump) = withdrawal_operation_pda(&operation_id, &program_id);
-
-    let (vault_perms_pda, vault_perms_bump) = user_perm_pda(&vault_authority, &perm_manager);
-    let mut vault_roles = [0u8; 32];
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED);
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED_EXT);
-
-    let (sender_perms_pda, sender_perms_bump) = user_perm_pda(&sender, &perm_manager);
-    let mut sender_roles = [0u8; 32];
-    set_role_bit(&mut sender_roles, ROLE_WHITELISTED);
-
-    // Clock is past deadline to pass the deadline check, but status is DONE
-    let deadline: i64 = 86400 * 19800;
-    mollusk.sysvars.clock.unix_timestamp = deadline + 1;
-
-    let vault_token_account = Pubkey::new_unique();
-    let sender_token_account = Pubkey::new_unique();
-    let token_2022_program = Pubkey::new_unique();
-    let extra_account_meta_list = Pubkey::new_unique();
-    let permission_manager_program = perm_manager;
-    let spiko_token_program = Pubkey::new_unique();
-    let token_config = Pubkey::new_unique();
-    let hook_event_authority = Pubkey::new_unique();
-    let hook_program = Pubkey::new_unique();
-
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_cancel_withdrawal(&recipient, amount, salt),
-        vec![
-            AccountMeta::new_readonly(caller, true),              // 0
-            AccountMeta::new_readonly(config_pda, false),         // 1
-            AccountMeta::new(op_pda, false),                      // 2
-            AccountMeta::new(vault_token_account, false),         // 3
-            AccountMeta::new(sender_token_account, false),        // 4
-            AccountMeta::new_readonly(vault_authority, false),    // 5
-            AccountMeta::new_readonly(token_mint, false),         // 6
-            AccountMeta::new_readonly(token_2022_program, false), // 7
-            AccountMeta::new_readonly(extra_account_meta_list, false), // 8
-            AccountMeta::new_readonly(permission_manager_program, false), // 9
-            AccountMeta::new_readonly(spiko_token_program, false), // 10
-            AccountMeta::new_readonly(token_config, false),       // 11
-            AccountMeta::new_readonly(vault_perms_pda, false),    // 12
-            AccountMeta::new_readonly(sender_perms_pda, false),   // 13
-            AccountMeta::new_readonly(hook_event_authority, false), // 14
-            AccountMeta::new_readonly(hook_program, false),       // 15
-            AccountMeta::new_readonly(event_authority_key, false), // 16
-            AccountMeta::new_readonly(program_id, false),         // 17
-        ],
-    );
-
-    // Operation is already DONE
-    mollusk.process_and_validate_instruction(
-        &instruction,
-        &[
-            (caller, payer_account()),
-            (
-                config_pda,
-                gatekeeper_config_account(&program_id, config_bump, 86400, &perm_manager),
-            ),
-            (
-                op_pda,
-                withdrawal_operation_account(
-                    &program_id,
-                    op_bump,
-                    STATUS_DONE,
-                    deadline,
-                    &recipient,
-                    &token_mint,
-                    amount,
-                ),
-            ),
-            (vault_token_account, dummy_account()),
-            (sender_token_account, dummy_account()),
-            (vault_authority, dummy_account()),
-            (token_mint, dummy_account()),
-            (token_2022_program, dummy_account()),
-            (extra_account_meta_list, dummy_account()),
-            (permission_manager_program, dummy_account()),
-            (spiko_token_program, dummy_account()),
-            (token_config, dummy_account()),
-            (
-                vault_perms_pda,
-                user_perms_account(&perm_manager, vault_perms_bump, &vault_roles),
-            ),
-            (
-                sender_perms_pda,
-                user_perms_account(&perm_manager, sender_perms_bump, &sender_roles),
-            ),
-            (hook_event_authority, dummy_account()),
-            (hook_program, dummy_account()),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-        &[Check::err(ProgramError::Custom(4))], // NotPending = 4
-    );
-}
-
-#[test]
-fn test_cancel_withdrawal_deadline_not_passed() {
-    let (mut mollusk, program_id) = setup();
-    let caller = Pubkey::new_unique();
-    let recipient = Pubkey::new_unique();
-    let sender = Pubkey::new_unique();
-    let perm_manager = Pubkey::new_unique();
-    let token_mint = Pubkey::new_unique();
-    let (config_pda, config_bump) = gatekeeper_config_pda(&program_id);
-    let (event_authority_key, _) = event_authority_pda(&program_id);
-    let (vault_authority, _) = vault_authority_pda(&program_id);
-
-    let amount: u64 = 100_00000;
-    let salt: u64 = 1;
-    let operation_id =
-        compute_operation_id(&recipient.to_bytes(), &token_mint.to_bytes(), amount, salt);
-    let (op_pda, op_bump) = withdrawal_operation_pda(&operation_id, &program_id);
-
-    let (vault_perms_pda, vault_perms_bump) = user_perm_pda(&vault_authority, &perm_manager);
-    let mut vault_roles = [0u8; 32];
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED);
-    set_role_bit(&mut vault_roles, ROLE_WHITELISTED_EXT);
-
-    let (sender_perms_pda, sender_perms_bump) = user_perm_pda(&sender, &perm_manager);
-    let mut sender_roles = [0u8; 32];
-    set_role_bit(&mut sender_roles, ROLE_WHITELISTED);
-
-    // Clock is BEFORE deadline
-    let deadline: i64 = 86400 * 19800 + 86400; // future
-    mollusk.sysvars.clock.unix_timestamp = 86400 * 19800; // before deadline
-
-    let vault_token_account = Pubkey::new_unique();
-    let sender_token_account = Pubkey::new_unique();
-    let token_2022_program = Pubkey::new_unique();
-    let extra_account_meta_list = Pubkey::new_unique();
-    let permission_manager_program = perm_manager;
-    let spiko_token_program = Pubkey::new_unique();
-    let token_config = Pubkey::new_unique();
-    let hook_event_authority = Pubkey::new_unique();
-    let hook_program = Pubkey::new_unique();
-
-    let instruction = Instruction::new_with_bytes(
-        program_id,
-        &ix_cancel_withdrawal(&recipient, amount, salt),
-        vec![
-            AccountMeta::new_readonly(caller, true),
-            AccountMeta::new_readonly(config_pda, false),
-            AccountMeta::new(op_pda, false),
-            AccountMeta::new(vault_token_account, false),
-            AccountMeta::new(sender_token_account, false),
-            AccountMeta::new_readonly(vault_authority, false),
-            AccountMeta::new_readonly(token_mint, false),
-            AccountMeta::new_readonly(token_2022_program, false),
-            AccountMeta::new_readonly(extra_account_meta_list, false),
-            AccountMeta::new_readonly(permission_manager_program, false),
-            AccountMeta::new_readonly(spiko_token_program, false),
-            AccountMeta::new_readonly(token_config, false),
-            AccountMeta::new_readonly(vault_perms_pda, false),
-            AccountMeta::new_readonly(sender_perms_pda, false),
-            AccountMeta::new_readonly(hook_event_authority, false),
-            AccountMeta::new_readonly(hook_program, false),
-            AccountMeta::new_readonly(event_authority_key, false),
-            AccountMeta::new_readonly(program_id, false),
-        ],
-    );
-
-    mollusk.process_and_validate_instruction(
-        &instruction,
-        &[
-            (caller, payer_account()),
-            (
-                config_pda,
-                gatekeeper_config_account(&program_id, config_bump, 86400, &perm_manager),
-            ),
-            (
-                op_pda,
-                withdrawal_operation_account(
-                    &program_id,
-                    op_bump,
-                    STATUS_PENDING,
-                    deadline,
-                    &recipient,
-                    &token_mint,
-                    amount,
-                ),
-            ),
-            (vault_token_account, dummy_account()),
-            (sender_token_account, dummy_account()),
-            (vault_authority, dummy_account()),
-            (token_mint, dummy_account()),
-            (token_2022_program, dummy_account()),
-            (extra_account_meta_list, dummy_account()),
-            (permission_manager_program, dummy_account()),
-            (spiko_token_program, dummy_account()),
-            (token_config, dummy_account()),
-            (
-                vault_perms_pda,
-                user_perms_account(&perm_manager, vault_perms_bump, &vault_roles),
-            ),
-            (
-                sender_perms_pda,
-                user_perms_account(&perm_manager, sender_perms_bump, &sender_roles),
-            ),
-            (hook_event_authority, dummy_account()),
-            (hook_program, dummy_account()),
-            (event_authority_key, Account::default()),
-            (program_id, create_program_account_loader_v3(&program_id)),
-        ],
-        &[Check::err(ProgramError::Custom(6))], // DeadlineNotPassed = 6
-    );
+// ---------------------------------------------------------------------------
+// Unauthorized sender (not WHITELISTED)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn test_custodial_withdraw_unauthorized_sender() {
+    let (mut banks, admin, pm_config, gk_config, vault_auth) = setup(3600).await;
+    let mint_kp = Keypair::new();
+    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+
+    let (daily_limit_pda, _) = withdrawal_daily_limit_pda(&mint_kp.pubkey());
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::SetDailyLimit {
+            admin: admin.pubkey(),
+            gatekeeper_config: gk_config,
+            withdrawal_daily_limit: daily_limit_pda,
+            mint: mint_kp.pubkey(),
+            permission_manager_config: pm_config,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::SetDailyLimit { limit: 10_000_000 }.data(),
+    };
+    let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
+    banks.process_transaction(tx).await.unwrap();
+
+    // sender has MINTER role (not WHITELISTED)
+    let sender = Keypair::new();
+    let recipient = Keypair::new();
+    fund(&mut banks, &admin, &sender.pubkey(), 2_000_000_000).await;
+
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &sender.pubkey(),
+        permission_manager::constants::ROLE_MINTER,
+    )
+    .await;
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &recipient.pubkey(),
+        permission_manager::constants::ROLE_WHITELISTED_EXT,
+    )
+    .await;
+    grant_role(
+        &mut banks,
+        &admin,
+        pm_config,
+        &vault_auth,
+        permission_manager::constants::ROLE_WHITELISTED,
+    )
+    .await;
+
+    let sender_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &sender.pubkey()).await;
+    let vault_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &vault_auth).await;
+    let recipient_ata =
+        create_ata(&mut banks, &admin, &mint_kp.pubkey(), &recipient.pubkey()).await;
+
+    let amount = 100u64;
+    mint_tokens(
+        &mut banks,
+        &admin,
+        &mint_kp.pubkey(),
+        &sender_ata,
+        &admin,
+        amount,
+    )
+    .await;
+
+    let salt = 1u64;
+    let operation_id = compute_operation_id(&sender.pubkey(), &mint_kp.pubkey(), amount, salt);
+    let (op_pda, _) = withdrawal_operation_pda(&operation_id);
+    let (sender_perms, _) = user_permissions_pda(&sender.pubkey(), &pm_config);
+    let (recipient_perms, _) = user_permissions_pda(&recipient.pubkey(), &pm_config);
+
+    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let ix = Instruction {
+        program_id: custodial_gatekeeper::ID,
+        accounts: custodial_gatekeeper::accounts::CustodialWithdraw {
+            sender: sender.pubkey(),
+            gatekeeper_config: gk_config,
+            withdrawal_daily_limit: daily_limit_pda,
+            withdrawal_operation: op_pda,
+            mint: mint_kp.pubkey(),
+            sender_token_account: sender_ata,
+            vault_token_account: vault_ata,
+            recipient_token_account: recipient_ata,
+            vault_authority: vault_auth,
+            sender_permissions: sender_perms,
+            vault_authority_permissions: user_permissions_pda(&vault_auth, &pm_config).0,
+            recipient_permissions: recipient_perms,
+            permission_manager_config: pm_config,
+            permission_manager_program: permission_manager::ID,
+            extra_account_metas_list: extra_account_metas_list_pda(&mint_kp.pubkey()),
+            hook_config: hook_config_pda(&mint_kp.pubkey()),
+            transfer_hook_program: transfer_hook_program_id(),
+            token_program: TOKEN_2022_PROGRAM_ID,
+            system_program: solana_sdk::system_program::ID,
+        }
+        .to_account_metas(None),
+        data: custodial_gatekeeper::instruction::CustodialWithdraw {
+            operation_id,
+            recipient: recipient.pubkey(),
+            amount,
+            salt,
+        }
+        .data(),
+    };
+    let tx =
+        Transaction::new_signed_with_payer(&[ix], Some(&sender.pubkey()), &[&sender], blockhash);
+    let err = banks.process_transaction(tx).await.unwrap_err();
+    assert!(matches!(
+        err,
+        BanksClientError::TransactionError(TransactionError::InstructionError(..))
+    ));
 }

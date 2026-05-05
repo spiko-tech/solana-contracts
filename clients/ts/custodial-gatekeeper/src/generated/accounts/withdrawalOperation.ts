@@ -13,8 +13,12 @@ import {
   decodeAccount,
   fetchEncodedAccount,
   fetchEncodedAccounts,
+  fixDecoderSize,
+  fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
+  getBytesDecoder,
+  getBytesEncoder,
   getI64Decoder,
   getI64Encoder,
   getStructDecoder,
@@ -34,32 +38,33 @@ import {
   type FixedSizeEncoder,
   type MaybeAccount,
   type MaybeEncodedAccount,
+  type ReadonlyUint8Array,
 } from "@solana/kit";
-import { findWithdrawalOperationPda, WithdrawalOperationSeeds } from "../pdas";
 
-export const WITHDRAWAL_OPERATION_DISCRIMINATOR = 3;
+export const WITHDRAWAL_OPERATION_DISCRIMINATOR = new Uint8Array([
+  3, 158, 136, 253, 83, 76, 98, 34,
+]);
 
 export function getWithdrawalOperationDiscriminatorBytes() {
-  return getU8Encoder().encode(WITHDRAWAL_OPERATION_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    WITHDRAWAL_OPERATION_DISCRIMINATOR,
+  );
 }
 
 export type WithdrawalOperation = {
-  discriminator: number;
-  version: number;
-  bump: number;
+  discriminator: ReadonlyUint8Array;
   status: number;
   deadline: bigint;
+  sender: Address;
   recipient: Address;
   mint: Address;
   amount: bigint;
 };
 
 export type WithdrawalOperationArgs = {
-  discriminator?: number;
-  version?: number;
-  bump: number;
   status: number;
   deadline: number | bigint;
+  sender: Address;
   recipient: Address;
   mint: Address;
   amount: number | bigint;
@@ -69,19 +74,17 @@ export type WithdrawalOperationArgs = {
 export function getWithdrawalOperationEncoder(): FixedSizeEncoder<WithdrawalOperationArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["version", getU8Encoder()],
-      ["bump", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["status", getU8Encoder()],
       ["deadline", getI64Encoder()],
+      ["sender", getAddressEncoder()],
       ["recipient", getAddressEncoder()],
       ["mint", getAddressEncoder()],
       ["amount", getU64Encoder()],
     ]),
     (value) => ({
       ...value,
-      discriminator: value.discriminator ?? WITHDRAWAL_OPERATION_DISCRIMINATOR,
-      version: value.version ?? 1,
+      discriminator: WITHDRAWAL_OPERATION_DISCRIMINATOR,
     }),
   );
 }
@@ -89,11 +92,10 @@ export function getWithdrawalOperationEncoder(): FixedSizeEncoder<WithdrawalOper
 /** Gets the decoder for {@link WithdrawalOperation} account data. */
 export function getWithdrawalOperationDecoder(): FixedSizeDecoder<WithdrawalOperation> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["version", getU8Decoder()],
-    ["bump", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["status", getU8Decoder()],
     ["deadline", getI64Decoder()],
+    ["sender", getAddressDecoder()],
     ["recipient", getAddressDecoder()],
     ["mint", getAddressDecoder()],
     ["amount", getU64Decoder()],
@@ -180,26 +182,6 @@ export async function fetchAllMaybeWithdrawalOperation(
   );
 }
 
-export async function fetchWithdrawalOperationFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: WithdrawalOperationSeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<Account<WithdrawalOperation>> {
-  const maybeAccount = await fetchMaybeWithdrawalOperationFromSeeds(
-    rpc,
-    seeds,
-    config,
-  );
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
-}
-
-export async function fetchMaybeWithdrawalOperationFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: WithdrawalOperationSeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<MaybeAccount<WithdrawalOperation>> {
-  const { programAddress, ...fetchConfig } = config;
-  const [address] = await findWithdrawalOperationPda(seeds, { programAddress });
-  return await fetchMaybeWithdrawalOperation(rpc, address, fetchConfig);
+export function getWithdrawalOperationSize(): number {
+  return 121;
 }

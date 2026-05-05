@@ -1,183 +1,42 @@
-use codama::CodamaAccount;
-use pinocchio::{account::AccountView, address::Address, error::ProgramError};
+use anchor_lang::prelude::*;
 
-use spiko_common::{
-    assert_no_padding, AccountDeserialize, AccountSize, Discriminator, PdaAccount, PdaSeeds,
-    Versioned,
-};
+use crate::constants::{ROLE_WHITELISTED, ROLE_WHITELISTED_EXT, VALID_ROLES_BITMASK};
 
-pub const ROLE_MINTER: u8 = 0;
-pub const ROLE_PAUSER: u8 = 1;
-pub const ROLE_BURNER: u8 = 2;
-pub const ROLE_WHITELISTER: u8 = 3;
-pub const ROLE_WHITELISTED: u8 = 4;
-pub const ROLE_REDEMPTION_EXECUTOR: u8 = 5;
-pub const ROLE_MINT_APPROVER: u8 = 6;
-pub const ROLE_MINT_INITIATOR: u8 = 7;
-pub const ROLE_WHITELISTED_EXT: u8 = 8;
-pub const ROLE_CUSTODIAL_GATEKEEPER_APPROVER: u8 = 9;
-pub const MAX_ROLE_BIT: u8 = 255;
-
-#[inline]
-pub fn can_manage_role(grantor_role: u8, target_role: u8) -> bool {
-    matches!(
-        (grantor_role, target_role),
-        (ROLE_WHITELISTER, ROLE_WHITELISTED) | (ROLE_WHITELISTER, ROLE_WHITELISTED_EXT)
-    )
-}
-
-pub const ROLE_BITMASK_LEN: usize = 32;
-
-#[inline]
-pub fn has_role(bitmask: &[u8; ROLE_BITMASK_LEN], role: u8) -> bool {
-    let byte_index = (role / 8) as usize;
-    let bit_index = role % 8;
-    bitmask[byte_index] & (1 << bit_index) != 0
-}
-
-pub const PERMISSION_CONFIG_SEED: &[u8] = b"permission_config";
-pub const USER_PERMISSION_SEED: &[u8] = b"user_perm";
-
-/// Backward-compatible discriminator constants for cross-program imports.
-pub const DISCRIMINATOR_PERMISSION_CONFIG: u8 = 1;
-pub const DISCRIMINATOR_USER_PERMISSION: u8 = 2;
-
-pub const ZERO_ADDRESS: Address = Address::new_from_array([0u8; 32]);
-
-/// Global configuration for the PermissionManager program.
-///
-/// Seeds: ["permission_config"]
-///
-/// On-chain layout (total: 67 bytes):
-///   [0]       discriminator (u8) — external, trait-provided
-///   [1]       version (u8) — external, trait-provided
-///   [2]       bump (u8)
-///   [3..35]   admin authority (Address / 32 bytes)
-///   [35..67]  pending admin (Address / 32 bytes, zero if none)
-#[derive(Clone, Debug, PartialEq, CodamaAccount)]
-#[codama(field("discriminator", number(u8), default_value = 1))]
-#[codama(field("version", number(u8), default_value = 1))]
-#[codama(discriminator(field = "discriminator"))]
-#[codama(seed(type = string(utf8), value = "permission_config"))]
-#[repr(C)]
+#[account]
+#[derive(InitSpace)]
 pub struct PermissionConfig {
-    pub bump: u8,
-    pub admin: Address,
-    pub pending_admin: Address,
+    pub admin: Pubkey,
+    pub pending_admin: Pubkey,
 }
 
-assert_no_padding!(PermissionConfig, 1 + 32 + 32);
-
-impl Discriminator for PermissionConfig {
-    const DISCRIMINATOR: u8 = DISCRIMINATOR_PERMISSION_CONFIG;
-}
-
-impl Versioned for PermissionConfig {
-    const VERSION: u8 = 1;
-}
-
-impl AccountSize for PermissionConfig {
-    const DATA_LEN: usize = 1 + 32 + 32; // bump + admin + pending_admin
-}
-
-impl AccountDeserialize for PermissionConfig {}
-
-impl PdaSeeds for PermissionConfig {
-    const PREFIX: &'static [u8] = PERMISSION_CONFIG_SEED;
-
-    fn validate_pda_address(
-        &self,
-        account: &AccountView,
-        program_id: &Address,
-    ) -> Result<u8, ProgramError> {
-        let (derived, bump) = Address::find_program_address(&[Self::PREFIX], program_id);
-        if account.address() != &derived {
-            return Err(ProgramError::InvalidSeeds);
-        }
-        Ok(bump)
-    }
-}
-
-impl PdaAccount for PermissionConfig {
-    fn bump(&self) -> u8 {
-        self.bump
-    }
-
-    fn validate_self(
-        &self,
-        account: &AccountView,
-        program_id: &Address,
-    ) -> Result<(), ProgramError> {
-        let (derived, _) = Address::find_program_address(&[Self::PREFIX], program_id);
-        if account.address() != &derived {
-            return Err(ProgramError::InvalidSeeds);
-        }
-        Ok(())
-    }
-}
-
-impl PermissionConfig {
-    #[inline]
-    pub fn has_pending_admin(&self) -> bool {
-        self.pending_admin != ZERO_ADDRESS
-    }
-}
-
-/// Stores the role bitmask for a single user address.
-///
-/// Seeds: ["user_perm", user_pubkey]
-///
-/// On-chain layout (total: 35 bytes):
-///   [0]       discriminator (u8) — external, trait-provided
-///   [1]       version (u8) — external, trait-provided
-///   [2]       bump (u8)
-///   [3..35]   roles bitmask (32 bytes = 256 bits)
-#[derive(Clone, Debug, PartialEq, CodamaAccount)]
-#[codama(field("discriminator", number(u8), default_value = 2))]
-#[codama(field("version", number(u8), default_value = 1))]
-#[codama(discriminator(field = "discriminator"))]
-#[codama(seed(type = string(utf8), value = "user_perm"))]
-#[codama(seed(name = "user", type = public_key))]
-#[repr(C)]
+#[account]
+#[derive(InitSpace)]
 pub struct UserPermissions {
-    pub bump: u8,
-    #[codama(type = bytes)]
-    pub roles: [u8; ROLE_BITMASK_LEN],
+    pub roles: u16,
 }
-
-assert_no_padding!(UserPermissions, 1 + 32);
-
-impl Discriminator for UserPermissions {
-    const DISCRIMINATOR: u8 = DISCRIMINATOR_USER_PERMISSION;
-}
-
-impl Versioned for UserPermissions {
-    const VERSION: u8 = 1;
-}
-
-impl AccountSize for UserPermissions {
-    const DATA_LEN: usize = 1 + 32; // bump + roles
-}
-
-impl AccountDeserialize for UserPermissions {}
 
 impl UserPermissions {
-    #[inline]
-    pub fn has_role(&self, role: u8) -> bool {
-        has_role(&self.roles, role)
+    pub fn is_valid_role_mask(role: u16) -> bool {
+        role != 0 && role & !VALID_ROLES_BITMASK == 0
     }
 
-    #[inline]
-    pub fn set_role(&mut self, role: u8) {
-        let byte_index = (role / 8) as usize;
-        let bit_index = role % 8;
-        self.roles[byte_index] |= 1 << bit_index;
+    pub fn has_role(&self, role: u16) -> bool {
+        self.roles & role != 0
     }
 
-    #[inline]
-    pub fn clear_role(&mut self, role: u8) {
-        let byte_index = (role / 8) as usize;
-        let bit_index = role % 8;
-        self.roles[byte_index] &= !(1 << bit_index);
+    pub fn can_add_whitelist_role(&self, role: u16) -> bool {
+        match role {
+            ROLE_WHITELISTED => self.roles & ROLE_WHITELISTED_EXT == 0,
+            ROLE_WHITELISTED_EXT => self.roles & ROLE_WHITELISTED == 0,
+            _ => false,
+        }
     }
+}
+
+pub fn has_role(permissions: &UserPermissions, role: u16) -> bool {
+    permissions.has_role(role)
+}
+
+pub fn is_admin(config: &PermissionConfig, signer: &Pubkey) -> bool {
+    config.admin == *signer
 }

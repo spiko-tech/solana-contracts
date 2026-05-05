@@ -7,9 +7,9 @@
  */
 
 import {
+  fixEncoderSize,
   getBytesEncoder,
   getProgramDerivedAddress,
-  getUtf8Encoder,
   type Address,
   type ProgramDerivedAddress,
   type ReadonlyUint8Array,
@@ -24,13 +24,15 @@ export async function findMintOperationPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2" as Address<"3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2">,
+    programAddress = "13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ" as Address<"13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
     seeds: [
-      getUtf8Encoder().encode("mint_op"),
-      getBytesEncoder().encode(seeds.operationId),
+      getBytesEncoder().encode(
+        new Uint8Array([109, 105, 110, 116, 95, 111, 112]),
+      ),
+      fixEncoderSize(getBytesEncoder(), 32).encode(seeds.operationId),
     ],
   });
 }

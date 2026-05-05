@@ -6,8 +6,9 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./acceptOwnership";
+export * from "./acceptAdmin";
 export * from "./grantRole";
+export * from "./grantRoleWhitelister";
 export * from "./initialize";
 export * from "./revokeRole";
-export * from "./transferOwnership";
+export * from "./transferAdmin";

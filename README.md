@@ -1,6 +1,6 @@
 # Spiko Solana Contracts
 
-Tokenized money market fund shares on Solana, built with Pinocchio and Token-2022.
+Tokenized money market fund shares on Solana, built with Anchor and Token-2022.
 
 ## Program IDs
 
@@ -8,12 +8,12 @@ Tokenized money market fund shares on Solana, built with Pinocchio and Token-202
 
 | Program             | Address                                        |
 | ------------------- | ---------------------------------------------- |
-| PermissionManager   | `2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc` |
-| SpikoToken          | `3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd` |
-| SpikoTransferHook   | `CKV53PkgjvoTmfpzdkbuQc9fMukqu7Qey7kLoSiTwYmY` |
-| Minter              | `3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2` |
-| Redemption          | `8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX` |
-| CustodialGatekeeper | `4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY` |
+| PermissionManager   | `G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE` |
+| SpikoToken          | `6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ` |
+| SpikoTransferHook   | `21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86` |
+| Minter              | `13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ` |
+| Redemption          | `F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu` |
+| CustodialGatekeeper | `7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg` |
 
 ### Mainnet
 
@@ -21,32 +21,53 @@ TBD
 
 ## Setup
 
-Prerequisites: Rust (stable), Solana CLI 2.x, Node.js 20+, pnpm, just.
+Prerequisites: Rust (stable), Solana CLI 2.x, Anchor CLI 0.31.1, Node.js 20+, pnpm.
 
 ```bash
-just install   # install Node.js dependencies
-just build     # generate IDL + clients + compile programs
+pnpm install       # install Node.js dependencies
+anchor build       # build all programs (SBF binaries + IDL)
+anchor test        # build, deploy to localnet, and run tests
 ```
 
 ## Just Commands
 
-| Command                 | Description                               |
-| ----------------------- | ----------------------------------------- |
-| `just install`          | Install Node.js dependencies              |
-| `just build`            | Generate IDL + clients + compile programs |
-| `just generate-idl`     | Generate Codama IDL JSON from Rust source |
-| `just generate-clients` | Generate TypeScript clients from IDL      |
-| `just check`            | Check Rust code (no .so output)           |
-| `just fmt`              | Format Rust code                          |
-| `just clippy`           | Run clippy                                |
-| `just integration-test` | Run integration tests                     |
+| Command                  | Description                              |
+| ------------------------ | ---------------------------------------- |
+| `just install`           | Install Node.js dependencies             |
+| `just build`             | Build all programs (SBF + IDL)           |
+| `just build-no-idl`      | Build without IDL generation             |
+| `just check`             | Check Rust code (no .so output)          |
+| `just fmt`               | Format Rust code                         |
+| `just clippy`            | Run clippy                               |
+| `just test`              | Run tests                                |
+| `just test-skip-build`   | Run tests without rebuilding             |
 
 ## E2E Tests
 
+The E2E test is a self-contained multi-actor scenario that deploys all programs and runs through minting, transfers, custodial gatekeeper withdrawals, and redemptions.
+
+### Prerequisites
+
+- All 6 programs deployed (devnet or local validator)
+- Solana CLI configured (`solana config set --url <rpc_url>`) with a funded admin keypair
+- Node.js 20+, pnpm
+
+### Running
+
 ```bash
-cd e2e
-pnpm install
-pnpm e2e
+# 1. Build programs (BPF binaries)
+cargo build-sbf --tools-version v1.48
+
+# 2. Deploy all programs
+solana program deploy target/deploy/permission_manager.so --program-id target/deploy/permission_manager-keypair.json
+solana program deploy target/deploy/spiko_transfer_hook.so --program-id target/deploy/spiko_transfer_hook-keypair.json
+solana program deploy target/deploy/spiko_token.so --program-id target/deploy/spiko_token-keypair.json
+solana program deploy target/deploy/minter.so --program-id target/deploy/minter-keypair.json
+solana program deploy target/deploy/redemption.so --program-id target/deploy/redemption-keypair.json
+solana program deploy target/deploy/custodial_gatekeeper.so --program-id target/deploy/custodial_gatekeeper-keypair.json
+
+# 3. Run the e2e test
+npx tsx e2e/e2e.ts
 ```
 
-Requires a running Solana validator (devnet or local).
+The test reads the RPC URL and admin keypair from `~/.config/solana/cli/config.yml`.

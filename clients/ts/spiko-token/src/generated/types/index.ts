@@ -6,10 +6,8 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./burnEvent";
-export * from "./mintEvent";
-export * from "./redeemInitiatedEvent";
-export * from "./redemptionContractSetEvent";
-export * from "./tokenInitializedEvent";
-export * from "./tokenPausedEvent";
-export * from "./tokenUnpausedEvent";
+export * from "./burned";
+export * from "./minted";
+export * from "./paused";
+export * from "./tokenInitialized";
+export * from "./unpaused";

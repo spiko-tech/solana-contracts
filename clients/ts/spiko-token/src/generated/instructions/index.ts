@@ -6,12 +6,10 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./burn";
 export * from "./burnFrom";
-export * from "./burnToken";
-export * from "./initializeToken";
-export * from "./mintToken";
+export * from "./initialize";
+export * from "./mint";
 export * from "./pause";
-export * from "./redeemToken";
-export * from "./setRedemptionContract";
-export * from "./transferToken";
+export * from "./redeem";
 export * from "./unpause";

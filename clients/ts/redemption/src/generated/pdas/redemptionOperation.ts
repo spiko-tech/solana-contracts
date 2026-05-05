@@ -7,9 +7,9 @@
  */
 
 import {
+  fixEncoderSize,
   getBytesEncoder,
   getProgramDerivedAddress,
-  getUtf8Encoder,
   type Address,
   type ProgramDerivedAddress,
   type ReadonlyUint8Array,
@@ -24,13 +24,17 @@ export async function findRedemptionOperationPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX" as Address<"8opABJP3fzXuCVUnbzDZqYpnfxmCmeiXUQ49txf6BFWX">,
+    programAddress = "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu" as Address<"F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
     seeds: [
-      getUtf8Encoder().encode("redemption_op"),
-      getBytesEncoder().encode(seeds.operationId),
+      getBytesEncoder().encode(
+        new Uint8Array([
+          114, 101, 100, 101, 109, 112, 116, 105, 111, 110, 95, 111, 112,
+        ]),
+      ),
+      fixEncoderSize(getBytesEncoder(), 32).encode(seeds.operationId),
     ],
   });
 }

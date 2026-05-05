@@ -8,10 +8,14 @@
 
 import {
   combineCodec,
+  fixDecoderSize,
+  fixEncoderSize,
+  getBytesDecoder,
+  getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
-  getU8Decoder,
-  getU8Encoder,
+  getU16Decoder,
+  getU16Encoder,
   transformEncoder,
   type AccountMeta,
   type AccountSignerMeta,
@@ -28,7 +32,7 @@ import {
   type TransactionSigner,
   type WritableAccount,
 } from "@solana/kit";
-import { findUserPermissionsPda } from "../pdas";
+import { findConfigPda, findUserPermissionsPda } from "../pdas";
 import { PERMISSION_MANAGER_PROGRAM_ADDRESS } from "../programs";
 import {
   expectAddress,
@@ -36,66 +40,54 @@ import {
   type ResolvedAccount,
 } from "../shared";
 
-export const REVOKE_ROLE_DISCRIMINATOR = 2;
+export const REVOKE_ROLE_DISCRIMINATOR = new Uint8Array([
+  179, 232, 2, 180, 48, 227, 82, 7,
+]);
 
 export function getRevokeRoleDiscriminatorBytes() {
-  return getU8Encoder().encode(REVOKE_ROLE_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(REVOKE_ROLE_DISCRIMINATOR);
 }
 
 export type RevokeRoleInstruction<
   TProgram extends string = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
-  TAccountCaller extends string | AccountMeta<string> = string,
+  TAccountAdmin extends string | AccountMeta<string> = string,
   TAccountConfig extends string | AccountMeta<string> = string,
-  TAccountUserPerms extends string | AccountMeta<string> = string,
-  TAccountTargetUser extends string | AccountMeta<string> = string,
-  TAccountCallerPerms extends string | AccountMeta<string> = string,
-  TAccountEventAuthority extends string | AccountMeta<string> =
-    "H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs",
-  TAccountSelfProgram extends string | AccountMeta<string> =
-    "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc",
+  TAccountUserPermissions extends string | AccountMeta<string> = string,
+  TAccountUser extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountCaller extends string
-        ? ReadonlySignerAccount<TAccountCaller> &
-            AccountSignerMeta<TAccountCaller>
-        : TAccountCaller,
+      TAccountAdmin extends string
+        ? ReadonlySignerAccount<TAccountAdmin> &
+            AccountSignerMeta<TAccountAdmin>
+        : TAccountAdmin,
       TAccountConfig extends string
         ? ReadonlyAccount<TAccountConfig>
         : TAccountConfig,
-      TAccountUserPerms extends string
-        ? WritableAccount<TAccountUserPerms>
-        : TAccountUserPerms,
-      TAccountTargetUser extends string
-        ? ReadonlyAccount<TAccountTargetUser>
-        : TAccountTargetUser,
-      TAccountCallerPerms extends string
-        ? ReadonlyAccount<TAccountCallerPerms>
-        : TAccountCallerPerms,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountSelfProgram extends string
-        ? ReadonlyAccount<TAccountSelfProgram>
-        : TAccountSelfProgram,
+      TAccountUserPermissions extends string
+        ? WritableAccount<TAccountUserPermissions>
+        : TAccountUserPermissions,
+      TAccountUser extends string
+        ? ReadonlyAccount<TAccountUser>
+        : TAccountUser,
       ...TRemainingAccounts,
     ]
   >;
 
 export type RevokeRoleInstructionData = {
-  discriminator: number;
-  roleId: number;
+  discriminator: ReadonlyUint8Array;
+  role: number;
 };
 
-export type RevokeRoleInstructionDataArgs = { roleId: number };
+export type RevokeRoleInstructionDataArgs = { role: number };
 
 export function getRevokeRoleInstructionDataEncoder(): FixedSizeEncoder<RevokeRoleInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["roleId", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
+      ["role", getU16Encoder()],
     ]),
     (value) => ({ ...value, discriminator: REVOKE_ROLE_DISCRIMINATOR }),
   );
@@ -103,8 +95,8 @@ export function getRevokeRoleInstructionDataEncoder(): FixedSizeEncoder<RevokeRo
 
 export function getRevokeRoleInstructionDataDecoder(): FixedSizeDecoder<RevokeRoleInstructionData> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["roleId", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
+    ["role", getU16Decoder()],
   ]);
 }
 
@@ -119,61 +111,39 @@ export function getRevokeRoleInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type RevokeRoleAsyncInput<
-  TAccountCaller extends string = string,
+  TAccountAdmin extends string = string,
   TAccountConfig extends string = string,
-  TAccountUserPerms extends string = string,
-  TAccountTargetUser extends string = string,
-  TAccountCallerPerms extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
+  TAccountUserPermissions extends string = string,
+  TAccountUser extends string = string,
 > = {
-  /** Caller (admin or role manager) */
-  caller: TransactionSigner<TAccountCaller>;
-  /** PermissionConfig PDA */
-  config: Address<TAccountConfig>;
-  /** Target user's UserPermissions PDA */
-  userPerms?: Address<TAccountUserPerms>;
-  /** Target user address (for PDA derivation) */
-  targetUser: Address<TAccountTargetUser>;
-  /** Caller's UserPermissions PDA (for role-hierarchy check) */
-  callerPerms?: Address<TAccountCallerPerms>;
-  /** Event authority PDA for CPI event emission */
-  eventAuthority?: Address<TAccountEventAuthority>;
-  /** Permission Manager program (self) for CPI event emission */
-  selfProgram?: Address<TAccountSelfProgram>;
-  roleId: RevokeRoleInstructionDataArgs["roleId"];
+  admin: TransactionSigner<TAccountAdmin>;
+  config?: Address<TAccountConfig>;
+  userPermissions?: Address<TAccountUserPermissions>;
+  user: Address<TAccountUser>;
+  role: RevokeRoleInstructionDataArgs["role"];
 };
 
 export async function getRevokeRoleInstructionAsync<
-  TAccountCaller extends string,
+  TAccountAdmin extends string,
   TAccountConfig extends string,
-  TAccountUserPerms extends string,
-  TAccountTargetUser extends string,
-  TAccountCallerPerms extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
+  TAccountUserPermissions extends string,
+  TAccountUser extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
   input: RevokeRoleAsyncInput<
-    TAccountCaller,
+    TAccountAdmin,
     TAccountConfig,
-    TAccountUserPerms,
-    TAccountTargetUser,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountUserPermissions,
+    TAccountUser
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
   RevokeRoleInstruction<
     TProgramAddress,
-    TAccountCaller,
+    TAccountAdmin,
     TAccountConfig,
-    TAccountUserPerms,
-    TAccountTargetUser,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountUserPermissions,
+    TAccountUser
   >
 > {
   // Program address.
@@ -182,13 +152,10 @@ export async function getRevokeRoleInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    caller: { value: input.caller ?? null, isWritable: false },
+    admin: { value: input.admin ?? null, isWritable: false },
     config: { value: input.config ?? null, isWritable: false },
-    userPerms: { value: input.userPerms ?? null, isWritable: true },
-    targetUser: { value: input.targetUser ?? null, isWritable: false },
-    callerPerms: { value: input.callerPerms ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
+    userPermissions: { value: input.userPermissions ?? null, isWritable: true },
+    user: { value: input.user ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -199,35 +166,23 @@ export async function getRevokeRoleInstructionAsync<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.userPerms.value) {
-    accounts.userPerms.value = await findUserPermissionsPda({
-      user: expectAddress(accounts.targetUser.value),
+  if (!accounts.config.value) {
+    accounts.config.value = await findConfigPda();
+  }
+  if (!accounts.userPermissions.value) {
+    accounts.userPermissions.value = await findUserPermissionsPda({
+      user: expectAddress(accounts.user.value),
+      config: expectAddress(accounts.config.value),
     });
-  }
-  if (!accounts.callerPerms.value) {
-    accounts.callerPerms.value = await findUserPermissionsPda({
-      user: expectAddress(accounts.caller.value),
-    });
-  }
-  if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value =
-      "H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs" as Address<"H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs">;
-  }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc" as Address<"2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc">;
   }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.caller),
+      getAccountMeta(accounts.admin),
       getAccountMeta(accounts.config),
-      getAccountMeta(accounts.userPerms),
-      getAccountMeta(accounts.targetUser),
-      getAccountMeta(accounts.callerPerms),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
+      getAccountMeta(accounts.userPermissions),
+      getAccountMeta(accounts.user),
     ],
     data: getRevokeRoleInstructionDataEncoder().encode(
       args as RevokeRoleInstructionDataArgs,
@@ -235,71 +190,46 @@ export async function getRevokeRoleInstructionAsync<
     programAddress,
   } as RevokeRoleInstruction<
     TProgramAddress,
-    TAccountCaller,
+    TAccountAdmin,
     TAccountConfig,
-    TAccountUserPerms,
-    TAccountTargetUser,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountUserPermissions,
+    TAccountUser
   >);
 }
 
 export type RevokeRoleInput<
-  TAccountCaller extends string = string,
+  TAccountAdmin extends string = string,
   TAccountConfig extends string = string,
-  TAccountUserPerms extends string = string,
-  TAccountTargetUser extends string = string,
-  TAccountCallerPerms extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountSelfProgram extends string = string,
+  TAccountUserPermissions extends string = string,
+  TAccountUser extends string = string,
 > = {
-  /** Caller (admin or role manager) */
-  caller: TransactionSigner<TAccountCaller>;
-  /** PermissionConfig PDA */
+  admin: TransactionSigner<TAccountAdmin>;
   config: Address<TAccountConfig>;
-  /** Target user's UserPermissions PDA */
-  userPerms: Address<TAccountUserPerms>;
-  /** Target user address (for PDA derivation) */
-  targetUser: Address<TAccountTargetUser>;
-  /** Caller's UserPermissions PDA (for role-hierarchy check) */
-  callerPerms: Address<TAccountCallerPerms>;
-  /** Event authority PDA for CPI event emission */
-  eventAuthority?: Address<TAccountEventAuthority>;
-  /** Permission Manager program (self) for CPI event emission */
-  selfProgram?: Address<TAccountSelfProgram>;
-  roleId: RevokeRoleInstructionDataArgs["roleId"];
+  userPermissions: Address<TAccountUserPermissions>;
+  user: Address<TAccountUser>;
+  role: RevokeRoleInstructionDataArgs["role"];
 };
 
 export function getRevokeRoleInstruction<
-  TAccountCaller extends string,
+  TAccountAdmin extends string,
   TAccountConfig extends string,
-  TAccountUserPerms extends string,
-  TAccountTargetUser extends string,
-  TAccountCallerPerms extends string,
-  TAccountEventAuthority extends string,
-  TAccountSelfProgram extends string,
+  TAccountUserPermissions extends string,
+  TAccountUser extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
   input: RevokeRoleInput<
-    TAccountCaller,
+    TAccountAdmin,
     TAccountConfig,
-    TAccountUserPerms,
-    TAccountTargetUser,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountUserPermissions,
+    TAccountUser
   >,
   config?: { programAddress?: TProgramAddress },
 ): RevokeRoleInstruction<
   TProgramAddress,
-  TAccountCaller,
+  TAccountAdmin,
   TAccountConfig,
-  TAccountUserPerms,
-  TAccountTargetUser,
-  TAccountCallerPerms,
-  TAccountEventAuthority,
-  TAccountSelfProgram
+  TAccountUserPermissions,
+  TAccountUser
 > {
   // Program address.
   const programAddress =
@@ -307,13 +237,10 @@ export function getRevokeRoleInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    caller: { value: input.caller ?? null, isWritable: false },
+    admin: { value: input.admin ?? null, isWritable: false },
     config: { value: input.config ?? null, isWritable: false },
-    userPerms: { value: input.userPerms ?? null, isWritable: true },
-    targetUser: { value: input.targetUser ?? null, isWritable: false },
-    callerPerms: { value: input.callerPerms ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    selfProgram: { value: input.selfProgram ?? null, isWritable: false },
+    userPermissions: { value: input.userPermissions ?? null, isWritable: true },
+    user: { value: input.user ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -323,26 +250,13 @@ export function getRevokeRoleInstruction<
   // Original args.
   const args = { ...input };
 
-  // Resolve default values.
-  if (!accounts.eventAuthority.value) {
-    accounts.eventAuthority.value =
-      "H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs" as Address<"H6L8Npy9RazKzX8RFetnM2obso49gB93qocxySvJcNLs">;
-  }
-  if (!accounts.selfProgram.value) {
-    accounts.selfProgram.value =
-      "2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc" as Address<"2Qhjh6NXiyQEPBP9tVCkzNtLWERHbggUjbbwje1Mpqsc">;
-  }
-
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.caller),
+      getAccountMeta(accounts.admin),
       getAccountMeta(accounts.config),
-      getAccountMeta(accounts.userPerms),
-      getAccountMeta(accounts.targetUser),
-      getAccountMeta(accounts.callerPerms),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.selfProgram),
+      getAccountMeta(accounts.userPermissions),
+      getAccountMeta(accounts.user),
     ],
     data: getRevokeRoleInstructionDataEncoder().encode(
       args as RevokeRoleInstructionDataArgs,
@@ -350,13 +264,10 @@ export function getRevokeRoleInstruction<
     programAddress,
   } as RevokeRoleInstruction<
     TProgramAddress,
-    TAccountCaller,
+    TAccountAdmin,
     TAccountConfig,
-    TAccountUserPerms,
-    TAccountTargetUser,
-    TAccountCallerPerms,
-    TAccountEventAuthority,
-    TAccountSelfProgram
+    TAccountUserPermissions,
+    TAccountUser
   >);
 }
 
@@ -366,20 +277,10 @@ export type ParsedRevokeRoleInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    /** Caller (admin or role manager) */
-    caller: TAccountMetas[0];
-    /** PermissionConfig PDA */
+    admin: TAccountMetas[0];
     config: TAccountMetas[1];
-    /** Target user's UserPermissions PDA */
-    userPerms: TAccountMetas[2];
-    /** Target user address (for PDA derivation) */
-    targetUser: TAccountMetas[3];
-    /** Caller's UserPermissions PDA (for role-hierarchy check) */
-    callerPerms: TAccountMetas[4];
-    /** Event authority PDA for CPI event emission */
-    eventAuthority: TAccountMetas[5];
-    /** Permission Manager program (self) for CPI event emission */
-    selfProgram: TAccountMetas[6];
+    userPermissions: TAccountMetas[2];
+    user: TAccountMetas[3];
   };
   data: RevokeRoleInstructionData;
 };
@@ -392,7 +293,7 @@ export function parseRevokeRoleInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedRevokeRoleInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 7) {
+  if (instruction.accounts.length < 4) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -405,13 +306,10 @@ export function parseRevokeRoleInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      caller: getNextAccount(),
+      admin: getNextAccount(),
       config: getNextAccount(),
-      userPerms: getNextAccount(),
-      targetUser: getNextAccount(),
-      callerPerms: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      selfProgram: getNextAccount(),
+      userPermissions: getNextAccount(),
+      user: getNextAccount(),
     },
     data: getRevokeRoleInstructionDataDecoder().decode(instruction.data),
   };

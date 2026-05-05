@@ -9,7 +9,8 @@
 import {
   assertIsInstructionWithAccounts,
   containsBytes,
-  getU8Encoder,
+  fixEncoderSize,
+  getBytesEncoder,
   type Address,
   type Instruction,
   type InstructionWithData,
@@ -18,39 +19,85 @@ import {
 import {
   parseApproveMintInstruction,
   parseCancelMintInstruction,
-  parseInitializeMinterInstruction,
+  parseInitializeInstruction,
   parseInitiateMintInstruction,
   parseSetDailyLimitInstruction,
-  parseSetMaxDelayInstruction,
   type ParsedApproveMintInstruction,
   type ParsedCancelMintInstruction,
-  type ParsedInitializeMinterInstruction,
+  type ParsedInitializeInstruction,
   type ParsedInitiateMintInstruction,
   type ParsedSetDailyLimitInstruction,
-  type ParsedSetMaxDelayInstruction,
 } from "../instructions";
 
 export const MINTER_PROGRAM_ADDRESS =
-  "3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2" as Address<"3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2">;
+  "13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ" as Address<"13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ">;
 
 export enum MinterAccount {
-  MinterConfig,
-  DailyLimit,
+  MintDailyLimit,
   MintOperation,
+  MinterConfig,
+  PermissionConfig,
+  UserPermissions,
 }
 
 export function identifyMinterAccount(
   account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): MinterAccount {
   const data = "data" in account ? account.data : account;
-  if (containsBytes(data, getU8Encoder().encode(1), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([208, 47, 131, 187, 37, 51, 84, 195]),
+      ),
+      0,
+    )
+  ) {
+    return MinterAccount.MintDailyLimit;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([44, 71, 174, 212, 213, 48, 214, 226]),
+      ),
+      0,
+    )
+  ) {
+    return MinterAccount.MintOperation;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([78, 211, 23, 6, 233, 19, 19, 236]),
+      ),
+      0,
+    )
+  ) {
     return MinterAccount.MinterConfig;
   }
-  if (containsBytes(data, getU8Encoder().encode(2), 0)) {
-    return MinterAccount.DailyLimit;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
+      ),
+      0,
+    )
+  ) {
+    return MinterAccount.PermissionConfig;
   }
-  if (containsBytes(data, getU8Encoder().encode(3), 0)) {
-    return MinterAccount.MintOperation;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([195, 173, 80, 32, 40, 216, 78, 110]),
+      ),
+      0,
+    )
+  ) {
+    return MinterAccount.UserPermissions;
   }
   throw new Error(
     "The provided account could not be identified as a minter account.",
@@ -58,35 +105,71 @@ export function identifyMinterAccount(
 }
 
 export enum MinterInstruction {
-  InitializeMinter,
-  InitiateMint,
   ApproveMint,
   CancelMint,
+  Initialize,
+  InitiateMint,
   SetDailyLimit,
-  SetMaxDelay,
 }
 
 export function identifyMinterInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): MinterInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
-  if (containsBytes(data, getU8Encoder().encode(0), 0)) {
-    return MinterInstruction.InitializeMinter;
-  }
-  if (containsBytes(data, getU8Encoder().encode(1), 0)) {
-    return MinterInstruction.InitiateMint;
-  }
-  if (containsBytes(data, getU8Encoder().encode(2), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([143, 34, 125, 63, 7, 27, 138, 164]),
+      ),
+      0,
+    )
+  ) {
     return MinterInstruction.ApproveMint;
   }
-  if (containsBytes(data, getU8Encoder().encode(3), 0)) {
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([61, 87, 130, 22, 64, 57, 137, 57]),
+      ),
+      0,
+    )
+  ) {
     return MinterInstruction.CancelMint;
   }
-  if (containsBytes(data, getU8Encoder().encode(4), 0)) {
-    return MinterInstruction.SetDailyLimit;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([175, 175, 109, 31, 13, 152, 155, 237]),
+      ),
+      0,
+    )
+  ) {
+    return MinterInstruction.Initialize;
   }
-  if (containsBytes(data, getU8Encoder().encode(5), 0)) {
-    return MinterInstruction.SetMaxDelay;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([198, 6, 136, 107, 232, 232, 179, 158]),
+      ),
+      0,
+    )
+  ) {
+    return MinterInstruction.InitiateMint;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([0, 229, 100, 68, 254, 3, 185, 75]),
+      ),
+      0,
+    )
+  ) {
+    return MinterInstruction.SetDailyLimit;
   }
   throw new Error(
     "The provided instruction could not be identified as a minter instruction.",
@@ -94,14 +177,8 @@ export function identifyMinterInstruction(
 }
 
 export type ParsedMinterInstruction<
-  TProgram extends string = "3pXknoeMQiY44nKBcnwtSSxzuh1uxUHPHggjXcuVLDT2",
+  TProgram extends string = "13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ",
 > =
-  | ({
-      instructionType: MinterInstruction.InitializeMinter;
-    } & ParsedInitializeMinterInstruction<TProgram>)
-  | ({
-      instructionType: MinterInstruction.InitiateMint;
-    } & ParsedInitiateMintInstruction<TProgram>)
   | ({
       instructionType: MinterInstruction.ApproveMint;
     } & ParsedApproveMintInstruction<TProgram>)
@@ -109,31 +186,20 @@ export type ParsedMinterInstruction<
       instructionType: MinterInstruction.CancelMint;
     } & ParsedCancelMintInstruction<TProgram>)
   | ({
-      instructionType: MinterInstruction.SetDailyLimit;
-    } & ParsedSetDailyLimitInstruction<TProgram>)
+      instructionType: MinterInstruction.Initialize;
+    } & ParsedInitializeInstruction<TProgram>)
   | ({
-      instructionType: MinterInstruction.SetMaxDelay;
-    } & ParsedSetMaxDelayInstruction<TProgram>);
+      instructionType: MinterInstruction.InitiateMint;
+    } & ParsedInitiateMintInstruction<TProgram>)
+  | ({
+      instructionType: MinterInstruction.SetDailyLimit;
+    } & ParsedSetDailyLimitInstruction<TProgram>);
 
 export function parseMinterInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
 ): ParsedMinterInstruction<TProgram> {
   const instructionType = identifyMinterInstruction(instruction);
   switch (instructionType) {
-    case MinterInstruction.InitializeMinter: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: MinterInstruction.InitializeMinter,
-        ...parseInitializeMinterInstruction(instruction),
-      };
-    }
-    case MinterInstruction.InitiateMint: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: MinterInstruction.InitiateMint,
-        ...parseInitiateMintInstruction(instruction),
-      };
-    }
     case MinterInstruction.ApproveMint: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -148,18 +214,25 @@ export function parseMinterInstruction<TProgram extends string>(
         ...parseCancelMintInstruction(instruction),
       };
     }
+    case MinterInstruction.Initialize: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: MinterInstruction.Initialize,
+        ...parseInitializeInstruction(instruction),
+      };
+    }
+    case MinterInstruction.InitiateMint: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: MinterInstruction.InitiateMint,
+        ...parseInitiateMintInstruction(instruction),
+      };
+    }
     case MinterInstruction.SetDailyLimit: {
       assertIsInstructionWithAccounts(instruction);
       return {
         instructionType: MinterInstruction.SetDailyLimit,
         ...parseSetDailyLimitInstruction(instruction),
-      };
-    }
-    case MinterInstruction.SetMaxDelay: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: MinterInstruction.SetMaxDelay,
-        ...parseSetMaxDelayInstruction(instruction),
       };
     }
     default:

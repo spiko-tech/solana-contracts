@@ -8,8 +8,8 @@
 
 import {
   getAddressEncoder,
+  getBytesEncoder,
   getProgramDerivedAddress,
-  getUtf8Encoder,
   type Address,
   type ProgramDerivedAddress,
 } from "@solana/kit";
@@ -23,12 +23,16 @@ export async function findMintAuthorityPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd" as Address<"3V5sE4AFgkS8T8Jrt41wK8t2rJXo9VhURt6AGfqar9Zd">,
+    programAddress = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ" as Address<"6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
     seeds: [
-      getUtf8Encoder().encode("mint_authority"),
+      getBytesEncoder().encode(
+        new Uint8Array([
+          109, 105, 110, 116, 95, 97, 117, 116, 104, 111, 114, 105, 116, 121,
+        ]),
+      ),
       getAddressEncoder().encode(seeds.mint),
     ],
   });

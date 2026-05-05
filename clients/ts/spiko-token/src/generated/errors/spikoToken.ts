@@ -14,48 +14,24 @@ import {
 } from "@solana/kit";
 import { SPIKO_TOKEN_PROGRAM_ADDRESS } from "../programs";
 
-export const SPIKO_TOKEN_ERROR__TOKEN_PAUSED = 0x0; // 0
-export const SPIKO_TOKEN_ERROR__UNAUTHORIZED_FROM = 0x1; // 1
-export const SPIKO_TOKEN_ERROR__UNAUTHORIZED_TO = 0x2; // 2
-export const SPIKO_TOKEN_ERROR__UNAUTHORIZED = 0x3; // 3
-export const SPIKO_TOKEN_ERROR__ALREADY_INITIALIZED = 0x4; // 4
-export const SPIKO_TOKEN_ERROR__NOT_INITIALIZED = 0x5; // 5
-export const SPIKO_TOKEN_ERROR__INVALID_PDA = 0x6; // 6
-export const SPIKO_TOKEN_ERROR__INSUFFICIENT_BALANCE = 0x7; // 7
-export const SPIKO_TOKEN_ERROR__INSUFFICIENT_ALLOWANCE = 0x8; // 8
-export const SPIKO_TOKEN_ERROR__INVALID_MINT = 0x9; // 9
-export const SPIKO_TOKEN_ERROR__REDEMPTION_CONTRACT_NOT_SET = 0xa; // 10
-export const SPIKO_TOKEN_ERROR__REDEMPTION_CONTRACT_MISMATCH = 0xb; // 11
+/** Unauthorized: Unauthorized */
+export const SPIKO_TOKEN_ERROR__UNAUTHORIZED = 0x1770; // 6000
+/** TokenPaused: Token is paused */
+export const SPIKO_TOKEN_ERROR__TOKEN_PAUSED = 0x1771; // 6001
+/** NotPaused: Token is not paused */
+export const SPIKO_TOKEN_ERROR__NOT_PAUSED = 0x1772; // 6002
 
 export type SpikoTokenError =
-  | typeof SPIKO_TOKEN_ERROR__ALREADY_INITIALIZED
-  | typeof SPIKO_TOKEN_ERROR__INSUFFICIENT_ALLOWANCE
-  | typeof SPIKO_TOKEN_ERROR__INSUFFICIENT_BALANCE
-  | typeof SPIKO_TOKEN_ERROR__INVALID_MINT
-  | typeof SPIKO_TOKEN_ERROR__INVALID_PDA
-  | typeof SPIKO_TOKEN_ERROR__NOT_INITIALIZED
-  | typeof SPIKO_TOKEN_ERROR__REDEMPTION_CONTRACT_MISMATCH
-  | typeof SPIKO_TOKEN_ERROR__REDEMPTION_CONTRACT_NOT_SET
+  | typeof SPIKO_TOKEN_ERROR__NOT_PAUSED
   | typeof SPIKO_TOKEN_ERROR__TOKEN_PAUSED
-  | typeof SPIKO_TOKEN_ERROR__UNAUTHORIZED
-  | typeof SPIKO_TOKEN_ERROR__UNAUTHORIZED_FROM
-  | typeof SPIKO_TOKEN_ERROR__UNAUTHORIZED_TO;
+  | typeof SPIKO_TOKEN_ERROR__UNAUTHORIZED;
 
 let spikoTokenErrorMessages: Record<SpikoTokenError, string> | undefined;
 if (process.env.NODE_ENV !== "production") {
   spikoTokenErrorMessages = {
-    [SPIKO_TOKEN_ERROR__ALREADY_INITIALIZED]: `Token has already been initialized`,
-    [SPIKO_TOKEN_ERROR__INSUFFICIENT_ALLOWANCE]: `Insufficient allowance`,
-    [SPIKO_TOKEN_ERROR__INSUFFICIENT_BALANCE]: `Insufficient token balance`,
-    [SPIKO_TOKEN_ERROR__INVALID_MINT]: `Invalid mint`,
-    [SPIKO_TOKEN_ERROR__INVALID_PDA]: `Invalid PDA derivation`,
-    [SPIKO_TOKEN_ERROR__NOT_INITIALIZED]: `Token has not been initialized`,
-    [SPIKO_TOKEN_ERROR__REDEMPTION_CONTRACT_MISMATCH]: `Redemption contract mismatch`,
-    [SPIKO_TOKEN_ERROR__REDEMPTION_CONTRACT_NOT_SET]: `Redemption contract not set`,
+    [SPIKO_TOKEN_ERROR__NOT_PAUSED]: `Token is not paused`,
     [SPIKO_TOKEN_ERROR__TOKEN_PAUSED]: `Token is paused`,
-    [SPIKO_TOKEN_ERROR__UNAUTHORIZED]: `Caller is not authorized`,
-    [SPIKO_TOKEN_ERROR__UNAUTHORIZED_FROM]: `Sender is not whitelisted`,
-    [SPIKO_TOKEN_ERROR__UNAUTHORIZED_TO]: `Recipient is not whitelisted`,
+    [SPIKO_TOKEN_ERROR__UNAUTHORIZED]: `Unauthorized`,
   };
 }
 

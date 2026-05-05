@@ -14,41 +14,43 @@ import {
 } from "@solana/kit";
 import { REDEMPTION_PROGRAM_ADDRESS } from "../programs";
 
-export const REDEMPTION_ERROR__ALREADY_INITIALIZED = 0x0; // 0
-export const REDEMPTION_ERROR__NOT_INITIALIZED = 0x1; // 1
-export const REDEMPTION_ERROR__UNAUTHORIZED = 0x2; // 2
-export const REDEMPTION_ERROR__NOT_PENDING = 0x3; // 3
-export const REDEMPTION_ERROR__DEADLINE_NOT_PASSED = 0x4; // 4
-export const REDEMPTION_ERROR__DEADLINE_PASSED = 0x5; // 5
-export const REDEMPTION_ERROR__OPERATION_EXISTS = 0x6; // 6
-export const REDEMPTION_ERROR__BELOW_MINIMUM = 0x7; // 7
-export const REDEMPTION_ERROR__INVALID_PDA = 0x8; // 8
-export const REDEMPTION_ERROR__INVALID_VAULT = 0x9; // 9
+/** Unauthorized: Unauthorized */
+export const REDEMPTION_ERROR__UNAUTHORIZED = 0x1770; // 6000
+/** OperationAlreadyExists: Operation already exists */
+export const REDEMPTION_ERROR__OPERATION_ALREADY_EXISTS = 0x1771; // 6001
+/** NotPending: Operation is not pending */
+export const REDEMPTION_ERROR__NOT_PENDING = 0x1772; // 6002
+/** DeadlinePassed: Deadline has passed */
+export const REDEMPTION_ERROR__DEADLINE_PASSED = 0x1773; // 6003
+/** DeadlineNotPassed: Deadline has not passed yet */
+export const REDEMPTION_ERROR__DEADLINE_NOT_PASSED = 0x1774; // 6004
+/** InvalidAmount: Invalid amount */
+export const REDEMPTION_ERROR__INVALID_AMOUNT = 0x1775; // 6005
+/** InvalidOperationId: Invalid operation id */
+export const REDEMPTION_ERROR__INVALID_OPERATION_ID = 0x1776; // 6006
+/** ArithmeticOverflow: Arithmetic overflow */
+export const REDEMPTION_ERROR__ARITHMETIC_OVERFLOW = 0x1777; // 6007
 
 export type RedemptionError =
-  | typeof REDEMPTION_ERROR__ALREADY_INITIALIZED
-  | typeof REDEMPTION_ERROR__BELOW_MINIMUM
+  | typeof REDEMPTION_ERROR__ARITHMETIC_OVERFLOW
   | typeof REDEMPTION_ERROR__DEADLINE_NOT_PASSED
   | typeof REDEMPTION_ERROR__DEADLINE_PASSED
-  | typeof REDEMPTION_ERROR__INVALID_PDA
-  | typeof REDEMPTION_ERROR__INVALID_VAULT
-  | typeof REDEMPTION_ERROR__NOT_INITIALIZED
+  | typeof REDEMPTION_ERROR__INVALID_AMOUNT
+  | typeof REDEMPTION_ERROR__INVALID_OPERATION_ID
   | typeof REDEMPTION_ERROR__NOT_PENDING
-  | typeof REDEMPTION_ERROR__OPERATION_EXISTS
+  | typeof REDEMPTION_ERROR__OPERATION_ALREADY_EXISTS
   | typeof REDEMPTION_ERROR__UNAUTHORIZED;
 
 let redemptionErrorMessages: Record<RedemptionError, string> | undefined;
 if (process.env.NODE_ENV !== "production") {
   redemptionErrorMessages = {
-    [REDEMPTION_ERROR__ALREADY_INITIALIZED]: `Already initialized`,
-    [REDEMPTION_ERROR__BELOW_MINIMUM]: `Below minimum`,
-    [REDEMPTION_ERROR__DEADLINE_NOT_PASSED]: `Deadline not passed`,
-    [REDEMPTION_ERROR__DEADLINE_PASSED]: `Deadline passed`,
-    [REDEMPTION_ERROR__INVALID_PDA]: `Invalid PDA`,
-    [REDEMPTION_ERROR__INVALID_VAULT]: `Invalid vault`,
-    [REDEMPTION_ERROR__NOT_INITIALIZED]: `Not initialized`,
-    [REDEMPTION_ERROR__NOT_PENDING]: `Not pending`,
-    [REDEMPTION_ERROR__OPERATION_EXISTS]: `Operation exists`,
+    [REDEMPTION_ERROR__ARITHMETIC_OVERFLOW]: `Arithmetic overflow`,
+    [REDEMPTION_ERROR__DEADLINE_NOT_PASSED]: `Deadline has not passed yet`,
+    [REDEMPTION_ERROR__DEADLINE_PASSED]: `Deadline has passed`,
+    [REDEMPTION_ERROR__INVALID_AMOUNT]: `Invalid amount`,
+    [REDEMPTION_ERROR__INVALID_OPERATION_ID]: `Invalid operation id`,
+    [REDEMPTION_ERROR__NOT_PENDING]: `Operation is not pending`,
+    [REDEMPTION_ERROR__OPERATION_ALREADY_EXISTS]: `Operation already exists`,
     [REDEMPTION_ERROR__UNAUTHORIZED]: `Unauthorized`,
   };
 }

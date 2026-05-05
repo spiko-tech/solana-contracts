@@ -6,8 +6,8 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./cancelRedemption";
-export * from "./executeRedemption";
-export * from "./initializeRedemption";
+export * from "./cancel";
+export * from "./createVault";
+export * from "./execute";
+export * from "./initialize";
 export * from "./onRedeem";
-export * from "./setMinimum";

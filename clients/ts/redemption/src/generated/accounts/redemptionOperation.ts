@@ -13,12 +13,18 @@ import {
   decodeAccount,
   fetchEncodedAccount,
   fetchEncodedAccounts,
+  fixDecoderSize,
+  fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
+  getBytesDecoder,
+  getBytesEncoder,
   getI64Decoder,
   getI64Encoder,
   getStructDecoder,
   getStructEncoder,
+  getU64Decoder,
+  getU64Encoder,
   getU8Decoder,
   getU8Encoder,
   transformEncoder,
@@ -32,51 +38,50 @@ import {
   type FixedSizeEncoder,
   type MaybeAccount,
   type MaybeEncodedAccount,
+  type ReadonlyUint8Array,
 } from "@solana/kit";
-import { findRedemptionOperationPda, RedemptionOperationSeeds } from "../pdas";
 
-export const REDEMPTION_OPERATION_DISCRIMINATOR = 4;
+export const REDEMPTION_OPERATION_DISCRIMINATOR = new Uint8Array([
+  35, 191, 240, 189, 29, 46, 219, 210,
+]);
 
 export function getRedemptionOperationDiscriminatorBytes() {
-  return getU8Encoder().encode(REDEMPTION_OPERATION_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    REDEMPTION_OPERATION_DISCRIMINATOR,
+  );
 }
 
 export type RedemptionOperation = {
-  discriminator: number;
-  version: number;
-  bump: number;
+  discriminator: ReadonlyUint8Array;
   status: number;
-  padding: number;
   deadline: bigint;
   user: Address;
+  mint: Address;
+  amount: bigint;
 };
 
 export type RedemptionOperationArgs = {
-  discriminator?: number;
-  version?: number;
-  bump: number;
   status: number;
-  padding: number;
   deadline: number | bigint;
   user: Address;
+  mint: Address;
+  amount: number | bigint;
 };
 
 /** Gets the encoder for {@link RedemptionOperationArgs} account data. */
 export function getRedemptionOperationEncoder(): FixedSizeEncoder<RedemptionOperationArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["version", getU8Encoder()],
-      ["bump", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["status", getU8Encoder()],
-      ["padding", getU8Encoder()],
       ["deadline", getI64Encoder()],
       ["user", getAddressEncoder()],
+      ["mint", getAddressEncoder()],
+      ["amount", getU64Encoder()],
     ]),
     (value) => ({
       ...value,
-      discriminator: value.discriminator ?? REDEMPTION_OPERATION_DISCRIMINATOR,
-      version: value.version ?? 1,
+      discriminator: REDEMPTION_OPERATION_DISCRIMINATOR,
     }),
   );
 }
@@ -84,13 +89,12 @@ export function getRedemptionOperationEncoder(): FixedSizeEncoder<RedemptionOper
 /** Gets the decoder for {@link RedemptionOperation} account data. */
 export function getRedemptionOperationDecoder(): FixedSizeDecoder<RedemptionOperation> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["version", getU8Decoder()],
-    ["bump", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["status", getU8Decoder()],
-    ["padding", getU8Decoder()],
     ["deadline", getI64Decoder()],
     ["user", getAddressDecoder()],
+    ["mint", getAddressDecoder()],
+    ["amount", getU64Decoder()],
   ]);
 }
 
@@ -174,26 +178,6 @@ export async function fetchAllMaybeRedemptionOperation(
   );
 }
 
-export async function fetchRedemptionOperationFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: RedemptionOperationSeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<Account<RedemptionOperation>> {
-  const maybeAccount = await fetchMaybeRedemptionOperationFromSeeds(
-    rpc,
-    seeds,
-    config,
-  );
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
-}
-
-export async function fetchMaybeRedemptionOperationFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-  seeds: RedemptionOperationSeeds,
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<MaybeAccount<RedemptionOperation>> {
-  const { programAddress, ...fetchConfig } = config;
-  const [address] = await findRedemptionOperationPda(seeds, { programAddress });
-  return await fetchMaybeRedemptionOperation(rpc, address, fetchConfig);
+export function getRedemptionOperationSize(): number {
+  return 89;
 }

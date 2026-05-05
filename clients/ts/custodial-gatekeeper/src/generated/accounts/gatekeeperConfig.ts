@@ -13,14 +13,16 @@ import {
   decodeAccount,
   fetchEncodedAccount,
   fetchEncodedAccounts,
+  fixDecoderSize,
+  fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
+  getBytesDecoder,
+  getBytesEncoder,
   getI64Decoder,
   getI64Encoder,
   getStructDecoder,
   getStructEncoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -32,27 +34,26 @@ import {
   type FixedSizeEncoder,
   type MaybeAccount,
   type MaybeEncodedAccount,
+  type ReadonlyUint8Array,
 } from "@solana/kit";
-import { findGatekeeperConfigPda } from "../pdas";
 
-export const GATEKEEPER_CONFIG_DISCRIMINATOR = 1;
+export const GATEKEEPER_CONFIG_DISCRIMINATOR = new Uint8Array([
+  2, 250, 100, 194, 146, 175, 44, 31,
+]);
 
 export function getGatekeeperConfigDiscriminatorBytes() {
-  return getU8Encoder().encode(GATEKEEPER_CONFIG_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    GATEKEEPER_CONFIG_DISCRIMINATOR,
+  );
 }
 
 export type GatekeeperConfig = {
-  discriminator: number;
-  version: number;
-  bump: number;
+  discriminator: ReadonlyUint8Array;
   maxDelay: bigint;
   permissionManager: Address;
 };
 
 export type GatekeeperConfigArgs = {
-  discriminator?: number;
-  version?: number;
-  bump: number;
   maxDelay: number | bigint;
   permissionManager: Address;
 };
@@ -61,26 +62,18 @@ export type GatekeeperConfigArgs = {
 export function getGatekeeperConfigEncoder(): FixedSizeEncoder<GatekeeperConfigArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["version", getU8Encoder()],
-      ["bump", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["maxDelay", getI64Encoder()],
       ["permissionManager", getAddressEncoder()],
     ]),
-    (value) => ({
-      ...value,
-      discriminator: value.discriminator ?? GATEKEEPER_CONFIG_DISCRIMINATOR,
-      version: value.version ?? 1,
-    }),
+    (value) => ({ ...value, discriminator: GATEKEEPER_CONFIG_DISCRIMINATOR }),
   );
 }
 
 /** Gets the decoder for {@link GatekeeperConfig} account data. */
 export function getGatekeeperConfigDecoder(): FixedSizeDecoder<GatekeeperConfig> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["version", getU8Decoder()],
-    ["bump", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["maxDelay", getI64Decoder()],
     ["permissionManager", getAddressDecoder()],
   ]);
@@ -160,22 +153,6 @@ export async function fetchAllMaybeGatekeeperConfig(
   );
 }
 
-export async function fetchGatekeeperConfigFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<Account<GatekeeperConfig>> {
-  const maybeAccount = await fetchMaybeGatekeeperConfigFromSeeds(rpc, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
-}
-
-export async function fetchMaybeGatekeeperConfigFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<MaybeAccount<GatekeeperConfig>> {
-  const { programAddress, ...fetchConfig } = config;
-  const [address] = await findGatekeeperConfigPda({ programAddress });
-  return await fetchMaybeGatekeeperConfig(rpc, address, fetchConfig);
+export function getGatekeeperConfigSize(): number {
+  return 48;
 }

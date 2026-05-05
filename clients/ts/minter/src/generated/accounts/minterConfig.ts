@@ -13,14 +13,16 @@ import {
   decodeAccount,
   fetchEncodedAccount,
   fetchEncodedAccounts,
+  fixDecoderSize,
+  fixEncoderSize,
   getAddressDecoder,
   getAddressEncoder,
+  getBytesDecoder,
+  getBytesEncoder,
   getI64Decoder,
   getI64Encoder,
   getStructDecoder,
   getStructEncoder,
-  getU8Decoder,
-  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -32,27 +34,26 @@ import {
   type FixedSizeEncoder,
   type MaybeAccount,
   type MaybeEncodedAccount,
+  type ReadonlyUint8Array,
 } from "@solana/kit";
-import { findMinterConfigPda } from "../pdas";
 
-export const MINTER_CONFIG_DISCRIMINATOR = 1;
+export const MINTER_CONFIG_DISCRIMINATOR = new Uint8Array([
+  78, 211, 23, 6, 233, 19, 19, 236,
+]);
 
 export function getMinterConfigDiscriminatorBytes() {
-  return getU8Encoder().encode(MINTER_CONFIG_DISCRIMINATOR);
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    MINTER_CONFIG_DISCRIMINATOR,
+  );
 }
 
 export type MinterConfig = {
-  discriminator: number;
-  version: number;
-  bump: number;
+  discriminator: ReadonlyUint8Array;
   maxDelay: bigint;
   permissionManager: Address;
 };
 
 export type MinterConfigArgs = {
-  discriminator?: number;
-  version?: number;
-  bump: number;
   maxDelay: number | bigint;
   permissionManager: Address;
 };
@@ -61,26 +62,18 @@ export type MinterConfigArgs = {
 export function getMinterConfigEncoder(): FixedSizeEncoder<MinterConfigArgs> {
   return transformEncoder(
     getStructEncoder([
-      ["discriminator", getU8Encoder()],
-      ["version", getU8Encoder()],
-      ["bump", getU8Encoder()],
+      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["maxDelay", getI64Encoder()],
       ["permissionManager", getAddressEncoder()],
     ]),
-    (value) => ({
-      ...value,
-      discriminator: value.discriminator ?? MINTER_CONFIG_DISCRIMINATOR,
-      version: value.version ?? 1,
-    }),
+    (value) => ({ ...value, discriminator: MINTER_CONFIG_DISCRIMINATOR }),
   );
 }
 
 /** Gets the decoder for {@link MinterConfig} account data. */
 export function getMinterConfigDecoder(): FixedSizeDecoder<MinterConfig> {
   return getStructDecoder([
-    ["discriminator", getU8Decoder()],
-    ["version", getU8Decoder()],
-    ["bump", getU8Decoder()],
+    ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["maxDelay", getI64Decoder()],
     ["permissionManager", getAddressDecoder()],
   ]);
@@ -147,22 +140,6 @@ export async function fetchAllMaybeMinterConfig(
   return maybeAccounts.map((maybeAccount) => decodeMinterConfig(maybeAccount));
 }
 
-export async function fetchMinterConfigFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<Account<MinterConfig>> {
-  const maybeAccount = await fetchMaybeMinterConfigFromSeeds(rpc, config);
-  assertAccountExists(maybeAccount);
-  return maybeAccount;
-}
-
-export async function fetchMaybeMinterConfigFromSeeds(
-  rpc: Parameters<typeof fetchEncodedAccount>[0],
-
-  config: FetchAccountConfig & { programAddress?: Address } = {},
-): Promise<MaybeAccount<MinterConfig>> {
-  const { programAddress, ...fetchConfig } = config;
-  const [address] = await findMinterConfigPda({ programAddress });
-  return await fetchMaybeMinterConfig(rpc, address, fetchConfig);
+export function getMinterConfigSize(): number {
+  return 48;
 }

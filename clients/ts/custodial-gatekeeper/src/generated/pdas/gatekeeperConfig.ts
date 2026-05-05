@@ -7,8 +7,8 @@
  */
 
 import {
+  getBytesEncoder,
   getProgramDerivedAddress,
-  getUtf8Encoder,
   type Address,
   type ProgramDerivedAddress,
 } from "@solana/kit";
@@ -17,10 +17,17 @@ export async function findGatekeeperConfigPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY" as Address<"4yEpQ3wkwKkWq3ejgu95evdQUhkL1DNVpp4Ptg2HpetY">,
+    programAddress = "7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg" as Address<"7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
-    seeds: [getUtf8Encoder().encode("gatekeeper_config")],
+    seeds: [
+      getBytesEncoder().encode(
+        new Uint8Array([
+          103, 97, 116, 101, 107, 101, 101, 112, 101, 114, 95, 99, 111, 110,
+          102, 105, 103,
+        ]),
+      ),
+    ],
   });
 }
