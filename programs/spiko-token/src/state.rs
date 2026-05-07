@@ -8,6 +8,7 @@ pub struct TokenConfig {
     pub paused: bool,
     pub permission_manager: Pubkey,
     pub mint: Pubkey,
+    pub bump: u8,
 }
 
 #[account]

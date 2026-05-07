@@ -7,12 +7,13 @@ use crate::events::Burned;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct BurnFrom<'info> {
     pub admin: Signer<'info>,
 
     #[account(
         seeds = [TOKEN_CONFIG_SEED, token_config.mint.as_ref()],
-        bump,
+        bump = token_config.bump,
     )]
     pub token_config: Account<'info, TokenConfig>,
 
@@ -32,7 +33,7 @@ pub struct BurnFrom<'info> {
     #[account(
         owner = permission_manager_program_id(),
         seeds = [PERMISSION_MANAGER_CONFIG_SEED],
-        bump,
+        bump = permission_manager_config.bump,
         seeds::program = permission_manager_program_id(),
         constraint = is_admin(&permission_manager_config, &admin.key()) @ SpTokenError::Unauthorized,
     )]
@@ -61,14 +62,11 @@ pub(crate) fn handler(ctx: Context<BurnFrom>, amount: u64) -> Result<()> {
         from: ctx.accounts.source.to_account_info(),
         authority: ctx.accounts.mint_authority.to_account_info(),
     };
-    let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        cpi_accounts,
-        signer_seeds,
-    );
+    let cpi_ctx =
+        CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
     token_interface::burn(cpi_ctx, amount)?;
 
-    emit!(Burned {
+    emit_cpi!(Burned {
         caller: ctx.accounts.admin.key(),
         mint: ctx.accounts.mint.key(),
         source: ctx.accounts.source.key(),

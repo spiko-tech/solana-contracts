@@ -21,6 +21,8 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -49,9 +51,14 @@ export type PermissionConfig = {
   discriminator: ReadonlyUint8Array;
   admin: Address;
   pendingAdmin: Address;
+  bump: number;
 };
 
-export type PermissionConfigArgs = { admin: Address; pendingAdmin: Address };
+export type PermissionConfigArgs = {
+  admin: Address;
+  pendingAdmin: Address;
+  bump: number;
+};
 
 /** Gets the encoder for {@link PermissionConfigArgs} account data. */
 export function getPermissionConfigEncoder(): FixedSizeEncoder<PermissionConfigArgs> {
@@ -60,6 +67,7 @@ export function getPermissionConfigEncoder(): FixedSizeEncoder<PermissionConfigA
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["admin", getAddressEncoder()],
       ["pendingAdmin", getAddressEncoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: PERMISSION_CONFIG_DISCRIMINATOR }),
   );
@@ -71,6 +79,7 @@ export function getPermissionConfigDecoder(): FixedSizeDecoder<PermissionConfig>
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["admin", getAddressDecoder()],
     ["pendingAdmin", getAddressDecoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -149,5 +158,5 @@ export async function fetchAllMaybePermissionConfig(
 }
 
 export function getPermissionConfigSize(): number {
-  return 72;
+  return 73;
 }

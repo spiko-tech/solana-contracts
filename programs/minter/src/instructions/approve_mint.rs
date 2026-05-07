@@ -7,19 +7,20 @@ use crate::state::*;
 
 #[derive(Accounts)]
 #[instruction(operation_id: [u8; 32])]
+#[event_cpi]
 pub struct ApproveMint<'info> {
     pub admin: Signer<'info>,
 
     #[account(
         seeds = [MINTER_CONFIG_SEED],
-        bump,
+        bump = minter_config.bump,
     )]
     pub minter_config: Account<'info, MinterConfig>,
 
     #[account(
         mut,
         seeds = [MINT_OPERATION_SEED, operation_id.as_ref()],
-        bump,
+        bump = mint_operation.bump,
         constraint = mint_operation.status == STATUS_PENDING @ MinterError::NotPending,
     )]
     pub mint_operation: Account<'info, MintOperation>,
@@ -34,18 +35,24 @@ pub struct ApproveMint<'info> {
 
     #[account(
         owner = permission_manager_program_id(),
+        seeds = [USER_PERMISSION_SEED, admin.key().as_ref(), permission_manager_config.key().as_ref()],
+        seeds::program = permission_manager_program_id(),
+        bump = admin_permissions.bump,
     )]
     pub admin_permissions: Account<'info, UserPermissions>,
 
     #[account(
         owner = permission_manager_program_id(),
         seeds = [PERMISSION_MANAGER_CONFIG_SEED],
-        bump,
+        bump = permission_manager_config.bump,
         seeds::program = permission_manager_program_id(),
     )]
     pub permission_manager_config: Account<'info, PermissionConfig>,
 
     pub spiko_token_program: Program<'info, spiko_token::program::SpikoToken>,
+
+    /// CHECK: Event authority PDA for the spiko-token program (seeds = [b"__event_authority"]).
+    pub spiko_token_event_authority: UncheckedAccount<'info>,
 
     /// CHECK: Token-2022 program, validated by spiko-token program
     pub token_program: UncheckedAccount<'info>,
@@ -91,11 +98,13 @@ pub(crate) fn handler(
         minter_permissions: ctx.accounts.minter_config_permissions.to_account_info(),
         permission_manager_config: ctx.accounts.permission_manager_config.to_account_info(),
         token_program: ctx.accounts.token_program.to_account_info(),
+        event_authority: ctx.accounts.spiko_token_event_authority.to_account_info(),
+        program: ctx.accounts.spiko_token_program.to_account_info(),
     };
-    let seeds = &[MINTER_CONFIG_SEED, &[ctx.bumps.minter_config]];
+    let seeds = &[MINTER_CONFIG_SEED, &[ctx.accounts.minter_config.bump]];
     let signer_seeds = &[&seeds[..]];
     let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.spiko_token_program.to_account_info(),
+        ctx.accounts.spiko_token_program.key(),
         cpi_accounts,
         signer_seeds,
     );
@@ -103,7 +112,7 @@ pub(crate) fn handler(
 
     ctx.accounts.mint_operation.status = STATUS_DONE;
 
-    emit!(MintApproved {
+    emit_cpi!(MintApproved {
         caller: ctx.accounts.admin.key(),
         recipient,
         mint: ctx.accounts.mint.key(),

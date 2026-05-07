@@ -26,6 +26,7 @@ import {
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
+  type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
@@ -49,6 +50,8 @@ export type TransferAdminInstruction<
   TProgram extends string = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
   TAccountAdmin extends string | AccountMeta<string> = string,
   TAccountConfig extends string | AccountMeta<string> = string,
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -61,6 +64,12 @@ export type TransferAdminInstruction<
       TAccountConfig extends string
         ? WritableAccount<TAccountConfig>
         : TAccountConfig,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -102,21 +111,38 @@ export function getTransferAdminInstructionDataCodec(): FixedSizeCodec<
 export type TransferAdminAsyncInput<
   TAccountAdmin extends string = string,
   TAccountConfig extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   config?: Address<TAccountConfig>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   newAdmin: TransferAdminInstructionDataArgs["newAdmin"];
 };
 
 export async function getTransferAdminInstructionAsync<
   TAccountAdmin extends string,
   TAccountConfig extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
-  input: TransferAdminAsyncInput<TAccountAdmin, TAccountConfig>,
+  input: TransferAdminAsyncInput<
+    TAccountAdmin,
+    TAccountConfig,
+    TAccountEventAuthority,
+    TAccountProgram
+  >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
-  TransferAdminInstruction<TProgramAddress, TAccountAdmin, TAccountConfig>
+  TransferAdminInstruction<
+    TProgramAddress,
+    TAccountAdmin,
+    TAccountConfig,
+    TAccountEventAuthority,
+    TAccountProgram
+  >
 > {
   // Program address.
   const programAddress =
@@ -126,6 +152,8 @@ export async function getTransferAdminInstructionAsync<
   const originalAccounts = {
     admin: { value: input.admin ?? null, isWritable: false },
     config: { value: input.config ?? null, isWritable: true },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -142,7 +170,12 @@ export async function getTransferAdminInstructionAsync<
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
-    accounts: [getAccountMeta(accounts.admin), getAccountMeta(accounts.config)],
+    accounts: [
+      getAccountMeta(accounts.admin),
+      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
+    ],
     data: getTransferAdminInstructionDataEncoder().encode(
       args as TransferAdminInstructionDataArgs,
     ),
@@ -150,27 +183,46 @@ export async function getTransferAdminInstructionAsync<
   } as TransferAdminInstruction<
     TProgramAddress,
     TAccountAdmin,
-    TAccountConfig
+    TAccountConfig,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
 export type TransferAdminInput<
   TAccountAdmin extends string = string,
   TAccountConfig extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   config: Address<TAccountConfig>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   newAdmin: TransferAdminInstructionDataArgs["newAdmin"];
 };
 
 export function getTransferAdminInstruction<
   TAccountAdmin extends string,
   TAccountConfig extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
-  input: TransferAdminInput<TAccountAdmin, TAccountConfig>,
+  input: TransferAdminInput<
+    TAccountAdmin,
+    TAccountConfig,
+    TAccountEventAuthority,
+    TAccountProgram
+  >,
   config?: { programAddress?: TProgramAddress },
-): TransferAdminInstruction<TProgramAddress, TAccountAdmin, TAccountConfig> {
+): TransferAdminInstruction<
+  TProgramAddress,
+  TAccountAdmin,
+  TAccountConfig,
+  TAccountEventAuthority,
+  TAccountProgram
+> {
   // Program address.
   const programAddress =
     config?.programAddress ?? PERMISSION_MANAGER_PROGRAM_ADDRESS;
@@ -179,6 +231,8 @@ export function getTransferAdminInstruction<
   const originalAccounts = {
     admin: { value: input.admin ?? null, isWritable: false },
     config: { value: input.config ?? null, isWritable: true },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -190,7 +244,12 @@ export function getTransferAdminInstruction<
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
-    accounts: [getAccountMeta(accounts.admin), getAccountMeta(accounts.config)],
+    accounts: [
+      getAccountMeta(accounts.admin),
+      getAccountMeta(accounts.config),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
+    ],
     data: getTransferAdminInstructionDataEncoder().encode(
       args as TransferAdminInstructionDataArgs,
     ),
@@ -198,7 +257,9 @@ export function getTransferAdminInstruction<
   } as TransferAdminInstruction<
     TProgramAddress,
     TAccountAdmin,
-    TAccountConfig
+    TAccountConfig,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -210,6 +271,8 @@ export type ParsedTransferAdminInstruction<
   accounts: {
     admin: TAccountMetas[0];
     config: TAccountMetas[1];
+    eventAuthority: TAccountMetas[2];
+    program: TAccountMetas[3];
   };
   data: TransferAdminInstructionData;
 };
@@ -222,7 +285,7 @@ export function parseTransferAdminInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedTransferAdminInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 2) {
+  if (instruction.accounts.length < 4) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -234,7 +297,12 @@ export function parseTransferAdminInstruction<
   };
   return {
     programAddress: instruction.programAddress,
-    accounts: { admin: getNextAccount(), config: getNextAccount() },
+    accounts: {
+      admin: getNextAccount(),
+      config: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
+    },
     data: getTransferAdminInstructionDataDecoder().decode(instruction.data),
   };
 }

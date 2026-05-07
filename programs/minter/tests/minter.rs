@@ -1,7 +1,8 @@
 use anchor_lang::{AnchorDeserialize, InstructionData, ToAccountMetas};
+use litesvm::LiteSVM;
 use minter::state::{MintDailyLimit, MintOperation, MinterConfig};
 use minter::utils::compute_operation_id;
-use solana_program_test::*;
+use solana_program_pack::Pack;
 use solana_sdk::{
     instruction::Instruction,
     pubkey::Pubkey,
@@ -9,6 +10,10 @@ use solana_sdk::{
     signer::Signer,
     transaction::{Transaction, TransactionError},
 };
+use solana_sdk_ids::system_program;
+use solana_system_interface::instruction as system_instruction;
+
+const TOKEN_2022_PROGRAM_ID: Pubkey = spl_token_2022_interface::ID;
 
 // ---------------------------------------------------------------------------
 // PDA helpers
@@ -41,19 +46,37 @@ fn mint_operation_pda(operation_id: &[u8; 32]) -> (Pubkey, u8) {
 // Test harness
 // ---------------------------------------------------------------------------
 
-fn program_test() -> ProgramTest {
-    let mut pt = ProgramTest::new("minter", minter::ID, None);
-    pt.add_program("permission_manager", permission_manager::ID, None);
-    pt.add_program("spiko_token", spiko_token::ID, None);
-    pt
+fn new_svm() -> LiteSVM {
+    let mut svm = LiteSVM::new().with_default_programs();
+    svm.add_program_from_file(
+        minter::ID,
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../../target/deploy/minter.so"),
+    )
+    .unwrap();
+    svm.add_program_from_file(
+        permission_manager::ID,
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../target/deploy/permission_manager.so"
+        ),
+    )
+    .unwrap();
+    svm.add_program_from_file(
+        spiko_token::ID,
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../target/deploy/spiko_token.so"
+        ),
+    )
+    .unwrap();
+    svm
 }
 
-/// Initialize permission-manager, then minter. Returns (banks, admin, blockhash, pm_config, minter_config).
-async fn setup(max_delay: i64) -> (BanksClient, Keypair, solana_sdk::hash::Hash, Pubkey, Pubkey) {
-    let ctx = program_test().start_with_context().await;
-    let admin = ctx.payer.insecure_clone();
-    let mut banks = ctx.banks_client.clone();
-    let blockhash = ctx.last_blockhash;
+/// Initialize permission-manager, then minter. Returns (svm, admin, pm_config, minter_config).
+fn setup(max_delay: i64) -> (LiteSVM, Keypair, Pubkey, Pubkey) {
+    let mut svm = new_svm();
+    let admin = Keypair::new();
+    svm.airdrop(&admin.pubkey(), 10_000_000_000).unwrap();
 
     // 1. Initialize permission-manager
     let (pm_config, _) = permission_config_pda();
@@ -62,16 +85,23 @@ async fn setup(max_delay: i64) -> (BanksClient, Keypair, solana_sdk::hash::Hash,
         accounts: permission_manager::accounts::Initialize {
             admin: admin.pubkey(),
             config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &permission_manager::ID,
+            )
+            .0,
+            program: permission_manager::ID,
         }
         .to_account_metas(None),
         data: permission_manager::instruction::Initialize {}.data(),
     };
+    let blockhash = svm.latest_blockhash();
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // 2. Initialize minter
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let (minter_cfg, _) = minter_config_pda();
     let ix = Instruction {
         program_id: minter::ID,
@@ -79,7 +109,9 @@ async fn setup(max_delay: i64) -> (BanksClient, Keypair, solana_sdk::hash::Hash,
             admin: admin.pubkey(),
             minter_config: minter_cfg,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::Initialize {
@@ -89,21 +121,14 @@ async fn setup(max_delay: i64) -> (BanksClient, Keypair, solana_sdk::hash::Hash,
         .data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
-    (banks, admin, blockhash, pm_config, minter_cfg)
+    (svm, admin, pm_config, minter_cfg)
 }
 
-async fn grant_role(
-    banks: &mut BanksClient,
-    admin: &Keypair,
-    pm_config: Pubkey,
-    user: &Pubkey,
-    role: u16,
-) {
+fn grant_role(svm: &mut LiteSVM, admin: &Keypair, pm_config: Pubkey, user: &Pubkey, role: u16) {
     let (user_perms_pda, _) = user_permissions_pda(user, &pm_config);
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: permission_manager::ID,
         accounts: permission_manager::accounts::GrantRole {
@@ -111,34 +136,71 @@ async fn grant_role(
             config: pm_config,
             user_permissions: user_perms_pda,
             user: *user,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &permission_manager::ID,
+            )
+            .0,
+            program: permission_manager::ID,
         }
         .to_account_metas(None),
         data: permission_manager::instruction::GrantRole { role }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 }
 
-async fn fund(banks: &mut BanksClient, payer: &Keypair, to: &Pubkey, lamports: u64) {
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
-    let ix = solana_sdk::system_instruction::transfer(&payer.pubkey(), to, lamports);
+fn fund(svm: &mut LiteSVM, payer: &Keypair, to: &Pubkey, lamports: u64) {
+    let blockhash = svm.latest_blockhash();
+    let ix = system_instruction::transfer(&payer.pubkey(), to, lamports);
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&payer.pubkey()), &[payer], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 }
 
-async fn get_minter_config(banks: &mut BanksClient, pda: Pubkey) -> MinterConfig {
-    let account = banks.get_account(pda).await.unwrap().unwrap();
+/// Create a minimal Token-2022 mint account.
+fn create_mint(svm: &mut LiteSVM, payer: &Keypair) -> Keypair {
+    let mint_kp = Keypair::new();
+    let space = spl_token_2022_interface::state::Mint::LEN;
+    let lamports = svm.minimum_balance_for_rent_exemption(space);
+    let blockhash = svm.latest_blockhash();
+    let create_ix = system_instruction::create_account(
+        &payer.pubkey(),
+        &mint_kp.pubkey(),
+        lamports,
+        space as u64,
+        &TOKEN_2022_PROGRAM_ID,
+    );
+    let init_ix = spl_token_2022_interface::instruction::initialize_mint2(
+        &TOKEN_2022_PROGRAM_ID,
+        &mint_kp.pubkey(),
+        &payer.pubkey(),
+        None,
+        6,
+    )
+    .unwrap();
+    let tx = Transaction::new_signed_with_payer(
+        &[create_ix, init_ix],
+        Some(&payer.pubkey()),
+        &[payer, &mint_kp],
+        blockhash,
+    );
+    svm.send_transaction(tx).unwrap();
+    mint_kp
+}
+
+fn get_minter_config(svm: &LiteSVM, pda: Pubkey) -> MinterConfig {
+    let account = svm.get_account(&pda).unwrap();
     MinterConfig::deserialize(&mut &account.data[8..]).unwrap()
 }
 
-async fn get_daily_limit(banks: &mut BanksClient, pda: Pubkey) -> MintDailyLimit {
-    let account = banks.get_account(pda).await.unwrap().unwrap();
+fn get_daily_limit(svm: &LiteSVM, pda: Pubkey) -> MintDailyLimit {
+    let account = svm.get_account(&pda).unwrap();
     MintDailyLimit::deserialize(&mut &account.data[8..]).unwrap()
 }
 
-async fn get_mint_operation(banks: &mut BanksClient, pda: Pubkey) -> MintOperation {
-    let account = banks.get_account(pda).await.unwrap().unwrap();
+fn get_mint_operation(svm: &LiteSVM, pda: Pubkey) -> MintOperation {
+    let account = svm.get_account(&pda).unwrap();
     MintOperation::deserialize(&mut &account.data[8..]).unwrap()
 }
 
@@ -146,41 +208,45 @@ async fn get_mint_operation(banks: &mut BanksClient, pda: Pubkey) -> MintOperati
 // Initialize
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_initialize() {
-    let (mut banks, _admin, _, _pm_config, minter_cfg) = setup(3600).await;
-    let cfg = get_minter_config(&mut banks, minter_cfg).await;
+#[test]
+fn test_initialize() {
+    let (svm, _admin, _pm_config, minter_cfg) = setup(3600);
+    let cfg = get_minter_config(&svm, minter_cfg);
     assert_eq!(cfg.max_delay, 3600);
 }
 
-#[tokio::test]
-async fn test_initialize_unauthorized() {
-    let ctx = program_test().start_with_context().await;
-    let admin = ctx.payer.insecure_clone();
+#[test]
+fn test_initialize_unauthorized() {
+    let mut svm = new_svm();
+    let admin = Keypair::new();
+    svm.airdrop(&admin.pubkey(), 10_000_000_000).unwrap();
     let non_admin = Keypair::new();
-    let mut banks = ctx.banks_client.clone();
-    let blockhash = ctx.last_blockhash;
+    svm.airdrop(&non_admin.pubkey(), 10_000_000_000).unwrap();
 
     // Initialize permission-manager
     let (pm_config, _) = permission_config_pda();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: permission_manager::ID,
         accounts: permission_manager::accounts::Initialize {
             admin: admin.pubkey(),
             config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &permission_manager::ID,
+            )
+            .0,
+            program: permission_manager::ID,
         }
         .to_account_metas(None),
         data: permission_manager::instruction::Initialize {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
-
-    // Fund non_admin
-    fund(&mut banks, &admin, &non_admin.pubkey(), 1_000_000_000).await;
+    svm.send_transaction(tx).unwrap();
 
     // Non-admin tries to initialize minter
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let (minter_cfg, _) = minter_config_pda();
     let ix = Instruction {
         program_id: minter::ID,
@@ -188,7 +254,9 @@ async fn test_initialize_unauthorized() {
             admin: non_admin.pubkey(),
             minter_config: minter_cfg,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::Initialize {
@@ -203,35 +271,38 @@ async fn test_initialize_unauthorized() {
         &[&non_admin],
         blockhash,
     );
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }
 
-#[tokio::test]
-async fn test_initialize_invalid_max_delay() {
-    let ctx = program_test().start_with_context().await;
-    let admin = ctx.payer.insecure_clone();
-    let mut banks = ctx.banks_client.clone();
-    let blockhash = ctx.last_blockhash;
+#[test]
+fn test_initialize_invalid_max_delay() {
+    let mut svm = new_svm();
+    let admin = Keypair::new();
+    svm.airdrop(&admin.pubkey(), 10_000_000_000).unwrap();
 
     let (pm_config, _) = permission_config_pda();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: permission_manager::ID,
         accounts: permission_manager::accounts::Initialize {
             admin: admin.pubkey(),
             config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &permission_manager::ID,
+            )
+            .0,
+            program: permission_manager::ID,
         }
         .to_account_metas(None),
         data: permission_manager::instruction::Initialize {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let (minter_cfg, _) = minter_config_pda();
     let ix = Instruction {
         program_id: minter::ID,
@@ -239,7 +310,9 @@ async fn test_initialize_invalid_max_delay() {
             admin: admin.pubkey(),
             minter_config: minter_cfg,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::Initialize {
@@ -249,24 +322,21 @@ async fn test_initialize_invalid_max_delay() {
         .data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }
 
 // ---------------------------------------------------------------------------
 // Set daily limit
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_set_daily_limit() {
-    let (mut banks, admin, _, pm_config, _minter_cfg) = setup(3600).await;
-    let fake_mint = Pubkey::new_unique();
+#[test]
+fn test_set_daily_limit() {
+    let (mut svm, admin, pm_config, _minter_cfg) = setup(3600);
+    let fake_mint = create_mint(&mut svm, &admin).pubkey();
     let (daily_limit_pda, _) = mint_daily_limit_pda(&fake_mint);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::SetDailyLimit {
@@ -275,29 +345,31 @@ async fn test_set_daily_limit() {
             mint_daily_limit: daily_limit_pda,
             mint: fake_mint,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::SetDailyLimit { limit: 1_000_000 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
-    let dl = get_daily_limit(&mut banks, daily_limit_pda).await;
+    let dl = get_daily_limit(&svm, daily_limit_pda);
     assert_eq!(dl.limit, 1_000_000);
     assert_eq!(dl.used_amount, 0);
 }
 
-#[tokio::test]
-async fn test_set_daily_limit_unauthorized() {
-    let (mut banks, admin, _, pm_config, _minter_cfg) = setup(3600).await;
+#[test]
+fn test_set_daily_limit_unauthorized() {
+    let (mut svm, admin, pm_config, _minter_cfg) = setup(3600);
     let non_admin = Keypair::new();
-    fund(&mut banks, &admin, &non_admin.pubkey(), 1_000_000_000).await;
+    fund(&mut svm, &admin, &non_admin.pubkey(), 1_000_000_000);
 
-    let fake_mint = Pubkey::new_unique();
+    let fake_mint = create_mint(&mut svm, &admin).pubkey();
     let (daily_limit_pda, _) = mint_daily_limit_pda(&fake_mint);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::SetDailyLimit {
@@ -306,7 +378,9 @@ async fn test_set_daily_limit_unauthorized() {
             mint_daily_limit: daily_limit_pda,
             mint: fake_mint,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::SetDailyLimit { limit: 1_000_000 }.data(),
@@ -317,37 +391,33 @@ async fn test_set_daily_limit_unauthorized() {
         &[&non_admin],
         blockhash,
     );
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }
 
 // ---------------------------------------------------------------------------
 // Initiate mint — over daily limit (blocked path, no CPI to spiko-token)
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_initiate_mint_blocked() {
-    let (mut banks, admin, _, pm_config, _minter_cfg) = setup(3600).await;
+#[test]
+fn test_initiate_mint_blocked() {
+    let (mut svm, admin, pm_config, _minter_cfg) = setup(3600);
     let initiator = Keypair::new();
-    fund(&mut banks, &admin, &initiator.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &initiator.pubkey(), 2_000_000_000);
 
     // Grant MINT_INITIATOR role
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &initiator.pubkey(),
         permission_manager::constants::ROLE_MINT_INITIATOR,
-    )
-    .await;
+    );
 
     // Set daily limit to 100 for fake_mint
-    let fake_mint = Pubkey::new_unique();
+    let fake_mint = create_mint(&mut svm, &admin).pubkey();
     let (daily_limit_pda, _) = mint_daily_limit_pda(&fake_mint);
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::SetDailyLimit {
@@ -356,13 +426,15 @@ async fn test_initiate_mint_blocked() {
             mint_daily_limit: daily_limit_pda,
             mint: fake_mint,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::SetDailyLimit { limit: 100 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Initiate mint with amount > limit (should be blocked)
     let recipient = Pubkey::new_unique();
@@ -374,14 +446,12 @@ async fn test_initiate_mint_blocked() {
     let fake_destination = Pubkey::new_unique();
 
     // spiko-token program id and fake PDAs (won't be called since over limit)
-    let spiko_token_program: Pubkey = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ"
-        .parse()
-        .unwrap();
+    let spiko_token_program: Pubkey = spiko_token::ID;
     let fake_token_config = Pubkey::new_unique();
     let fake_mint_authority = Pubkey::new_unique();
     let fake_token_program = Pubkey::new_unique();
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::InitiateMint {
@@ -398,7 +468,14 @@ async fn test_initiate_mint_blocked() {
             token_program: fake_token_program,
             token_config: fake_token_config,
             mint_authority: fake_mint_authority,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
+            spiko_token_event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &spiko_token::ID,
+            )
+            .0,
         }
         .to_account_metas(None),
         data: minter::instruction::InitiateMint {
@@ -415,10 +492,10 @@ async fn test_initiate_mint_blocked() {
         &[&initiator],
         blockhash,
     );
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Verify operation is PENDING
-    let op = get_mint_operation(&mut banks, op_pda).await;
+    let op = get_mint_operation(&svm, op_pda);
     assert_eq!(op.status, 1); // STATUS_PENDING
     assert!(op.deadline > 0);
     assert_eq!(op.recipient, recipient);
@@ -430,27 +507,26 @@ async fn test_initiate_mint_blocked() {
 // Initiate mint — unauthorized (no MINT_INITIATOR role)
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_initiate_mint_unauthorized() {
-    let (mut banks, admin, _, pm_config, _minter_cfg) = setup(3600).await;
+#[test]
+fn test_initiate_mint_unauthorized() {
+    let (mut svm, admin, pm_config, _minter_cfg) = setup(3600);
     let non_initiator = Keypair::new();
-    fund(&mut banks, &admin, &non_initiator.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &non_initiator.pubkey(), 2_000_000_000);
 
     // Grant MINTER role (not MINT_INITIATOR)
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &non_initiator.pubkey(),
         permission_manager::constants::ROLE_MINTER,
-    )
-    .await;
+    );
 
-    let fake_mint = Pubkey::new_unique();
+    let fake_mint = create_mint(&mut svm, &admin).pubkey();
     let (daily_limit_pda, _) = mint_daily_limit_pda(&fake_mint);
 
     // Set daily limit
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::SetDailyLimit {
@@ -459,13 +535,15 @@ async fn test_initiate_mint_unauthorized() {
             mint_daily_limit: daily_limit_pda,
             mint: fake_mint,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::SetDailyLimit { limit: 100 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     let recipient = Pubkey::new_unique();
     let amount = 500u64;
@@ -474,11 +552,9 @@ async fn test_initiate_mint_unauthorized() {
     let (op_pda, _) = mint_operation_pda(&operation_id);
     let (perms_pda, _) = user_permissions_pda(&non_initiator.pubkey(), &pm_config);
 
-    let spiko_token_program: Pubkey = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ"
-        .parse()
-        .unwrap();
+    let spiko_token_program: Pubkey = spiko_token::ID;
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::InitiateMint {
@@ -495,7 +571,14 @@ async fn test_initiate_mint_unauthorized() {
             token_program: Pubkey::new_unique(),
             token_config: Pubkey::new_unique(),
             mint_authority: Pubkey::new_unique(),
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
+            spiko_token_event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &spiko_token::ID,
+            )
+            .0,
         }
         .to_account_metas(None),
         data: minter::instruction::InitiateMint {
@@ -512,36 +595,32 @@ async fn test_initiate_mint_unauthorized() {
         &[&non_initiator],
         blockhash,
     );
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }
 
 // ---------------------------------------------------------------------------
 // Initiate mint — invalid operation_id
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_initiate_mint_invalid_operation_id() {
-    let (mut banks, admin, _, pm_config, _minter_cfg) = setup(3600).await;
+#[test]
+fn test_initiate_mint_invalid_operation_id() {
+    let (mut svm, admin, pm_config, _minter_cfg) = setup(3600);
     let initiator = Keypair::new();
-    fund(&mut banks, &admin, &initiator.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &initiator.pubkey(), 2_000_000_000);
 
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &initiator.pubkey(),
         permission_manager::constants::ROLE_MINT_INITIATOR,
-    )
-    .await;
+    );
 
-    let fake_mint = Pubkey::new_unique();
+    let fake_mint = create_mint(&mut svm, &admin).pubkey();
     let (daily_limit_pda, _) = mint_daily_limit_pda(&fake_mint);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::SetDailyLimit {
@@ -550,13 +629,15 @@ async fn test_initiate_mint_invalid_operation_id() {
             mint_daily_limit: daily_limit_pda,
             mint: fake_mint,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::SetDailyLimit { limit: 100 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     let recipient = Pubkey::new_unique();
     let amount = 500u64;
@@ -565,11 +646,9 @@ async fn test_initiate_mint_invalid_operation_id() {
     let (op_pda, _) = mint_operation_pda(&wrong_operation_id);
     let (perms_pda, _) = user_permissions_pda(&initiator.pubkey(), &pm_config);
 
-    let spiko_token_program: Pubkey = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ"
-        .parse()
-        .unwrap();
+    let spiko_token_program: Pubkey = spiko_token::ID;
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::InitiateMint {
@@ -586,7 +665,14 @@ async fn test_initiate_mint_invalid_operation_id() {
             token_program: Pubkey::new_unique(),
             token_config: Pubkey::new_unique(),
             mint_authority: Pubkey::new_unique(),
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
+            spiko_token_event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &spiko_token::ID,
+            )
+            .0,
         }
         .to_account_metas(None),
         data: minter::instruction::InitiateMint {
@@ -603,37 +689,33 @@ async fn test_initiate_mint_invalid_operation_id() {
         &[&initiator],
         blockhash,
     );
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }
 
 // ---------------------------------------------------------------------------
 // Cancel mint — success after deadline
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_cancel_mint_after_deadline() {
+#[test]
+fn test_cancel_mint_after_deadline() {
     // Use max_delay=1 so deadline passes quickly
-    let (mut banks, admin, _, pm_config, _minter_cfg) = setup(1).await;
+    let (mut svm, admin, pm_config, _minter_cfg) = setup(1);
     let initiator = Keypair::new();
-    fund(&mut banks, &admin, &initiator.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &initiator.pubkey(), 2_000_000_000);
 
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &initiator.pubkey(),
         permission_manager::constants::ROLE_MINT_INITIATOR,
-    )
-    .await;
+    );
 
-    let fake_mint = Pubkey::new_unique();
+    let fake_mint = create_mint(&mut svm, &admin).pubkey();
     let (daily_limit_pda, _) = mint_daily_limit_pda(&fake_mint);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::SetDailyLimit {
@@ -642,13 +724,15 @@ async fn test_cancel_mint_after_deadline() {
             mint_daily_limit: daily_limit_pda,
             mint: fake_mint,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::SetDailyLimit { limit: 100 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Initiate (over limit -> blocked)
     let recipient = Pubkey::new_unique();
@@ -658,11 +742,9 @@ async fn test_cancel_mint_after_deadline() {
     let (op_pda, _) = mint_operation_pda(&operation_id);
     let (initiator_perms, _) = user_permissions_pda(&initiator.pubkey(), &pm_config);
 
-    let spiko_token_program: Pubkey = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ"
-        .parse()
-        .unwrap();
+    let spiko_token_program: Pubkey = spiko_token::ID;
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::InitiateMint {
@@ -679,7 +761,14 @@ async fn test_cancel_mint_after_deadline() {
             token_program: Pubkey::new_unique(),
             token_config: Pubkey::new_unique(),
             mint_authority: Pubkey::new_unique(),
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
+            spiko_token_event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &spiko_token::ID,
+            )
+            .0,
         }
         .to_account_metas(None),
         data: minter::instruction::InitiateMint {
@@ -696,10 +785,10 @@ async fn test_cancel_mint_after_deadline() {
         &[&initiator],
         blockhash,
     );
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Verify the operation is pending
-    let op = get_mint_operation(&mut banks, op_pda).await;
+    let op = get_mint_operation(&svm, op_pda);
     assert_eq!(op.status, 1); // STATUS_PENDING
 
     // Try cancel immediately — should fail because deadline hasn't passed (max_delay=1)
@@ -714,25 +803,24 @@ async fn test_cancel_mint_after_deadline() {
 // Cancel mint — before deadline should fail
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_cancel_mint_before_deadline_fails() {
-    let (mut banks, admin, _, pm_config, _minter_cfg) = setup(86400).await; // 1 day delay
+#[test]
+fn test_cancel_mint_before_deadline_fails() {
+    let (mut svm, admin, pm_config, _minter_cfg) = setup(86400); // 1 day delay
     let initiator = Keypair::new();
-    fund(&mut banks, &admin, &initiator.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &initiator.pubkey(), 2_000_000_000);
 
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &initiator.pubkey(),
         permission_manager::constants::ROLE_MINT_INITIATOR,
-    )
-    .await;
+    );
 
-    let fake_mint = Pubkey::new_unique();
+    let fake_mint = create_mint(&mut svm, &admin).pubkey();
     let (daily_limit_pda, _) = mint_daily_limit_pda(&fake_mint);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::SetDailyLimit {
@@ -741,13 +829,15 @@ async fn test_cancel_mint_before_deadline_fails() {
             mint_daily_limit: daily_limit_pda,
             mint: fake_mint,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::SetDailyLimit { limit: 100 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Initiate (over limit -> blocked, deadline = now + 86400)
     let recipient = Pubkey::new_unique();
@@ -757,11 +847,9 @@ async fn test_cancel_mint_before_deadline_fails() {
     let (op_pda, _) = mint_operation_pda(&operation_id);
     let (initiator_perms, _) = user_permissions_pda(&initiator.pubkey(), &pm_config);
 
-    let spiko_token_program: Pubkey = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ"
-        .parse()
-        .unwrap();
+    let spiko_token_program: Pubkey = spiko_token::ID;
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::InitiateMint {
@@ -778,7 +866,14 @@ async fn test_cancel_mint_before_deadline_fails() {
             token_program: Pubkey::new_unique(),
             token_config: Pubkey::new_unique(),
             mint_authority: Pubkey::new_unique(),
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
+            spiko_token_event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &spiko_token::ID,
+            )
+            .0,
         }
         .to_account_metas(None),
         data: minter::instruction::InitiateMint {
@@ -795,10 +890,10 @@ async fn test_cancel_mint_before_deadline_fails() {
         &[&initiator],
         blockhash,
     );
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Try cancel immediately (before deadline) — should fail
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::CancelMint {
@@ -806,6 +901,8 @@ async fn test_cancel_mint_before_deadline_fails() {
             minter_config: minter_config_pda().0,
             mint_operation: op_pda,
             mint: fake_mint,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::CancelMint {
@@ -817,36 +914,32 @@ async fn test_cancel_mint_before_deadline_fails() {
         .data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }
 
 // ---------------------------------------------------------------------------
 // Initiate mint — zero amount
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_initiate_mint_zero_amount() {
-    let (mut banks, admin, _, pm_config, _minter_cfg) = setup(3600).await;
+#[test]
+fn test_initiate_mint_zero_amount() {
+    let (mut svm, admin, pm_config, _minter_cfg) = setup(3600);
     let initiator = Keypair::new();
-    fund(&mut banks, &admin, &initiator.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &initiator.pubkey(), 2_000_000_000);
 
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &initiator.pubkey(),
         permission_manager::constants::ROLE_MINT_INITIATOR,
-    )
-    .await;
+    );
 
-    let fake_mint = Pubkey::new_unique();
+    let fake_mint = create_mint(&mut svm, &admin).pubkey();
     let (daily_limit_pda, _) = mint_daily_limit_pda(&fake_mint);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::SetDailyLimit {
@@ -855,13 +948,15 @@ async fn test_initiate_mint_zero_amount() {
             mint_daily_limit: daily_limit_pda,
             mint: fake_mint,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
         }
         .to_account_metas(None),
         data: minter::instruction::SetDailyLimit { limit: 1000 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     let recipient = Pubkey::new_unique();
     let amount = 0u64;
@@ -870,11 +965,9 @@ async fn test_initiate_mint_zero_amount() {
     let (op_pda, _) = mint_operation_pda(&operation_id);
     let (perms, _) = user_permissions_pda(&initiator.pubkey(), &pm_config);
 
-    let spiko_token_program: Pubkey = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ"
-        .parse()
-        .unwrap();
+    let spiko_token_program: Pubkey = spiko_token::ID;
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: minter::ID,
         accounts: minter::accounts::InitiateMint {
@@ -891,7 +984,14 @@ async fn test_initiate_mint_zero_amount() {
             token_program: Pubkey::new_unique(),
             token_config: Pubkey::new_unique(),
             mint_authority: Pubkey::new_unique(),
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &minter::ID).0,
+            program: minter::ID,
+            spiko_token_event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &spiko_token::ID,
+            )
+            .0,
         }
         .to_account_metas(None),
         data: minter::instruction::InitiateMint {
@@ -908,9 +1008,6 @@ async fn test_initiate_mint_zero_amount() {
         &[&initiator],
         blockhash,
     );
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }

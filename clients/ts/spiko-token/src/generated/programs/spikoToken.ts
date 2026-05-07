@@ -34,13 +34,11 @@ import {
 } from "../instructions";
 
 export const SPIKO_TOKEN_PROGRAM_ADDRESS =
-  "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ" as Address<"6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ">;
+  "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN" as Address<"F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN">;
 
 export enum SpikoTokenAccount {
   MintAuthority,
-  PermissionConfig,
   TokenConfig,
-  UserPermissions,
 }
 
 export function identifySpikoTokenAccount(
@@ -62,34 +60,12 @@ export function identifySpikoTokenAccount(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
-      ),
-      0,
-    )
-  ) {
-    return SpikoTokenAccount.PermissionConfig;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([92, 73, 255, 43, 107, 51, 117, 101]),
       ),
       0,
     )
   ) {
     return SpikoTokenAccount.TokenConfig;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([195, 173, 80, 32, 40, 216, 78, 110]),
-      ),
-      0,
-    )
-  ) {
-    return SpikoTokenAccount.UserPermissions;
   }
   throw new Error(
     "The provided account could not be identified as a spikoToken account.",
@@ -193,7 +169,7 @@ export function identifySpikoTokenInstruction(
 }
 
 export type ParsedSpikoTokenInstruction<
-  TProgram extends string = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ",
+  TProgram extends string = "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN",
 > =
   | ({
       instructionType: SpikoTokenInstruction.Burn;

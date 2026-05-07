@@ -10,20 +10,21 @@ use crate::events::VaultCreated;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct CreateVault<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
 
     #[account(
         seeds = [REDEMPTION_CONFIG_SEED],
-        bump,
+        bump = redemption_config.bump,
     )]
     pub redemption_config: Account<'info, RedemptionConfig>,
 
     #[account(
         owner = permission_manager_program_id(),
         seeds = [PERMISSION_MANAGER_CONFIG_SEED],
-        bump,
+        bump = permission_manager_config.bump,
         seeds::program = permission_manager_program_id(),
         constraint = permission_manager_config.admin == admin.key() @ RedemptionError::Unauthorized,
     )]
@@ -58,7 +59,7 @@ pub struct CreateVault<'info> {
 pub(crate) fn handler(ctx: Context<CreateVault>) -> Result<()> {
     ctx.accounts.vault_authority.bump = ctx.bumps.vault_authority;
 
-    emit!(VaultCreated {
+    emit_cpi!(VaultCreated {
         admin: ctx.accounts.admin.key(),
         mint: ctx.accounts.mint.key(),
     });

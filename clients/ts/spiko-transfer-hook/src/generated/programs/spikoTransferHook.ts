@@ -28,11 +28,10 @@ import {
 } from "../instructions";
 
 export const SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS =
-  "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">;
+  "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU" as Address<"7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU">;
 
 export enum SpikoTransferHookAccount {
   HookConfig,
-  PermissionConfig,
 }
 
 export function identifySpikoTransferHookAccount(
@@ -49,17 +48,6 @@ export function identifySpikoTransferHookAccount(
     )
   ) {
     return SpikoTransferHookAccount.HookConfig;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
-      ),
-      0,
-    )
-  ) {
-    return SpikoTransferHookAccount.PermissionConfig;
   }
   throw new Error(
     "The provided account could not be identified as a spikoTransferHook account.",
@@ -81,7 +69,7 @@ export function identifySpikoTransferHookInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([130, 221, 242, 154, 13, 193, 189, 29]),
+        new Uint8Array([105, 37, 101, 197, 75, 251, 102, 26]),
       ),
       0,
     )
@@ -127,7 +115,7 @@ export function identifySpikoTransferHookInstruction(
 }
 
 export type ParsedSpikoTransferHookInstruction<
-  TProgram extends string = "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86",
+  TProgram extends string = "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU",
 > =
   | ({
       instructionType: SpikoTransferHookInstruction.Execute;

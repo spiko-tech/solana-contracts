@@ -58,6 +58,8 @@ export type InitializeInstruction<
     "11111111111111111111111111111111",
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -85,6 +87,12 @@ export type InitializeInstruction<
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -124,6 +132,8 @@ export type InitializeAsyncInput<
   TAccountPermissionManagerConfig extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   mint: Address<TAccountMint>;
@@ -132,6 +142,8 @@ export type InitializeAsyncInput<
   permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
 };
 
 export async function getInitializeInstructionAsync<
@@ -142,6 +154,8 @@ export async function getInitializeInstructionAsync<
   TAccountPermissionManagerConfig extends string,
   TAccountSystemProgram extends string,
   TAccountTokenProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
 >(
   input: InitializeAsyncInput<
@@ -151,7 +165,9 @@ export async function getInitializeInstructionAsync<
     TAccountMintAuthority,
     TAccountPermissionManagerConfig,
     TAccountSystemProgram,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -163,7 +179,9 @@ export async function getInitializeInstructionAsync<
     TAccountMintAuthority,
     TAccountPermissionManagerConfig,
     TAccountSystemProgram,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -181,6 +199,8 @@ export async function getInitializeInstructionAsync<
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -201,7 +221,7 @@ export async function getInitializeInstructionAsync<
   if (!accounts.permissionManagerConfig.value) {
     accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
       programAddress:
-        "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">,
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
       seeds: [
         getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
       ],
@@ -226,6 +246,8 @@ export async function getInitializeInstructionAsync<
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode({}),
     programAddress,
@@ -237,7 +259,9 @@ export async function getInitializeInstructionAsync<
     TAccountMintAuthority,
     TAccountPermissionManagerConfig,
     TAccountSystemProgram,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -249,6 +273,8 @@ export type InitializeInput<
   TAccountPermissionManagerConfig extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   mint: Address<TAccountMint>;
@@ -257,6 +283,8 @@ export type InitializeInput<
   permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
 };
 
 export function getInitializeInstruction<
@@ -267,6 +295,8 @@ export function getInitializeInstruction<
   TAccountPermissionManagerConfig extends string,
   TAccountSystemProgram extends string,
   TAccountTokenProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
 >(
   input: InitializeInput<
@@ -276,7 +306,9 @@ export function getInitializeInstruction<
     TAccountMintAuthority,
     TAccountPermissionManagerConfig,
     TAccountSystemProgram,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): InitializeInstruction<
@@ -287,7 +319,9 @@ export function getInitializeInstruction<
   TAccountMintAuthority,
   TAccountPermissionManagerConfig,
   TAccountSystemProgram,
-  TAccountTokenProgram
+  TAccountTokenProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? SPIKO_TOKEN_PROGRAM_ADDRESS;
@@ -304,6 +338,8 @@ export function getInitializeInstruction<
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -330,6 +366,8 @@ export function getInitializeInstruction<
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode({}),
     programAddress,
@@ -341,7 +379,9 @@ export function getInitializeInstruction<
     TAccountMintAuthority,
     TAccountPermissionManagerConfig,
     TAccountSystemProgram,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -358,6 +398,8 @@ export type ParsedInitializeInstruction<
     permissionManagerConfig: TAccountMetas[4];
     systemProgram: TAccountMetas[5];
     tokenProgram: TAccountMetas[6];
+    eventAuthority: TAccountMetas[7];
+    program: TAccountMetas[8];
   };
   data: InitializeInstructionData;
 };
@@ -370,7 +412,7 @@ export function parseInitializeInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 7) {
+  if (instruction.accounts.length < 9) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -390,6 +432,8 @@ export function parseInitializeInstruction<
       permissionManagerConfig: getNextAccount(),
       systemProgram: getNextAccount(),
       tokenProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getInitializeInstructionDataDecoder().decode(instruction.data),
   };

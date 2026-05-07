@@ -8,6 +8,8 @@
 
 export * from "./dailyLimitUpdated";
 export * from "./gatekeeperInitialized";
+export * from "./permissionConfig";
+export * from "./userPermissions";
 export * from "./withdrawalApproved";
 export * from "./withdrawalBlocked";
 export * from "./withdrawalCanceled";

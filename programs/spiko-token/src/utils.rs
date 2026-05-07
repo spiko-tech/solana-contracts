@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::hashv;
+use solana_sha256_hasher::hashv;
 
 pub fn compute_operation_id(user: &Pubkey, mint: &Pubkey, amount: u64, salt: u64) -> [u8; 32] {
     let amount_bytes = amount.to_le_bytes();
@@ -20,7 +20,7 @@ pub fn invoke_transfer_checked_with_remaining<'info>(
     signer_seeds: &[&[&[u8]]],
     remaining_accounts: &[AccountInfo<'info>],
 ) -> Result<()> {
-    let mut ix = spl_token_2022::instruction::transfer_checked(
+    let mut ix = spl_token_2022_interface::instruction::transfer_checked(
         token_program,
         source.key,
         mint.key,

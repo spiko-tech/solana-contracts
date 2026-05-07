@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::Mint;
 
 use crate::constants::*;
 use crate::errors::MinterError;
@@ -6,13 +7,14 @@ use crate::events::DailyLimitUpdated;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct SetDailyLimit<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
 
     #[account(
         seeds = [MINTER_CONFIG_SEED],
-        bump,
+        bump = minter_config.bump,
     )]
     pub minter_config: Account<'info, MinterConfig>,
 
@@ -25,13 +27,12 @@ pub struct SetDailyLimit<'info> {
     )]
     pub mint_daily_limit: Account<'info, MintDailyLimit>,
 
-    /// CHECK: The mint account
-    pub mint: UncheckedAccount<'info>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     #[account(
         owner = permission_manager_program_id(),
         seeds = [PERMISSION_MANAGER_CONFIG_SEED],
-        bump,
+        bump = permission_manager_config.bump,
         seeds::program = permission_manager_program_id(),
         constraint = permission_manager_config.admin == admin.key() @ MinterError::Unauthorized,
     )]
@@ -51,8 +52,9 @@ pub(crate) fn handler(ctx: Context<SetDailyLimit>, limit: u64) -> Result<()> {
     daily_limit.limit = limit;
     daily_limit.used_amount = 0;
     daily_limit.last_day = current_day;
+    daily_limit.bump = ctx.bumps.mint_daily_limit;
 
-    emit!(DailyLimitUpdated {
+    emit_cpi!(DailyLimitUpdated {
         admin: ctx.accounts.admin.key(),
         mint: ctx.accounts.mint.key(),
         limit,

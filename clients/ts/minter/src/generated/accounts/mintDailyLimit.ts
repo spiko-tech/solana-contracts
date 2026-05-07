@@ -23,6 +23,8 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -52,12 +54,14 @@ export type MintDailyLimit = {
   limit: bigint;
   usedAmount: bigint;
   lastDay: bigint;
+  bump: number;
 };
 
 export type MintDailyLimitArgs = {
   limit: number | bigint;
   usedAmount: number | bigint;
   lastDay: number | bigint;
+  bump: number;
 };
 
 /** Gets the encoder for {@link MintDailyLimitArgs} account data. */
@@ -68,6 +72,7 @@ export function getMintDailyLimitEncoder(): FixedSizeEncoder<MintDailyLimitArgs>
       ["limit", getU64Encoder()],
       ["usedAmount", getU64Encoder()],
       ["lastDay", getI64Encoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: MINT_DAILY_LIMIT_DISCRIMINATOR }),
   );
@@ -80,6 +85,7 @@ export function getMintDailyLimitDecoder(): FixedSizeDecoder<MintDailyLimit> {
     ["limit", getU64Decoder()],
     ["usedAmount", getU64Decoder()],
     ["lastDay", getI64Decoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -153,5 +159,5 @@ export async function fetchAllMaybeMintDailyLimit(
 }
 
 export function getMintDailyLimitSize(): number {
-  return 32;
+  return 33;
 }

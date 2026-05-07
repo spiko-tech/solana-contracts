@@ -10,8 +10,10 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
+  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -65,6 +67,8 @@ export type ExecuteInstruction<
   TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -98,6 +102,12 @@ export type ExecuteInstruction<
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -156,6 +166,8 @@ export type ExecuteAsyncInput<
   TAccountBurnerPermissions extends string = string,
   TAccountPermissionManagerConfig extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   burner: TransactionSigner<TAccountBurner>;
   mint: Address<TAccountMint>;
@@ -163,9 +175,11 @@ export type ExecuteAsyncInput<
   redemptionOperation?: Address<TAccountRedemptionOperation>;
   vault: Address<TAccountVault>;
   vaultAuthority?: Address<TAccountVaultAuthority>;
-  burnerPermissions: Address<TAccountBurnerPermissions>;
-  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
+  burnerPermissions?: Address<TAccountBurnerPermissions>;
+  permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   operationId: ExecuteInstructionDataArgs["operationId"];
   amount: ExecuteInstructionDataArgs["amount"];
   salt: ExecuteInstructionDataArgs["salt"];
@@ -181,6 +195,8 @@ export async function getExecuteInstructionAsync<
   TAccountBurnerPermissions extends string,
   TAccountPermissionManagerConfig extends string,
   TAccountTokenProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: ExecuteAsyncInput<
@@ -192,7 +208,9 @@ export async function getExecuteInstructionAsync<
     TAccountVaultAuthority,
     TAccountBurnerPermissions,
     TAccountPermissionManagerConfig,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -206,7 +224,9 @@ export async function getExecuteInstructionAsync<
     TAccountVaultAuthority,
     TAccountBurnerPermissions,
     TAccountPermissionManagerConfig,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -235,6 +255,8 @@ export async function getExecuteInstructionAsync<
       isWritable: false,
     },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -258,6 +280,33 @@ export async function getExecuteInstructionAsync<
       mint: expectAddress(accounts.mint.value),
     });
   }
+  if (!accounts.permissionManagerConfig.value) {
+    accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
+      ],
+    });
+  }
+  if (!accounts.burnerPermissions.value) {
+    accounts.burnerPermissions.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
+            110,
+          ]),
+        ),
+        getAddressEncoder().encode(expectAddress(accounts.burner.value)),
+        getAddressEncoder().encode(
+          expectAddress(accounts.permissionManagerConfig.value),
+        ),
+      ],
+    });
+  }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
@@ -275,6 +324,8 @@ export async function getExecuteInstructionAsync<
       getAccountMeta(accounts.burnerPermissions),
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getExecuteInstructionDataEncoder().encode(
       args as ExecuteInstructionDataArgs,
@@ -290,7 +341,9 @@ export async function getExecuteInstructionAsync<
     TAccountVaultAuthority,
     TAccountBurnerPermissions,
     TAccountPermissionManagerConfig,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -304,6 +357,8 @@ export type ExecuteInput<
   TAccountBurnerPermissions extends string = string,
   TAccountPermissionManagerConfig extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   burner: TransactionSigner<TAccountBurner>;
   mint: Address<TAccountMint>;
@@ -314,6 +369,8 @@ export type ExecuteInput<
   burnerPermissions: Address<TAccountBurnerPermissions>;
   permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   operationId: ExecuteInstructionDataArgs["operationId"];
   amount: ExecuteInstructionDataArgs["amount"];
   salt: ExecuteInstructionDataArgs["salt"];
@@ -329,6 +386,8 @@ export function getExecuteInstruction<
   TAccountBurnerPermissions extends string,
   TAccountPermissionManagerConfig extends string,
   TAccountTokenProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: ExecuteInput<
@@ -340,7 +399,9 @@ export function getExecuteInstruction<
     TAccountVaultAuthority,
     TAccountBurnerPermissions,
     TAccountPermissionManagerConfig,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): ExecuteInstruction<
@@ -353,7 +414,9 @@ export function getExecuteInstruction<
   TAccountVaultAuthority,
   TAccountBurnerPermissions,
   TAccountPermissionManagerConfig,
-  TAccountTokenProgram
+  TAccountTokenProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? REDEMPTION_PROGRAM_ADDRESS;
@@ -381,6 +444,8 @@ export function getExecuteInstruction<
       isWritable: false,
     },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -408,6 +473,8 @@ export function getExecuteInstruction<
       getAccountMeta(accounts.burnerPermissions),
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getExecuteInstructionDataEncoder().encode(
       args as ExecuteInstructionDataArgs,
@@ -423,7 +490,9 @@ export function getExecuteInstruction<
     TAccountVaultAuthority,
     TAccountBurnerPermissions,
     TAccountPermissionManagerConfig,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -442,6 +511,8 @@ export type ParsedExecuteInstruction<
     burnerPermissions: TAccountMetas[6];
     permissionManagerConfig: TAccountMetas[7];
     tokenProgram: TAccountMetas[8];
+    eventAuthority: TAccountMetas[9];
+    program: TAccountMetas[10];
   };
   data: ExecuteInstructionData;
 };
@@ -454,7 +525,7 @@ export function parseExecuteInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedExecuteInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 9) {
+  if (instruction.accounts.length < 11) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -476,6 +547,8 @@ export function parseExecuteInstruction<
       burnerPermissions: getNextAccount(),
       permissionManagerConfig: getNextAccount(),
       tokenProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getExecuteInstructionDataDecoder().decode(instruction.data),
   };

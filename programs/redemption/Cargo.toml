@@ -18,13 +18,17 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build", "permission-manage
 anchor-lang = { workspace = true }
 anchor-spl = { workspace = true }
 permission-manager = { path = "../permission-manager", features = ["cpi"] }
-spl-token-2022 = { version = "6", features = ["no-entrypoint"] }
+spl-token-2022-interface = "2.1.0"
+solana-sha256-hasher = { workspace = true }
 
 [dev-dependencies]
-solana-program-test = "2"
-solana-sdk = "2"
-spl-token-2022 = "6"
-spl-associated-token-account = "6"
+litesvm = { workspace = true }
+solana-sdk = "3"
+solana-sdk-ids = "3"
+solana-system-interface = "2"
+solana-program-pack = "3"
+spl-token-2022-interface = "2.1.0"
+spl-associated-token-account = "8"
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(feature, values("custom-heap", "custom-allocator", "anchor-debug"))'] }

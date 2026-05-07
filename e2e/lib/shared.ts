@@ -75,6 +75,18 @@ export {
   findWithdrawalOperationPda,
 };
 
+/**
+ * Derive the Anchor event authority PDA for a given program.
+ * Seeds: [b"__event_authority"]
+ */
+export async function findEventAuthorityPda(programAddress: Address): Promise<Address> {
+  const [addr] = await getProgramDerivedAddress({
+    programAddress,
+    seeds: [new TextEncoder().encode("__event_authority")],
+  });
+  return addr;
+}
+
 export const TOKEN_2022_PROGRAM_ID: Address =
   address("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
@@ -139,7 +151,12 @@ export function loadSolanaConfig(): { rpcUrl: string; keypairPath: string } {
 }
 
 function rpcUrlToWsUrl(rpcUrl: string): string {
-  return rpcUrl.replace("https://", "wss://").replace("http://", "ws://");
+  let wsUrl = rpcUrl.replace("https://", "wss://").replace("http://", "ws://");
+  // Local validator uses port 8900 for WebSocket while RPC is on 8899
+  if (wsUrl.includes("127.0.0.1:8899") || wsUrl.includes("localhost:8899")) {
+    wsUrl = wsUrl.replace(":8899", ":8900");
+  }
+  return wsUrl;
 }
 
 export async function loadKeypair(filePath: string): Promise<KeyPairSigner> {
@@ -345,7 +362,8 @@ export function buildCreateAccountInstruction(
  *   4. permission_manager_config PDA
  *   5. source_permissions PDA (permission-manager)
  *   6. destination_permissions PDA (permission-manager)
- *   7. transfer_hook_program
+ *   7. event_authority PDA (transfer-hook program)
+ *   8. transfer_hook_program
  */
 export function buildTransferChecked(
   sender: KeyPairSigner,
@@ -357,6 +375,7 @@ export function buildTransferChecked(
   recipientPermsAddr: Address,
   extraAccountMetaListAddr: Address,
   permissionManagerConfigAddr: Address,
+  hookEventAuthorityAddr: Address,
   amount: bigint,
   decimals: number,
 ) {
@@ -380,6 +399,7 @@ export function buildTransferChecked(
       { address: permissionManagerConfigAddr, role: AccountRole.READONLY as const },
       { address: senderPermsAddr, role: AccountRole.READONLY as const },
       { address: recipientPermsAddr, role: AccountRole.READONLY as const },
+      { address: hookEventAuthorityAddr, role: AccountRole.READONLY as const },
       { address: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address, role: AccountRole.READONLY as const },
     ],
     data: data as ReadonlyUint8Array,

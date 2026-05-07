@@ -23,6 +23,8 @@ import {
   getI64Encoder,
   getStructDecoder,
   getStructEncoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -51,11 +53,13 @@ export type RedemptionConfig = {
   discriminator: ReadonlyUint8Array;
   deadlineDelay: bigint;
   permissionManager: Address;
+  bump: number;
 };
 
 export type RedemptionConfigArgs = {
   deadlineDelay: number | bigint;
   permissionManager: Address;
+  bump: number;
 };
 
 /** Gets the encoder for {@link RedemptionConfigArgs} account data. */
@@ -65,6 +69,7 @@ export function getRedemptionConfigEncoder(): FixedSizeEncoder<RedemptionConfigA
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["deadlineDelay", getI64Encoder()],
       ["permissionManager", getAddressEncoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: REDEMPTION_CONFIG_DISCRIMINATOR }),
   );
@@ -76,6 +81,7 @@ export function getRedemptionConfigDecoder(): FixedSizeDecoder<RedemptionConfig>
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["deadlineDelay", getI64Decoder()],
     ["permissionManager", getAddressDecoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -154,5 +160,5 @@ export async function fetchAllMaybeRedemptionConfig(
 }
 
 export function getRedemptionConfigSize(): number {
-  return 48;
+  return 49;
 }

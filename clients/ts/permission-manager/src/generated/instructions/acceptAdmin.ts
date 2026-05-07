@@ -24,6 +24,7 @@ import {
   type Instruction,
   type InstructionWithAccounts,
   type InstructionWithData,
+  type ReadonlyAccount,
   type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
@@ -47,6 +48,8 @@ export type AcceptAdminInstruction<
   TProgram extends string = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
   TAccountNewAdmin extends string | AccountMeta<string> = string,
   TAccountConfig extends string | AccountMeta<string> = string,
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -59,6 +62,12 @@ export type AcceptAdminInstruction<
       TAccountConfig extends string
         ? WritableAccount<TAccountConfig>
         : TAccountConfig,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -93,20 +102,37 @@ export function getAcceptAdminInstructionDataCodec(): FixedSizeCodec<
 export type AcceptAdminAsyncInput<
   TAccountNewAdmin extends string = string,
   TAccountConfig extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   newAdmin: TransactionSigner<TAccountNewAdmin>;
   config?: Address<TAccountConfig>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
 };
 
 export async function getAcceptAdminInstructionAsync<
   TAccountNewAdmin extends string,
   TAccountConfig extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
-  input: AcceptAdminAsyncInput<TAccountNewAdmin, TAccountConfig>,
+  input: AcceptAdminAsyncInput<
+    TAccountNewAdmin,
+    TAccountConfig,
+    TAccountEventAuthority,
+    TAccountProgram
+  >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
-  AcceptAdminInstruction<TProgramAddress, TAccountNewAdmin, TAccountConfig>
+  AcceptAdminInstruction<
+    TProgramAddress,
+    TAccountNewAdmin,
+    TAccountConfig,
+    TAccountEventAuthority,
+    TAccountProgram
+  >
 > {
   // Program address.
   const programAddress =
@@ -116,6 +142,8 @@ export async function getAcceptAdminInstructionAsync<
   const originalAccounts = {
     newAdmin: { value: input.newAdmin ?? null, isWritable: false },
     config: { value: input.config ?? null, isWritable: true },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -132,32 +160,53 @@ export async function getAcceptAdminInstructionAsync<
     accounts: [
       getAccountMeta(accounts.newAdmin),
       getAccountMeta(accounts.config),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getAcceptAdminInstructionDataEncoder().encode({}),
     programAddress,
   } as AcceptAdminInstruction<
     TProgramAddress,
     TAccountNewAdmin,
-    TAccountConfig
+    TAccountConfig,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
 export type AcceptAdminInput<
   TAccountNewAdmin extends string = string,
   TAccountConfig extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   newAdmin: TransactionSigner<TAccountNewAdmin>;
   config: Address<TAccountConfig>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
 };
 
 export function getAcceptAdminInstruction<
   TAccountNewAdmin extends string,
   TAccountConfig extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
-  input: AcceptAdminInput<TAccountNewAdmin, TAccountConfig>,
+  input: AcceptAdminInput<
+    TAccountNewAdmin,
+    TAccountConfig,
+    TAccountEventAuthority,
+    TAccountProgram
+  >,
   config?: { programAddress?: TProgramAddress },
-): AcceptAdminInstruction<TProgramAddress, TAccountNewAdmin, TAccountConfig> {
+): AcceptAdminInstruction<
+  TProgramAddress,
+  TAccountNewAdmin,
+  TAccountConfig,
+  TAccountEventAuthority,
+  TAccountProgram
+> {
   // Program address.
   const programAddress =
     config?.programAddress ?? PERMISSION_MANAGER_PROGRAM_ADDRESS;
@@ -166,6 +215,8 @@ export function getAcceptAdminInstruction<
   const originalAccounts = {
     newAdmin: { value: input.newAdmin ?? null, isWritable: false },
     config: { value: input.config ?? null, isWritable: true },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -177,13 +228,17 @@ export function getAcceptAdminInstruction<
     accounts: [
       getAccountMeta(accounts.newAdmin),
       getAccountMeta(accounts.config),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getAcceptAdminInstructionDataEncoder().encode({}),
     programAddress,
   } as AcceptAdminInstruction<
     TProgramAddress,
     TAccountNewAdmin,
-    TAccountConfig
+    TAccountConfig,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -195,6 +250,8 @@ export type ParsedAcceptAdminInstruction<
   accounts: {
     newAdmin: TAccountMetas[0];
     config: TAccountMetas[1];
+    eventAuthority: TAccountMetas[2];
+    program: TAccountMetas[3];
   };
   data: AcceptAdminInstructionData;
 };
@@ -207,7 +264,7 @@ export function parseAcceptAdminInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedAcceptAdminInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 2) {
+  if (instruction.accounts.length < 4) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -219,7 +276,12 @@ export function parseAcceptAdminInstruction<
   };
   return {
     programAddress: instruction.programAddress,
-    accounts: { newAdmin: getNextAccount(), config: getNextAccount() },
+    accounts: {
+      newAdmin: getNextAccount(),
+      config: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
+    },
     data: getAcceptAdminInstructionDataDecoder().decode(instruction.data),
   };
 }

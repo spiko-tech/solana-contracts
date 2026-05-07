@@ -11,6 +11,7 @@ use crate::utils::verify_operation_id;
 pub struct RedemptionConfig {
     pub deadline_delay: i64,
     pub permission_manager: Pubkey,
+    pub bump: u8,
 }
 
 #[account]
@@ -27,6 +28,7 @@ pub struct RedemptionOperation {
     pub user: Pubkey,
     pub mint: Pubkey,
     pub amount: u64,
+    pub bump: u8,
 }
 
 impl RedemptionOperation {

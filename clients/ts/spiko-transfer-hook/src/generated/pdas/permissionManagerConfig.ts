@@ -17,7 +17,7 @@ export async function findPermissionManagerConfigPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">,
+    programAddress = "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU" as Address<"7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,

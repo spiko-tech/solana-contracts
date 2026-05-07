@@ -9,7 +9,7 @@ pub mod utils;
 
 use instructions::*;
 
-declare_id!("6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ");
+declare_id!("F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN");
 
 #[program]
 pub mod spiko_token {
@@ -35,11 +35,7 @@ pub mod spiko_token {
         instructions::burn::handler(ctx, amount)
     }
 
-    pub fn redeem<'info>(
-        ctx: Context<'_, '_, 'info, 'info, Redeem<'info>>,
-        amount: u64,
-        salt: u64,
-    ) -> Result<()> {
+    pub fn redeem<'info>(ctx: Context<'info, Redeem<'info>>, amount: u64, salt: u64) -> Result<()> {
         instructions::redeem::handler(ctx, amount, salt)
     }
 

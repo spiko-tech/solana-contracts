@@ -5,6 +5,7 @@ use crate::events::ConfigInitialized;
 use crate::state::PermissionConfig;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -23,9 +24,10 @@ pub(crate) fn handler(ctx: Context<Initialize>) -> Result<()> {
     ctx.accounts.config.set_inner(PermissionConfig {
         admin: ctx.accounts.admin.key(),
         pending_admin: Pubkey::default(),
+        bump: ctx.bumps.config,
     });
 
-    emit!(ConfigInitialized {
+    emit_cpi!(ConfigInitialized {
         admin: ctx.accounts.admin.key(),
     });
 

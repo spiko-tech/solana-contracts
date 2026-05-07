@@ -23,6 +23,8 @@ import {
   getStructEncoder,
   getU64Decoder,
   getU64Encoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -52,12 +54,14 @@ export type WithdrawalDailyLimit = {
   limit: bigint;
   usedAmount: bigint;
   lastDay: bigint;
+  bump: number;
 };
 
 export type WithdrawalDailyLimitArgs = {
   limit: number | bigint;
   usedAmount: number | bigint;
   lastDay: number | bigint;
+  bump: number;
 };
 
 /** Gets the encoder for {@link WithdrawalDailyLimitArgs} account data. */
@@ -68,6 +72,7 @@ export function getWithdrawalDailyLimitEncoder(): FixedSizeEncoder<WithdrawalDai
       ["limit", getU64Encoder()],
       ["usedAmount", getU64Encoder()],
       ["lastDay", getI64Encoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({
       ...value,
@@ -83,6 +88,7 @@ export function getWithdrawalDailyLimitDecoder(): FixedSizeDecoder<WithdrawalDai
     ["limit", getU64Decoder()],
     ["usedAmount", getU64Decoder()],
     ["lastDay", getI64Decoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -167,5 +173,5 @@ export async function fetchAllMaybeWithdrawalDailyLimit(
 }
 
 export function getWithdrawalDailyLimitSize(): number {
-  return 32;
+  return 33;
 }

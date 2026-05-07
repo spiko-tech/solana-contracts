@@ -7,19 +7,20 @@ use crate::state::*;
 
 #[derive(Accounts)]
 #[instruction(operation_id: [u8; 32])]
+#[event_cpi]
 pub struct CancelMint<'info> {
     pub caller: Signer<'info>,
 
     #[account(
         seeds = [MINTER_CONFIG_SEED],
-        bump,
+        bump = minter_config.bump,
     )]
     pub minter_config: Account<'info, MinterConfig>,
 
     #[account(
         mut,
         seeds = [MINT_OPERATION_SEED, operation_id.as_ref()],
-        bump,
+        bump = mint_operation.bump,
         constraint = mint_operation.status == STATUS_PENDING @ MinterError::NotPending,
     )]
     pub mint_operation: Account<'info, MintOperation>,
@@ -45,7 +46,7 @@ pub(crate) fn handler(
 
     ctx.accounts.mint_operation.status = STATUS_CANCELED;
 
-    emit!(MintCanceled {
+    emit_cpi!(MintCanceled {
         caller: ctx.accounts.caller.key(),
         recipient,
         mint: ctx.accounts.mint.key(),

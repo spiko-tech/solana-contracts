@@ -12,3 +12,5 @@ export * from "./mintBlocked";
 export * from "./mintCanceled";
 export * from "./minterInitialized";
 export * from "./mintInitiated";
+export * from "./permissionConfig";
+export * from "./userPermissions";

@@ -10,8 +10,10 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
+  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -59,6 +61,8 @@ export type MintInstruction<
   TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -89,6 +93,12 @@ export type MintInstruction<
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -136,15 +146,19 @@ export type MintAsyncInput<
   TAccountMinterPermissions extends string = string,
   TAccountPermissionManagerConfig extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   minter: TransactionSigner<TAccountMinter>;
   tokenConfig: Address<TAccountTokenConfig>;
   mint: Address<TAccountMint>;
   destination: Address<TAccountDestination>;
   mintAuthority?: Address<TAccountMintAuthority>;
-  minterPermissions: Address<TAccountMinterPermissions>;
-  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
+  minterPermissions?: Address<TAccountMinterPermissions>;
+  permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   amount: MintInstructionDataArgs["amount"];
 };
 
@@ -157,6 +171,8 @@ export async function getMintInstructionAsync<
   TAccountMinterPermissions extends string,
   TAccountPermissionManagerConfig extends string,
   TAccountTokenProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
 >(
   input: MintAsyncInput<
@@ -167,7 +183,9 @@ export async function getMintInstructionAsync<
     TAccountMintAuthority,
     TAccountMinterPermissions,
     TAccountPermissionManagerConfig,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -180,7 +198,9 @@ export async function getMintInstructionAsync<
     TAccountMintAuthority,
     TAccountMinterPermissions,
     TAccountPermissionManagerConfig,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -202,6 +222,8 @@ export async function getMintInstructionAsync<
       isWritable: false,
     },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -215,6 +237,33 @@ export async function getMintInstructionAsync<
   if (!accounts.mintAuthority.value) {
     accounts.mintAuthority.value = await findMintAuthorityPda({
       mint: expectAddress(accounts.mint.value),
+    });
+  }
+  if (!accounts.permissionManagerConfig.value) {
+    accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
+      ],
+    });
+  }
+  if (!accounts.minterPermissions.value) {
+    accounts.minterPermissions.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
+            110,
+          ]),
+        ),
+        getAddressEncoder().encode(expectAddress(accounts.minter.value)),
+        getAddressEncoder().encode(
+          expectAddress(accounts.permissionManagerConfig.value),
+        ),
+      ],
     });
   }
   if (!accounts.tokenProgram.value) {
@@ -233,6 +282,8 @@ export async function getMintInstructionAsync<
       getAccountMeta(accounts.minterPermissions),
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getMintInstructionDataEncoder().encode(
       args as MintInstructionDataArgs,
@@ -247,7 +298,9 @@ export async function getMintInstructionAsync<
     TAccountMintAuthority,
     TAccountMinterPermissions,
     TAccountPermissionManagerConfig,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -260,6 +313,8 @@ export type MintInput<
   TAccountMinterPermissions extends string = string,
   TAccountPermissionManagerConfig extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   minter: TransactionSigner<TAccountMinter>;
   tokenConfig: Address<TAccountTokenConfig>;
@@ -269,6 +324,8 @@ export type MintInput<
   minterPermissions: Address<TAccountMinterPermissions>;
   permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   amount: MintInstructionDataArgs["amount"];
 };
 
@@ -281,6 +338,8 @@ export function getMintInstruction<
   TAccountMinterPermissions extends string,
   TAccountPermissionManagerConfig extends string,
   TAccountTokenProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
 >(
   input: MintInput<
@@ -291,7 +350,9 @@ export function getMintInstruction<
     TAccountMintAuthority,
     TAccountMinterPermissions,
     TAccountPermissionManagerConfig,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): MintInstruction<
@@ -303,7 +364,9 @@ export function getMintInstruction<
   TAccountMintAuthority,
   TAccountMinterPermissions,
   TAccountPermissionManagerConfig,
-  TAccountTokenProgram
+  TAccountTokenProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? SPIKO_TOKEN_PROGRAM_ADDRESS;
@@ -324,6 +387,8 @@ export function getMintInstruction<
       isWritable: false,
     },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -350,6 +415,8 @@ export function getMintInstruction<
       getAccountMeta(accounts.minterPermissions),
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getMintInstructionDataEncoder().encode(
       args as MintInstructionDataArgs,
@@ -364,7 +431,9 @@ export function getMintInstruction<
     TAccountMintAuthority,
     TAccountMinterPermissions,
     TAccountPermissionManagerConfig,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -382,6 +451,8 @@ export type ParsedMintInstruction<
     minterPermissions: TAccountMetas[5];
     permissionManagerConfig: TAccountMetas[6];
     tokenProgram: TAccountMetas[7];
+    eventAuthority: TAccountMetas[8];
+    program: TAccountMetas[9];
   };
   data: MintInstructionData;
 };
@@ -394,7 +465,7 @@ export function parseMintInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedMintInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 8) {
+  if (instruction.accounts.length < 10) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -415,6 +486,8 @@ export function parseMintInstruction<
       minterPermissions: getNextAccount(),
       permissionManagerConfig: getNextAccount(),
       tokenProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getMintInstructionDataDecoder().decode(instruction.data),
   };

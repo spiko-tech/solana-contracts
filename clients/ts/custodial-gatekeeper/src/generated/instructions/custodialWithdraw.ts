@@ -14,6 +14,7 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
+  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -75,15 +76,19 @@ export type CustodialWithdrawInstruction<
   TAccountRecipientPermissions extends string | AccountMeta<string> = string,
   TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
   TAccountPermissionManagerProgram extends string | AccountMeta<string> =
-    "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE",
+    "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD",
   TAccountExtraAccountMetasList extends string | AccountMeta<string> = string,
   TAccountHookConfig extends string | AccountMeta<string> = string,
   TAccountTransferHookProgram extends string | AccountMeta<string> =
-    "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86",
+    "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU",
+  TAccountTransferHookEventAuthority extends string | AccountMeta<string> =
+    string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -141,12 +146,21 @@ export type CustodialWithdrawInstruction<
       TAccountTransferHookProgram extends string
         ? ReadonlyAccount<TAccountTransferHookProgram>
         : TAccountTransferHookProgram,
+      TAccountTransferHookEventAuthority extends string
+        ? ReadonlyAccount<TAccountTransferHookEventAuthority>
+        : TAccountTransferHookEventAuthority,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -217,8 +231,11 @@ export type CustodialWithdrawAsyncInput<
   TAccountExtraAccountMetasList extends string = string,
   TAccountHookConfig extends string = string,
   TAccountTransferHookProgram extends string = string,
+  TAccountTransferHookEventAuthority extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   sender: TransactionSigner<TAccountSender>;
   gatekeeperConfig?: Address<TAccountGatekeeperConfig>;
@@ -229,16 +246,19 @@ export type CustodialWithdrawAsyncInput<
   vaultTokenAccount: Address<TAccountVaultTokenAccount>;
   recipientTokenAccount: Address<TAccountRecipientTokenAccount>;
   vaultAuthority?: Address<TAccountVaultAuthority>;
-  senderPermissions: Address<TAccountSenderPermissions>;
-  vaultAuthorityPermissions: Address<TAccountVaultAuthorityPermissions>;
-  recipientPermissions: Address<TAccountRecipientPermissions>;
-  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
+  senderPermissions?: Address<TAccountSenderPermissions>;
+  vaultAuthorityPermissions?: Address<TAccountVaultAuthorityPermissions>;
+  recipientPermissions?: Address<TAccountRecipientPermissions>;
+  permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
   permissionManagerProgram?: Address<TAccountPermissionManagerProgram>;
   extraAccountMetasList: Address<TAccountExtraAccountMetasList>;
   hookConfig: Address<TAccountHookConfig>;
   transferHookProgram?: Address<TAccountTransferHookProgram>;
+  transferHookEventAuthority: Address<TAccountTransferHookEventAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   operationId: CustodialWithdrawInstructionDataArgs["operationId"];
   recipient: CustodialWithdrawInstructionDataArgs["recipient"];
   amount: CustodialWithdrawInstructionDataArgs["amount"];
@@ -263,8 +283,11 @@ export async function getCustodialWithdrawInstructionAsync<
   TAccountExtraAccountMetasList extends string,
   TAccountHookConfig extends string,
   TAccountTransferHookProgram extends string,
+  TAccountTransferHookEventAuthority extends string,
   TAccountTokenProgram extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
 >(
   input: CustodialWithdrawAsyncInput<
@@ -285,8 +308,11 @@ export async function getCustodialWithdrawInstructionAsync<
     TAccountExtraAccountMetasList,
     TAccountHookConfig,
     TAccountTransferHookProgram,
+    TAccountTransferHookEventAuthority,
     TAccountTokenProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -309,8 +335,11 @@ export async function getCustodialWithdrawInstructionAsync<
     TAccountExtraAccountMetasList,
     TAccountHookConfig,
     TAccountTransferHookProgram,
+    TAccountTransferHookEventAuthority,
     TAccountTokenProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -375,8 +404,14 @@ export async function getCustodialWithdrawInstructionAsync<
       value: input.transferHookProgram ?? null,
       isWritable: false,
     },
+    transferHookEventAuthority: {
+      value: input.transferHookEventAuthority ?? null,
+      isWritable: false,
+    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -403,13 +438,78 @@ export async function getCustodialWithdrawInstructionAsync<
   if (!accounts.vaultAuthority.value) {
     accounts.vaultAuthority.value = await findVaultAuthorityPda();
   }
+  if (!accounts.permissionManagerConfig.value) {
+    accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
+      ],
+    });
+  }
+  if (!accounts.senderPermissions.value) {
+    accounts.senderPermissions.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
+            110,
+          ]),
+        ),
+        getAddressEncoder().encode(expectAddress(accounts.sender.value)),
+        getAddressEncoder().encode(
+          expectAddress(accounts.permissionManagerConfig.value),
+        ),
+      ],
+    });
+  }
+  if (!accounts.vaultAuthorityPermissions.value) {
+    accounts.vaultAuthorityPermissions.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
+            110,
+          ]),
+        ),
+        getAddressEncoder().encode(
+          expectAddress(accounts.vaultAuthority.value),
+        ),
+        getAddressEncoder().encode(
+          expectAddress(accounts.permissionManagerConfig.value),
+        ),
+      ],
+    });
+  }
+  if (!accounts.recipientPermissions.value) {
+    accounts.recipientPermissions.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
+            110,
+          ]),
+        ),
+        getAddressEncoder().encode(expectSome(args.recipient)),
+        getAddressEncoder().encode(
+          expectAddress(accounts.permissionManagerConfig.value),
+        ),
+      ],
+    });
+  }
   if (!accounts.permissionManagerProgram.value) {
     accounts.permissionManagerProgram.value =
-      "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">;
+      "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">;
   }
   if (!accounts.transferHookProgram.value) {
     accounts.transferHookProgram.value =
-      "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">;
+      "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU" as Address<"7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU">;
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
@@ -440,8 +540,11 @@ export async function getCustodialWithdrawInstructionAsync<
       getAccountMeta(accounts.extraAccountMetasList),
       getAccountMeta(accounts.hookConfig),
       getAccountMeta(accounts.transferHookProgram),
+      getAccountMeta(accounts.transferHookEventAuthority),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getCustodialWithdrawInstructionDataEncoder().encode(
       args as CustodialWithdrawInstructionDataArgs,
@@ -466,8 +569,11 @@ export async function getCustodialWithdrawInstructionAsync<
     TAccountExtraAccountMetasList,
     TAccountHookConfig,
     TAccountTransferHookProgram,
+    TAccountTransferHookEventAuthority,
     TAccountTokenProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -489,8 +595,11 @@ export type CustodialWithdrawInput<
   TAccountExtraAccountMetasList extends string = string,
   TAccountHookConfig extends string = string,
   TAccountTransferHookProgram extends string = string,
+  TAccountTransferHookEventAuthority extends string = string,
   TAccountTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   sender: TransactionSigner<TAccountSender>;
   gatekeeperConfig: Address<TAccountGatekeeperConfig>;
@@ -509,8 +618,11 @@ export type CustodialWithdrawInput<
   extraAccountMetasList: Address<TAccountExtraAccountMetasList>;
   hookConfig: Address<TAccountHookConfig>;
   transferHookProgram?: Address<TAccountTransferHookProgram>;
+  transferHookEventAuthority: Address<TAccountTransferHookEventAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   operationId: CustodialWithdrawInstructionDataArgs["operationId"];
   recipient: CustodialWithdrawInstructionDataArgs["recipient"];
   amount: CustodialWithdrawInstructionDataArgs["amount"];
@@ -535,8 +647,11 @@ export function getCustodialWithdrawInstruction<
   TAccountExtraAccountMetasList extends string,
   TAccountHookConfig extends string,
   TAccountTransferHookProgram extends string,
+  TAccountTransferHookEventAuthority extends string,
   TAccountTokenProgram extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
 >(
   input: CustodialWithdrawInput<
@@ -557,8 +672,11 @@ export function getCustodialWithdrawInstruction<
     TAccountExtraAccountMetasList,
     TAccountHookConfig,
     TAccountTransferHookProgram,
+    TAccountTransferHookEventAuthority,
     TAccountTokenProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): CustodialWithdrawInstruction<
@@ -580,8 +698,11 @@ export function getCustodialWithdrawInstruction<
   TAccountExtraAccountMetasList,
   TAccountHookConfig,
   TAccountTransferHookProgram,
+  TAccountTransferHookEventAuthority,
   TAccountTokenProgram,
-  TAccountSystemProgram
+  TAccountSystemProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress =
@@ -645,8 +766,14 @@ export function getCustodialWithdrawInstruction<
       value: input.transferHookProgram ?? null,
       isWritable: false,
     },
+    transferHookEventAuthority: {
+      value: input.transferHookEventAuthority ?? null,
+      isWritable: false,
+    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -659,11 +786,11 @@ export function getCustodialWithdrawInstruction<
   // Resolve default values.
   if (!accounts.permissionManagerProgram.value) {
     accounts.permissionManagerProgram.value =
-      "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">;
+      "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">;
   }
   if (!accounts.transferHookProgram.value) {
     accounts.transferHookProgram.value =
-      "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">;
+      "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU" as Address<"7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU">;
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
@@ -694,8 +821,11 @@ export function getCustodialWithdrawInstruction<
       getAccountMeta(accounts.extraAccountMetasList),
       getAccountMeta(accounts.hookConfig),
       getAccountMeta(accounts.transferHookProgram),
+      getAccountMeta(accounts.transferHookEventAuthority),
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getCustodialWithdrawInstructionDataEncoder().encode(
       args as CustodialWithdrawInstructionDataArgs,
@@ -720,8 +850,11 @@ export function getCustodialWithdrawInstruction<
     TAccountExtraAccountMetasList,
     TAccountHookConfig,
     TAccountTransferHookProgram,
+    TAccountTransferHookEventAuthority,
     TAccountTokenProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -748,8 +881,11 @@ export type ParsedCustodialWithdrawInstruction<
     extraAccountMetasList: TAccountMetas[14];
     hookConfig: TAccountMetas[15];
     transferHookProgram: TAccountMetas[16];
-    tokenProgram: TAccountMetas[17];
-    systemProgram: TAccountMetas[18];
+    transferHookEventAuthority: TAccountMetas[17];
+    tokenProgram: TAccountMetas[18];
+    systemProgram: TAccountMetas[19];
+    eventAuthority: TAccountMetas[20];
+    program: TAccountMetas[21];
   };
   data: CustodialWithdrawInstructionData;
 };
@@ -762,7 +898,7 @@ export function parseCustodialWithdrawInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCustodialWithdrawInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 19) {
+  if (instruction.accounts.length < 22) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -792,8 +928,11 @@ export function parseCustodialWithdrawInstruction<
       extraAccountMetasList: getNextAccount(),
       hookConfig: getNextAccount(),
       transferHookProgram: getNextAccount(),
+      transferHookEventAuthority: getNextAccount(),
       tokenProgram: getNextAccount(),
       systemProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getCustodialWithdrawInstructionDataDecoder().decode(instruction.data),
   };

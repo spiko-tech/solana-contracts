@@ -58,6 +58,7 @@ export type MintOperation = {
   recipient: Address;
   mint: Address;
   amount: bigint;
+  bump: number;
 };
 
 export type MintOperationArgs = {
@@ -66,6 +67,7 @@ export type MintOperationArgs = {
   recipient: Address;
   mint: Address;
   amount: number | bigint;
+  bump: number;
 };
 
 /** Gets the encoder for {@link MintOperationArgs} account data. */
@@ -78,6 +80,7 @@ export function getMintOperationEncoder(): FixedSizeEncoder<MintOperationArgs> {
       ["recipient", getAddressEncoder()],
       ["mint", getAddressEncoder()],
       ["amount", getU64Encoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: MINT_OPERATION_DISCRIMINATOR }),
   );
@@ -92,6 +95,7 @@ export function getMintOperationDecoder(): FixedSizeDecoder<MintOperation> {
     ["recipient", getAddressDecoder()],
     ["mint", getAddressDecoder()],
     ["amount", getU64Decoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -161,5 +165,5 @@ export async function fetchAllMaybeMintOperation(
 }
 
 export function getMintOperationSize(): number {
-  return 89;
+  return 90;
 }

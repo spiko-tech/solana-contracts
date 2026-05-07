@@ -54,6 +54,8 @@ export type InitializeInstruction<
   TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -72,6 +74,12 @@ export type InitializeInstruction<
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -121,11 +129,15 @@ export type InitializeAsyncInput<
   TAccountMinterConfig extends string = string,
   TAccountPermissionManagerConfig extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   minterConfig?: Address<TAccountMinterConfig>;
   permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   permissionManager: InitializeInstructionDataArgs["permissionManager"];
   maxDelay: InitializeInstructionDataArgs["maxDelay"];
 };
@@ -135,13 +147,17 @@ export async function getInitializeInstructionAsync<
   TAccountMinterConfig extends string,
   TAccountPermissionManagerConfig extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof MINTER_PROGRAM_ADDRESS,
 >(
   input: InitializeAsyncInput<
     TAccountAdmin,
     TAccountMinterConfig,
     TAccountPermissionManagerConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -150,7 +166,9 @@ export async function getInitializeInstructionAsync<
     TAccountAdmin,
     TAccountMinterConfig,
     TAccountPermissionManagerConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -165,6 +183,8 @@ export async function getInitializeInstructionAsync<
       isWritable: false,
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -181,7 +201,7 @@ export async function getInitializeInstructionAsync<
   if (!accounts.permissionManagerConfig.value) {
     accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
       programAddress:
-        "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">,
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
       seeds: [
         getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
       ],
@@ -199,6 +219,8 @@ export async function getInitializeInstructionAsync<
       getAccountMeta(accounts.minterConfig),
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode(
       args as InitializeInstructionDataArgs,
@@ -209,7 +231,9 @@ export async function getInitializeInstructionAsync<
     TAccountAdmin,
     TAccountMinterConfig,
     TAccountPermissionManagerConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -218,11 +242,15 @@ export type InitializeInput<
   TAccountMinterConfig extends string = string,
   TAccountPermissionManagerConfig extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   minterConfig: Address<TAccountMinterConfig>;
   permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   permissionManager: InitializeInstructionDataArgs["permissionManager"];
   maxDelay: InitializeInstructionDataArgs["maxDelay"];
 };
@@ -232,13 +260,17 @@ export function getInitializeInstruction<
   TAccountMinterConfig extends string,
   TAccountPermissionManagerConfig extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof MINTER_PROGRAM_ADDRESS,
 >(
   input: InitializeInput<
     TAccountAdmin,
     TAccountMinterConfig,
     TAccountPermissionManagerConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): InitializeInstruction<
@@ -246,7 +278,9 @@ export function getInitializeInstruction<
   TAccountAdmin,
   TAccountMinterConfig,
   TAccountPermissionManagerConfig,
-  TAccountSystemProgram
+  TAccountSystemProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? MINTER_PROGRAM_ADDRESS;
@@ -260,6 +294,8 @@ export function getInitializeInstruction<
       isWritable: false,
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -282,6 +318,8 @@ export function getInitializeInstruction<
       getAccountMeta(accounts.minterConfig),
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode(
       args as InitializeInstructionDataArgs,
@@ -292,7 +330,9 @@ export function getInitializeInstruction<
     TAccountAdmin,
     TAccountMinterConfig,
     TAccountPermissionManagerConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -306,6 +346,8 @@ export type ParsedInitializeInstruction<
     minterConfig: TAccountMetas[1];
     permissionManagerConfig: TAccountMetas[2];
     systemProgram: TAccountMetas[3];
+    eventAuthority: TAccountMetas[4];
+    program: TAccountMetas[5];
   };
   data: InitializeInstructionData;
 };
@@ -318,7 +360,7 @@ export function parseInitializeInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 4) {
+  if (instruction.accounts.length < 6) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -335,6 +377,8 @@ export function parseInitializeInstruction<
       minterConfig: getNextAccount(),
       permissionManagerConfig: getNextAccount(),
       systemProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getInitializeInstructionDataDecoder().decode(instruction.data),
   };

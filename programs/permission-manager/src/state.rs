@@ -7,12 +7,14 @@ use crate::constants::{ROLE_WHITELISTED, ROLE_WHITELISTED_EXT, VALID_ROLES_BITMA
 pub struct PermissionConfig {
     pub admin: Pubkey,
     pub pending_admin: Pubkey,
+    pub bump: u8,
 }
 
 #[account]
 #[derive(InitSpace)]
 pub struct UserPermissions {
     pub roles: u16,
+    pub bump: u8,
 }
 
 impl UserPermissions {

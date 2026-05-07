@@ -9,22 +9,23 @@ use crate::utils::{invoke_transfer_checked_with_hook, verify_operation_id};
 
 #[derive(Accounts)]
 #[instruction(operation_id: [u8; 32], recipient: Pubkey, amount: u64, salt: u64)]
+#[event_cpi]
 pub struct CustodialWithdraw<'info> {
     #[account(mut)]
     pub sender: Signer<'info>,
 
     #[account(
         seeds = [GATEKEEPER_CONFIG_SEED],
-        bump,
+        bump = gatekeeper_config.bump,
     )]
-    pub gatekeeper_config: Account<'info, GatekeeperConfig>,
+    pub gatekeeper_config: Box<Account<'info, GatekeeperConfig>>,
 
     #[account(
         mut,
         seeds = [WITHDRAWAL_DAILY_LIMIT_SEED, mint.key().as_ref()],
-        bump,
+        bump = withdrawal_daily_limit.bump,
     )]
-    pub withdrawal_daily_limit: Account<'info, WithdrawalDailyLimit>,
+    pub withdrawal_daily_limit: Box<Account<'info, WithdrawalDailyLimit>>,
 
     #[account(
         init,
@@ -33,56 +34,70 @@ pub struct CustodialWithdraw<'info> {
         seeds = [WITHDRAWAL_OPERATION_SEED, operation_id.as_ref()],
         bump,
     )]
-    pub withdrawal_operation: Account<'info, WithdrawalOperation>,
+    pub withdrawal_operation: Box<Account<'info, WithdrawalOperation>>,
 
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub mint: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(
         mut,
         token::mint = mint,
         token::authority = sender,
     )]
-    pub sender_token_account: InterfaceAccount<'info, TokenAccount>,
+    pub sender_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         mut,
         token::mint = mint,
         token::authority = vault_authority,
     )]
-    pub vault_token_account: InterfaceAccount<'info, TokenAccount>,
+    pub vault_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         mut,
         token::mint = mint,
     )]
-    pub recipient_token_account: InterfaceAccount<'info, TokenAccount>,
+    pub recipient_token_account: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
         seeds = [VAULT_SEED],
         bump = vault_authority.bump,
     )]
-    pub vault_authority: Account<'info, VaultAuthority>,
+    pub vault_authority: Box<Account<'info, VaultAuthority>>,
 
     // --- Permission accounts ---
     #[account(
         owner = permission_manager_program_id(),
+        seeds = [USER_PERMISSION_SEED, sender.key().as_ref(), permission_manager_config.key().as_ref()],
+        seeds::program = permission_manager_program_id(),
+        bump = sender_permissions.bump,
         constraint = has_role(&sender_permissions, ROLE_WHITELISTED) @ GatekeeperError::UnauthorizedSender,
     )]
-    pub sender_permissions: Account<'info, UserPermissions>,
+    pub sender_permissions: Box<Account<'info, UserPermissions>>,
 
     #[account(
         owner = permission_manager_program_id(),
+        seeds = [USER_PERMISSION_SEED, vault_authority.key().as_ref(), permission_manager_config.key().as_ref()],
+        seeds::program = permission_manager_program_id(),
+        bump = vault_authority_permissions.bump,
     )]
-    pub vault_authority_permissions: Account<'info, UserPermissions>,
+    pub vault_authority_permissions: Box<Account<'info, UserPermissions>>,
 
     #[account(
         owner = permission_manager_program_id(),
+        seeds = [USER_PERMISSION_SEED, recipient.as_ref(), permission_manager_config.key().as_ref()],
+        seeds::program = permission_manager_program_id(),
+        bump = recipient_permissions.bump,
         constraint = has_role(&recipient_permissions, ROLE_WHITELISTED_EXT) @ GatekeeperError::UnauthorizedRecipient,
     )]
-    pub recipient_permissions: Account<'info, UserPermissions>,
+    pub recipient_permissions: Box<Account<'info, UserPermissions>>,
 
-    /// CHECK: Permission manager config PDA.
-    pub permission_manager_config: UncheckedAccount<'info>,
+    #[account(
+        owner = permission_manager_program_id(),
+        seeds = [PERMISSION_MANAGER_CONFIG_SEED],
+        seeds::program = permission_manager_program_id(),
+        bump = permission_manager_config.bump,
+    )]
+    pub permission_manager_config: Box<Account<'info, PermissionConfig>>,
 
     /// CHECK: Permission manager program (needed by transfer hook resolution).
     #[account(address = permission_manager_program_id())]
@@ -98,6 +113,9 @@ pub struct CustodialWithdraw<'info> {
     /// CHECK: The spiko-transfer-hook program.
     #[account(address = transfer_hook_program_id())]
     pub transfer_hook_program: UncheckedAccount<'info>,
+
+    /// CHECK: Transfer hook event authority PDA: seeds = [b"__event_authority"] on hook program.
+    pub transfer_hook_event_authority: UncheckedAccount<'info>,
 
     // --- Standard programs ---
     pub token_program: Interface<'info, TokenInterface>,
@@ -130,6 +148,7 @@ pub(crate) fn handler(
         ctx.accounts.permission_manager_config.to_account_info(),
         ctx.accounts.sender_permissions.to_account_info(),
         ctx.accounts.vault_authority_permissions.to_account_info(),
+        ctx.accounts.transfer_hook_event_authority.to_account_info(),
         ctx.accounts.transfer_hook_program.to_account_info(),
     ];
 
@@ -166,6 +185,7 @@ pub(crate) fn handler(
             ctx.accounts.permission_manager_config.to_account_info(),
             ctx.accounts.vault_authority_permissions.to_account_info(),
             ctx.accounts.recipient_permissions.to_account_info(),
+            ctx.accounts.transfer_hook_event_authority.to_account_info(),
             ctx.accounts.transfer_hook_program.to_account_info(),
         ];
 
@@ -190,9 +210,10 @@ pub(crate) fn handler(
             amount,
             status: STATUS_DONE,
             deadline: 0,
+            bump: ctx.bumps.withdrawal_operation,
         });
 
-        emit!(WithdrawalInitiated {
+        emit_cpi!(WithdrawalInitiated {
             sender: ctx.accounts.sender.key(),
             recipient,
             mint: ctx.accounts.mint.key(),
@@ -213,9 +234,10 @@ pub(crate) fn handler(
             amount,
             status: STATUS_PENDING,
             deadline,
+            bump: ctx.bumps.withdrawal_operation,
         });
 
-        emit!(WithdrawalInitiated {
+        emit_cpi!(WithdrawalInitiated {
             sender: ctx.accounts.sender.key(),
             recipient,
             mint: ctx.accounts.mint.key(),
@@ -224,7 +246,7 @@ pub(crate) fn handler(
             deadline,
         });
 
-        emit!(WithdrawalBlocked {
+        emit_cpi!(WithdrawalBlocked {
             sender: ctx.accounts.sender.key(),
             recipient,
             mint: ctx.accounts.mint.key(),

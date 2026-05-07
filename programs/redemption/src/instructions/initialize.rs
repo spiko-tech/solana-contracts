@@ -6,6 +6,7 @@ use crate::events::RedemptionInitialized;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -22,7 +23,7 @@ pub struct Initialize<'info> {
     #[account(
         owner = permission_manager_program_id(),
         seeds = [PERMISSION_MANAGER_CONFIG_SEED],
-        bump,
+        bump = permission_manager_config.bump,
         seeds::program = permission_manager_program_id(),
         constraint = permission_manager_config.admin == admin.key() @ RedemptionError::Unauthorized,
     )]
@@ -35,9 +36,10 @@ pub(crate) fn handler(ctx: Context<Initialize>, deadline_delay: i64) -> Result<(
     ctx.accounts.redemption_config.set_inner(RedemptionConfig {
         deadline_delay,
         permission_manager: ctx.accounts.permission_manager_config.key(),
+        bump: ctx.bumps.redemption_config,
     });
 
-    emit!(RedemptionInitialized {
+    emit_cpi!(RedemptionInitialized {
         admin: ctx.accounts.admin.key(),
         deadline_delay,
     });

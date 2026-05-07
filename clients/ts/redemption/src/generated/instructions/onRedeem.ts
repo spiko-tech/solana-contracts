@@ -65,6 +65,8 @@ export type OnRedeemInstruction<
   TAccountPayer extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -96,6 +98,12 @@ export type OnRedeemInstruction<
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -153,6 +161,8 @@ export type OnRedeemAsyncInput<
   TAccountRedemptionOperation extends string = string,
   TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   user: TransactionSigner<TAccountUser>;
   /** spiko-token MintAuthority PDA — must be a signer, enforcing CPI-only access. */
@@ -163,6 +173,8 @@ export type OnRedeemAsyncInput<
   redemptionOperation?: Address<TAccountRedemptionOperation>;
   payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   operationId: OnRedeemInstructionDataArgs["operationId"];
   amount: OnRedeemInstructionDataArgs["amount"];
   salt: OnRedeemInstructionDataArgs["salt"];
@@ -177,6 +189,8 @@ export async function getOnRedeemInstructionAsync<
   TAccountRedemptionOperation extends string,
   TAccountPayer extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: OnRedeemAsyncInput<
@@ -187,7 +201,9 @@ export async function getOnRedeemInstructionAsync<
     TAccountRedemptionConfig,
     TAccountRedemptionOperation,
     TAccountPayer,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -200,7 +216,9 @@ export async function getOnRedeemInstructionAsync<
     TAccountRedemptionConfig,
     TAccountRedemptionOperation,
     TAccountPayer,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -222,6 +240,8 @@ export async function getOnRedeemInstructionAsync<
     },
     payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -261,6 +281,8 @@ export async function getOnRedeemInstructionAsync<
       getAccountMeta(accounts.redemptionOperation),
       getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getOnRedeemInstructionDataEncoder().encode(
       args as OnRedeemInstructionDataArgs,
@@ -275,7 +297,9 @@ export async function getOnRedeemInstructionAsync<
     TAccountRedemptionConfig,
     TAccountRedemptionOperation,
     TAccountPayer,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -288,6 +312,8 @@ export type OnRedeemInput<
   TAccountRedemptionOperation extends string = string,
   TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   user: TransactionSigner<TAccountUser>;
   /** spiko-token MintAuthority PDA — must be a signer, enforcing CPI-only access. */
@@ -298,6 +324,8 @@ export type OnRedeemInput<
   redemptionOperation: Address<TAccountRedemptionOperation>;
   payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   operationId: OnRedeemInstructionDataArgs["operationId"];
   amount: OnRedeemInstructionDataArgs["amount"];
   salt: OnRedeemInstructionDataArgs["salt"];
@@ -312,6 +340,8 @@ export function getOnRedeemInstruction<
   TAccountRedemptionOperation extends string,
   TAccountPayer extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: OnRedeemInput<
@@ -322,7 +352,9 @@ export function getOnRedeemInstruction<
     TAccountRedemptionConfig,
     TAccountRedemptionOperation,
     TAccountPayer,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): OnRedeemInstruction<
@@ -334,7 +366,9 @@ export function getOnRedeemInstruction<
   TAccountRedemptionConfig,
   TAccountRedemptionOperation,
   TAccountPayer,
-  TAccountSystemProgram
+  TAccountSystemProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? REDEMPTION_PROGRAM_ADDRESS;
@@ -355,6 +389,8 @@ export function getOnRedeemInstruction<
     },
     payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -381,6 +417,8 @@ export function getOnRedeemInstruction<
       getAccountMeta(accounts.redemptionOperation),
       getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getOnRedeemInstructionDataEncoder().encode(
       args as OnRedeemInstructionDataArgs,
@@ -395,7 +433,9 @@ export function getOnRedeemInstruction<
     TAccountRedemptionConfig,
     TAccountRedemptionOperation,
     TAccountPayer,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -414,6 +454,8 @@ export type ParsedOnRedeemInstruction<
     redemptionOperation: TAccountMetas[5];
     payer: TAccountMetas[6];
     systemProgram: TAccountMetas[7];
+    eventAuthority: TAccountMetas[8];
+    program: TAccountMetas[9];
   };
   data: OnRedeemInstructionData;
 };
@@ -426,7 +468,7 @@ export function parseOnRedeemInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedOnRedeemInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 8) {
+  if (instruction.accounts.length < 10) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -447,6 +489,8 @@ export function parseOnRedeemInstruction<
       redemptionOperation: getNextAccount(),
       payer: getNextAccount(),
       systemProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getOnRedeemInstructionDataDecoder().decode(instruction.data),
   };

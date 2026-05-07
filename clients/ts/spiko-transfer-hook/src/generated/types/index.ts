@@ -7,4 +7,5 @@
  */
 
 export * from "./hookInitialized";
+export * from "./permissionConfig";
 export * from "./transferExecuted";

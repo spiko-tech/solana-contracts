@@ -8,6 +8,7 @@ use crate::state::*;
 
 #[derive(Accounts)]
 #[instruction(operation_id: [u8; 32])]
+#[event_cpi]
 pub struct Execute<'info> {
     pub burner: Signer<'info>,
 
@@ -19,14 +20,14 @@ pub struct Execute<'info> {
 
     #[account(
         seeds = [REDEMPTION_CONFIG_SEED],
-        bump,
+        bump = redemption_config.bump,
     )]
     pub redemption_config: Account<'info, RedemptionConfig>,
 
     #[account(
         mut,
         seeds = [REDEMPTION_OPERATION_SEED, operation_id.as_ref()],
-        bump,
+        bump = redemption_operation.bump,
     )]
     pub redemption_operation: Account<'info, RedemptionOperation>,
 
@@ -45,12 +46,20 @@ pub struct Execute<'info> {
 
     #[account(
         owner = permission_manager_program_id(),
+        seeds = [USER_PERMISSION_SEED, burner.key().as_ref(), permission_manager_config.key().as_ref()],
+        seeds::program = permission_manager_program_id(),
+        bump = burner_permissions.bump,
         constraint = has_role(&burner_permissions, ROLE_REDEMPTION_EXECUTOR) @ RedemptionError::Unauthorized,
     )]
     pub burner_permissions: Account<'info, UserPermissions>,
 
-    /// CHECK: Permission manager config PDA from permission-manager program
-    pub permission_manager_config: UncheckedAccount<'info>,
+    #[account(
+        owner = permission_manager_program_id(),
+        seeds = [PERMISSION_MANAGER_CONFIG_SEED],
+        seeds::program = permission_manager_program_id(),
+        bump = permission_manager_config.bump,
+    )]
+    pub permission_manager_config: Account<'info, PermissionConfig>,
 
     pub token_program: Interface<'info, TokenInterface>,
 }
@@ -82,17 +91,14 @@ pub(crate) fn handler(
         from: ctx.accounts.vault.to_account_info(),
         authority: ctx.accounts.vault_authority.to_account_info(),
     };
-    let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        cpi_accounts,
-        signer_seeds,
-    );
+    let cpi_ctx =
+        CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
     token_interface::burn(cpi_ctx, amount)?;
 
     let op = &mut ctx.accounts.redemption_operation;
     op.status = STATUS_DONE;
 
-    emit!(RedemptionExecuted {
+    emit_cpi!(RedemptionExecuted {
         burner: ctx.accounts.burner.key(),
         user: op.user,
         mint: mint_key,

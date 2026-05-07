@@ -23,6 +23,8 @@ import {
   getI64Encoder,
   getStructDecoder,
   getStructEncoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -51,11 +53,13 @@ export type MinterConfig = {
   discriminator: ReadonlyUint8Array;
   maxDelay: bigint;
   permissionManager: Address;
+  bump: number;
 };
 
 export type MinterConfigArgs = {
   maxDelay: number | bigint;
   permissionManager: Address;
+  bump: number;
 };
 
 /** Gets the encoder for {@link MinterConfigArgs} account data. */
@@ -65,6 +69,7 @@ export function getMinterConfigEncoder(): FixedSizeEncoder<MinterConfigArgs> {
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["maxDelay", getI64Encoder()],
       ["permissionManager", getAddressEncoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: MINTER_CONFIG_DISCRIMINATOR }),
   );
@@ -76,6 +81,7 @@ export function getMinterConfigDecoder(): FixedSizeDecoder<MinterConfig> {
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["maxDelay", getI64Decoder()],
     ["permissionManager", getAddressDecoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -141,5 +147,5 @@ export async function fetchAllMaybeMinterConfig(
 }
 
 export function getMinterConfigSize(): number {
-  return 48;
+  return 49;
 }

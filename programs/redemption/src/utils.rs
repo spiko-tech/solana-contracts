@@ -1,5 +1,5 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::hashv;
+use solana_sha256_hasher::hashv;
 
 use crate::errors::RedemptionError;
 
@@ -36,7 +36,7 @@ pub fn invoke_transfer_checked_with_hook<'info>(
     decimals: u8,
     signer_seeds: &[&[&[u8]]],
 ) -> Result<()> {
-    let mut ix = spl_token_2022::instruction::transfer_checked(
+    let mut ix = spl_token_2022_interface::instruction::transfer_checked(
         token_program_key,
         from.key,
         mint.key,

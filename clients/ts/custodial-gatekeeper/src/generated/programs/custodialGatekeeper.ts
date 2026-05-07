@@ -30,12 +30,10 @@ import {
 } from "../instructions";
 
 export const CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS =
-  "7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg" as Address<"7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg">;
+  "9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5" as Address<"9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5">;
 
 export enum CustodialGatekeeperAccount {
   GatekeeperConfig,
-  PermissionConfig,
-  UserPermissions,
   VaultAuthority,
   WithdrawalDailyLimit,
   WithdrawalOperation,
@@ -55,28 +53,6 @@ export function identifyCustodialGatekeeperAccount(
     )
   ) {
     return CustodialGatekeeperAccount.GatekeeperConfig;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
-      ),
-      0,
-    )
-  ) {
-    return CustodialGatekeeperAccount.PermissionConfig;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([195, 173, 80, 32, 40, 216, 78, 110]),
-      ),
-      0,
-    )
-  ) {
-    return CustodialGatekeeperAccount.UserPermissions;
   }
   if (
     containsBytes(
@@ -189,7 +165,7 @@ export function identifyCustodialGatekeeperInstruction(
 }
 
 export type ParsedCustodialGatekeeperInstruction<
-  TProgram extends string = "7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg",
+  TProgram extends string = "9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5",
 > =
   | ({
       instructionType: CustodialGatekeeperInstruction.ApproveWithdrawal;

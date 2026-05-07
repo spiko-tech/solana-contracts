@@ -30,14 +30,12 @@ import {
 } from "../instructions";
 
 export const MINTER_PROGRAM_ADDRESS =
-  "13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ" as Address<"13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ">;
+  "9SwnGKZtV54CRsFd8eocmBNH5WzxCiG7bBb1B3romQSj" as Address<"9SwnGKZtV54CRsFd8eocmBNH5WzxCiG7bBb1B3romQSj">;
 
 export enum MinterAccount {
   MintDailyLimit,
   MintOperation,
   MinterConfig,
-  PermissionConfig,
-  UserPermissions,
 }
 
 export function identifyMinterAccount(
@@ -76,28 +74,6 @@ export function identifyMinterAccount(
     )
   ) {
     return MinterAccount.MinterConfig;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
-      ),
-      0,
-    )
-  ) {
-    return MinterAccount.PermissionConfig;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([195, 173, 80, 32, 40, 216, 78, 110]),
-      ),
-      0,
-    )
-  ) {
-    return MinterAccount.UserPermissions;
   }
   throw new Error(
     "The provided account could not be identified as a minter account.",
@@ -177,7 +153,7 @@ export function identifyMinterInstruction(
 }
 
 export type ParsedMinterInstruction<
-  TProgram extends string = "13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ",
+  TProgram extends string = "9SwnGKZtV54CRsFd8eocmBNH5WzxCiG7bBb1B3romQSj",
 > =
   | ({
       instructionType: MinterInstruction.ApproveMint;

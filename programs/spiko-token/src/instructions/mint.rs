@@ -7,12 +7,13 @@ use crate::events::Minted;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct MintTokens<'info> {
     pub minter: Signer<'info>,
 
     #[account(
         seeds = [TOKEN_CONFIG_SEED, token_config.mint.as_ref()],
-        bump,
+        bump = token_config.bump,
         constraint = !token_config.paused @ SpTokenError::TokenPaused,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -38,12 +39,20 @@ pub struct MintTokens<'info> {
 
     #[account(
         owner = permission_manager_program_id(),
+        seeds = [USER_PERMISSION_SEED, minter.key().as_ref(), permission_manager_config.key().as_ref()],
+        seeds::program = permission_manager_program_id(),
+        bump = minter_permissions.bump,
         constraint = has_role(&minter_permissions, ROLE_MINTER) @ SpTokenError::Unauthorized,
     )]
     pub minter_permissions: Account<'info, UserPermissions>,
 
-    /// CHECK: Permission manager config
-    pub permission_manager_config: UncheckedAccount<'info>,
+    #[account(
+        owner = permission_manager_program_id(),
+        seeds = [PERMISSION_MANAGER_CONFIG_SEED],
+        seeds::program = permission_manager_program_id(),
+        bump = permission_manager_config.bump,
+    )]
+    pub permission_manager_config: Account<'info, PermissionConfig>,
 
     pub token_program: Interface<'info, TokenInterface>,
 }
@@ -62,14 +71,11 @@ pub(crate) fn handler(ctx: Context<MintTokens>, amount: u64) -> Result<()> {
         to: ctx.accounts.destination.to_account_info(),
         authority: ctx.accounts.mint_authority.to_account_info(),
     };
-    let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.token_program.to_account_info(),
-        cpi_accounts,
-        signer_seeds,
-    );
+    let cpi_ctx =
+        CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer_seeds);
     token_interface::mint_to(cpi_ctx, amount)?;
 
-    emit!(Minted {
+    emit_cpi!(Minted {
         caller: ctx.accounts.minter.key(),
         mint: ctx.accounts.mint.key(),
         destination: ctx.accounts.destination.key(),

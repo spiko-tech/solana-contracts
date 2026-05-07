@@ -6,6 +6,7 @@ use crate::events::GatekeeperInitialized;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -31,7 +32,7 @@ pub struct Initialize<'info> {
     #[account(
         owner = permission_manager_program_id(),
         seeds = [PERMISSION_MANAGER_CONFIG_SEED],
-        bump,
+        bump = permission_manager_config.bump,
         seeds::program = permission_manager_program_id(),
         constraint = permission_manager_config.admin == admin.key() @ GatekeeperError::Unauthorized,
     )]
@@ -50,12 +51,13 @@ pub(crate) fn handler(
     ctx.accounts.gatekeeper_config.set_inner(GatekeeperConfig {
         max_delay,
         permission_manager,
+        bump: ctx.bumps.gatekeeper_config,
     });
 
     let vault_authority = &mut ctx.accounts.vault_authority;
     vault_authority.bump = ctx.bumps.vault_authority;
 
-    emit!(GatekeeperInitialized {
+    emit_cpi!(GatekeeperInitialized {
         admin: ctx.accounts.admin.key(),
     });
 

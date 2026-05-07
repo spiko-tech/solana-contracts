@@ -7,4 +7,3 @@
  */
 
 export * from "./hookConfig";
-export * from "./permissionConfig";

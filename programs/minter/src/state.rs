@@ -10,6 +10,7 @@ pub use permission_manager::state::{has_role, is_admin, PermissionConfig, UserPe
 pub struct MinterConfig {
     pub max_delay: i64,
     pub permission_manager: Pubkey,
+    pub bump: u8,
 }
 
 #[account]
@@ -18,6 +19,7 @@ pub struct MintDailyLimit {
     pub limit: u64,
     pub used_amount: u64,
     pub last_day: i64,
+    pub bump: u8,
 }
 
 impl MintDailyLimit {
@@ -53,6 +55,7 @@ pub struct MintOperation {
     pub recipient: Pubkey,
     pub mint: Pubkey,
     pub amount: u64,
+    pub bump: u8,
 }
 
 impl MintOperation {

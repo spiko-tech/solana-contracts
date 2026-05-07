@@ -23,6 +23,8 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -52,12 +54,14 @@ export type TokenConfig = {
   paused: boolean;
   permissionManager: Address;
   mint: Address;
+  bump: number;
 };
 
 export type TokenConfigArgs = {
   paused: boolean;
   permissionManager: Address;
   mint: Address;
+  bump: number;
 };
 
 /** Gets the encoder for {@link TokenConfigArgs} account data. */
@@ -68,6 +72,7 @@ export function getTokenConfigEncoder(): FixedSizeEncoder<TokenConfigArgs> {
       ["paused", getBooleanEncoder()],
       ["permissionManager", getAddressEncoder()],
       ["mint", getAddressEncoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: TOKEN_CONFIG_DISCRIMINATOR }),
   );
@@ -80,6 +85,7 @@ export function getTokenConfigDecoder(): FixedSizeDecoder<TokenConfig> {
     ["paused", getBooleanDecoder()],
     ["permissionManager", getAddressDecoder()],
     ["mint", getAddressDecoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -145,5 +151,5 @@ export async function fetchAllMaybeTokenConfig(
 }
 
 export function getTokenConfigSize(): number {
-  return 73;
+  return 74;
 }

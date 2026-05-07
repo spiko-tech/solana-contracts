@@ -1,5 +1,5 @@
 [toolchain]
-anchor_version = "0.31.1"
+anchor_version = "1.0.2"
 solana_version = "2.1.0"
 
 [features]
@@ -7,19 +7,18 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-permission_manager = "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE"
-spiko_token = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ"
-spiko_transfer_hook = "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86"
-redemption = "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu"
-minter = "13jYMgAoRQHSKVT6LakgRKFiyygFTN7LYsKym9Lv84MQ"
-custodial_gatekeeper = "7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg"
-
-[registry]
-url = "https://api.apr.dev"
+custodial_gatekeeper = "9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5"
+minter = "9SwnGKZtV54CRsFd8eocmBNH5WzxCiG7bBb1B3romQSj"
+permission_manager = "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD"
+redemption = "2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D"
+spiko_token = "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN"
+spiko_transfer_hook = "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU"
 
 [provider]
-cluster = "Localnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "echo 'No tests configured yet'"
+
+[hooks]
