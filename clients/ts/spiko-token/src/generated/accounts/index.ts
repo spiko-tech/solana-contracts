@@ -7,6 +7,4 @@
  */
 
 export * from "./mintAuthority";
-export * from "./permissionConfig";
 export * from "./tokenConfig";
-export * from "./userPermissions";

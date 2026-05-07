@@ -6,12 +6,13 @@ use crate::events::AdminTransferAccepted;
 use crate::state::PermissionConfig;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct AcceptAdmin<'info> {
     pub new_admin: Signer<'info>,
     #[account(
         mut,
         seeds = [CONFIG_SEED],
-        bump,
+        bump = config.bump,
     )]
     pub config: Account<'info, PermissionConfig>,
 }
@@ -26,7 +27,7 @@ pub(crate) fn handler(ctx: Context<AcceptAdmin>) -> Result<()> {
     ctx.accounts.config.admin = ctx.accounts.new_admin.key();
     ctx.accounts.config.pending_admin = Pubkey::default();
 
-    emit!(AdminTransferAccepted {
+    emit_cpi!(AdminTransferAccepted {
         old_admin,
         new_admin: ctx.accounts.new_admin.key(),
     });

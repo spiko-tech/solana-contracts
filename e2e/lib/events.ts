@@ -59,6 +59,33 @@ export interface DecodedEvent {
   fields: Record<string, string | bigint | number | Uint8Array>;
 }
 
+const BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+const BASE58_MAP = new Map<string, number>();
+for (let i = 0; i < BASE58_ALPHABET.length; i++) BASE58_MAP.set(BASE58_ALPHABET[i], i);
+
+function decodeBase58(str: string): Uint8Array {
+  if (str.length === 0) return new Uint8Array(0);
+  const bytes = [0];
+  for (const c of str) {
+    let carry = BASE58_MAP.get(c)!;
+    if (carry === undefined) throw new Error(`Invalid base58 char: ${c}`);
+    for (let j = 0; j < bytes.length; j++) {
+      carry += bytes[j] * 58;
+      bytes[j] = carry & 0xff;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+  let numLeadingZeros = 0;
+  for (const c of str) { if (c === '1') numLeadingZeros++; else break; }
+  const result = new Uint8Array(numLeadingZeros + bytes.length);
+  for (let i = 0; i < bytes.length; i++) result[result.length - 1 - i] = bytes[i];
+  return result;
+}
+
 interface EventEntry {
   name: string;
   program: string;
@@ -207,7 +234,15 @@ export function decodeEventsFromLogs(logMessages: string[]): DecodedEvent[] {
 
 /**
  * Fetch a confirmed transaction by signature and decode its Anchor events.
+ *
+ * With emit_cpi!(), events are encoded in inner instruction data (CPI to self),
+ * not in "Program data:" log lines. The CPI instruction data format is:
+ *   [8 bytes EVENT_IX_TAG_LE] + [8 bytes event discriminator] + [borsh fields]
+ *
+ * EVENT_IX_TAG = 0x1d9acb512ea545e4 (LE: e445a52e51cb9a1d)
  */
+const EVENT_IX_TAG_HEX = "e445a52e51cb9a1d";
+
 export async function parseTransactionEvents(
   rpc: Rpc<SolanaRpcApi>,
   signature: string,
@@ -226,11 +261,44 @@ export async function parseTransactionEvents(
       .send();
 
     if (tx?.meta) {
-      const logMessages = (tx.meta as any).logMessages;
-      if (logMessages && Array.isArray(logMessages) && logMessages.length > 0) {
-        const events = decodeEventsFromLogs(logMessages);
-        if (events.length > 0) return events;
+      const events: DecodedEvent[] = [];
+
+      // Method 1: Parse from innerInstructions (emit_cpi! approach)
+      const innerInstructions = (tx.meta as any).innerInstructions;
+      if (innerInstructions && Array.isArray(innerInstructions)) {
+        for (const group of innerInstructions) {
+          if (!group.instructions) continue;
+          for (const ix of group.instructions) {
+            if (!ix.data) continue;
+            try {
+              // Decode bs58-encoded instruction data
+              const raw = decodeBase58(ix.data);
+              if (raw.length < 16) continue;
+
+              // Check EVENT_IX_TAG prefix (first 8 bytes)
+              const tagHex = toHex(raw.slice(0, 8));
+              if (tagHex !== EVENT_IX_TAG_HEX) continue;
+
+              // Remaining bytes: event discriminator (8) + borsh fields
+              const eventPayload = raw.slice(8);
+              const event = decodeEvent(eventPayload);
+              if (event) events.push(event);
+            } catch {
+              continue;
+            }
+          }
+        }
       }
+
+      // Method 2: Fallback - parse from "Program data:" logs (emit! approach)
+      if (events.length === 0) {
+        const logMessages = (tx.meta as any).logMessages;
+        if (logMessages && Array.isArray(logMessages)) {
+          events.push(...decodeEventsFromLogs(logMessages));
+        }
+      }
+
+      if (events.length > 0) return events;
     }
 
     if (attempt < maxRetries) {

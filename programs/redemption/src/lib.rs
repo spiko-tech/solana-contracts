@@ -9,7 +9,7 @@ pub mod utils;
 
 use instructions::*;
 
-declare_id!("F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu");
+declare_id!("2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D");
 
 #[program]
 pub mod redemption {
@@ -42,7 +42,7 @@ pub mod redemption {
     }
 
     pub fn cancel<'info>(
-        ctx: Context<'_, '_, 'info, 'info, Cancel<'info>>,
+        ctx: Context<'info, Cancel<'info>>,
         operation_id: [u8; 32],
         amount: u64,
         salt: u64,

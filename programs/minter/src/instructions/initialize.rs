@@ -6,6 +6,7 @@ use crate::events::MinterInitialized;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -22,7 +23,7 @@ pub struct Initialize<'info> {
     #[account(
         owner = permission_manager_program_id(),
         seeds = [PERMISSION_MANAGER_CONFIG_SEED],
-        bump,
+        bump = permission_manager_config.bump,
         seeds::program = permission_manager_program_id(),
         constraint = permission_manager_config.admin == admin.key() @ MinterError::Unauthorized,
     )]
@@ -41,9 +42,10 @@ pub(crate) fn handler(
     ctx.accounts.minter_config.set_inner(MinterConfig {
         max_delay,
         permission_manager,
+        bump: ctx.bumps.minter_config,
     });
 
-    emit!(MinterInitialized {
+    emit_cpi!(MinterInitialized {
         admin: ctx.accounts.admin.key(),
         permission_manager,
         max_delay,

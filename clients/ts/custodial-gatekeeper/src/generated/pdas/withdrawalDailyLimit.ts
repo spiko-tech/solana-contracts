@@ -23,7 +23,7 @@ export async function findWithdrawalDailyLimitPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg" as Address<"7raQ9TfCJkFWFDg2X2GsuPh3rso5n6jRS2WGa7enhtfg">,
+    programAddress = "9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5" as Address<"9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,

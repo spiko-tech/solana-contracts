@@ -32,7 +32,7 @@ import {
 } from "../instructions";
 
 export const PERMISSION_MANAGER_PROGRAM_ADDRESS =
-  "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">;
+  "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">;
 
 export enum PermissionManagerAccount {
   PermissionConfig,
@@ -155,7 +155,7 @@ export function identifyPermissionManagerInstruction(
 }
 
 export type ParsedPermissionManagerInstruction<
-  TProgram extends string = "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE",
+  TProgram extends string = "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD",
 > =
   | ({
       instructionType: PermissionManagerInstruction.AcceptAdmin;

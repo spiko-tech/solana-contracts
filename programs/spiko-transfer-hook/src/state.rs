@@ -8,6 +8,7 @@ use crate::errors::TransferHookError;
 pub struct HookConfig {
     pub paused: bool,
     pub permission_manager: Pubkey,
+    pub bump: u8,
 }
 
 impl HookConfig {

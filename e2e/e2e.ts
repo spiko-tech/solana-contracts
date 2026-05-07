@@ -66,6 +66,7 @@ import {
   PERMISSION_MANAGER_PROGRAM_ADDRESS,
   SPIKO_TOKEN_PROGRAM_ADDRESS,
   SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS,
+  MINTER_PROGRAM_ADDRESS,
   REDEMPTION_PROGRAM_ADDRESS,
   CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
   TOKEN_2022_PROGRAM_ID,
@@ -85,6 +86,7 @@ import {
   findCgVaultAuthorityPda,
   findWithdrawalDailyLimitPda,
   findWithdrawalOperationPda,
+  findEventAuthorityPda,
   setup,
   getAssociatedTokenAddress,
   createAssociatedTokenAccountIdempotent,
@@ -207,6 +209,7 @@ function buildTransferHookRemainingAccounts(
   permConfigAddr: Address,
   sourcePermsAddr: Address,
   destPermsAddr: Address,
+  hookEventAuthorityAddr: Address,
 ) {
   return [
     { address: extraAccountMetaListAddr, role: AccountRole.READONLY, isSigner: false, isWritable: false },
@@ -215,6 +218,7 @@ function buildTransferHookRemainingAccounts(
     { address: permConfigAddr, role: AccountRole.READONLY, isSigner: false, isWritable: false },
     { address: sourcePermsAddr, role: AccountRole.READONLY, isSigner: false, isWritable: false },
     { address: destPermsAddr, role: AccountRole.READONLY, isSigner: false, isWritable: false },
+    { address: hookEventAuthorityAddr, role: AccountRole.READONLY, isSigner: false, isWritable: false },
     { address: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address, role: AccountRole.READONLY, isSigner: false, isWritable: false },
   ];
 }
@@ -306,6 +310,14 @@ async function main() {
   const user3Ata = await getAssociatedTokenAddress(user3.address, mintAddr);
   const cgVaultAta = await getAssociatedTokenAddress(cgVaultAuthAddr, mintAddr);
 
+  // Event authority PDAs (for emit_cpi)
+  const pmEventAuthority = await findEventAuthorityPda(PERMISSION_MANAGER_PROGRAM_ADDRESS as Address);
+  const stEventAuthority = await findEventAuthorityPda(SPIKO_TOKEN_PROGRAM_ADDRESS as Address);
+  const thEventAuthority = await findEventAuthorityPda(SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address);
+  const mtEventAuthority = await findEventAuthorityPda(MINTER_PROGRAM_ADDRESS as Address);
+  const rdEventAuthority = await findEventAuthorityPda(REDEMPTION_PROGRAM_ADDRESS as Address);
+  const cgEventAuthority = await findEventAuthorityPda(CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS as Address);
+
   // ===================================================================
   //  SETUP PHASE: Create all on-chain state from scratch
   // ===================================================================
@@ -386,7 +398,7 @@ async function main() {
     const labels: string[] = [];
 
     if (!(await accountExists(rpc, permConfigAddr))) {
-      initIxs.push(await getPmInitializeInstructionAsync({ admin }));
+      initIxs.push(await getPmInitializeInstructionAsync({ admin, eventAuthority: pmEventAuthority, program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address }));
       labels.push("PermissionManager");
     } else {
       console.log("  (PermissionManager already initialized -- skipping)");
@@ -398,6 +410,8 @@ async function main() {
           admin,
           permissionManager: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
           maxDelay: MAX_DELAY,
+          eventAuthority: mtEventAuthority,
+          program: MINTER_PROGRAM_ADDRESS as Address,
         }),
       );
       labels.push("Minter");
@@ -410,6 +424,8 @@ async function main() {
         await getRdInitializeInstructionAsync({
           admin,
           deadlineDelay: DEADLINE_DELAY,
+          eventAuthority: rdEventAuthority,
+          program: REDEMPTION_PROGRAM_ADDRESS as Address,
         }),
       );
       labels.push("Redemption");
@@ -435,6 +451,8 @@ async function main() {
       admin,
       mint: mintAddr,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
+      eventAuthority: stEventAuthority,
+      program: SPIKO_TOKEN_PROGRAM_ADDRESS as Address,
     });
     await sendAndCapture(rpc, rpcSub, admin, [ix], "InitializeToken(EUTBL)");
   }
@@ -447,6 +465,8 @@ async function main() {
       mint: mintAddr,
       permissionManagerConfig: permConfigAddr,
       permissionManagerProgram: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
+      eventAuthority: thEventAuthority,
+      program: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address,
     });
     await sendAndCapture(rpc, rpcSub, admin, [ix], "InitializeTransferHook");
   }
@@ -458,6 +478,8 @@ async function main() {
       admin,
       mint: mintAddr,
       tokenProgram: TOKEN_2022_PROGRAM_ID,
+      eventAuthority: rdEventAuthority,
+      program: REDEMPTION_PROGRAM_ADDRESS as Address,
     });
     await sendAndCapture(rpc, rpcSub, admin, [ix], "CreateVault(Redemption)");
   }
@@ -476,6 +498,8 @@ async function main() {
           admin,
           user: minterConfigAddr,
           role: ROLE_MINTER,
+          eventAuthority: pmEventAuthority,
+          program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
         }),
       );
       roleLabels.push("MINTER->MinterConfig");
@@ -489,6 +513,8 @@ async function main() {
           admin,
           user: redemptionVaultAuthAddr,
           role: ROLE_BURNER,
+          eventAuthority: pmEventAuthority,
+          program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
         }),
       );
       roleIxs.push(
@@ -496,6 +522,8 @@ async function main() {
           admin,
           user: redemptionVaultAuthAddr,
           role: ROLE_WHITELISTED,
+          eventAuthority: pmEventAuthority,
+          program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
         }),
       );
       roleLabels.push("BURNER+WHITELISTED->VaultAuth");
@@ -521,6 +549,8 @@ async function main() {
       admin,
       mint: mintAddr,
       limit: DAILY_LIMIT,
+      eventAuthority: mtEventAuthority,
+      program: MINTER_PROGRAM_ADDRESS as Address,
     });
     await sendAndCapture(rpc, rpcSub, admin, [ix], "SetDailyLimit(Minter)");
   }
@@ -533,6 +563,8 @@ async function main() {
         admin,
         permissionManager: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
         maxDelay: MAX_DELAY,
+        eventAuthority: cgEventAuthority,
+        program: CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS as Address,
       });
       await sendAndCapture(
         rpc,
@@ -556,11 +588,15 @@ async function main() {
         admin,
         user: cgVaultAuthAddr,
         role: ROLE_WHITELISTED_EXT,
+        eventAuthority: pmEventAuthority,
+        program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
       });
       const ix2 = await getGrantRoleInstructionAsync({
         admin,
         user: cgVaultAuthAddr,
         role: ROLE_WHITELISTED,
+        eventAuthority: pmEventAuthority,
+        program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
       });
       await sendAndCapture(
         rpc,
@@ -581,6 +617,8 @@ async function main() {
       admin,
       mint: mintAddr,
       limit: DAILY_LIMIT,
+      eventAuthority: cgEventAuthority,
+      program: CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS as Address,
     });
     await sendAndCapture(
       rpc,
@@ -659,6 +697,8 @@ async function main() {
         admin,
         user: minter.address,
         role: ROLE_MINT_INITIATOR,
+        eventAuthority: pmEventAuthority,
+        program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
       });
       return sendAndCapture(
         rpc,
@@ -678,6 +718,8 @@ async function main() {
         admin,
         user: executor.address,
         role: ROLE_REDEMPTION_EXECUTOR,
+        eventAuthority: pmEventAuthority,
+        program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
       });
       return sendAndCapture(
         rpc,
@@ -697,6 +739,8 @@ async function main() {
         admin,
         user: whitelister.address,
         role: ROLE_WHITELISTER,
+        eventAuthority: pmEventAuthority,
+        program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
       });
       return sendAndCapture(
         rpc,
@@ -717,6 +761,8 @@ async function main() {
         caller: whitelister,
         user: user1.address,
         role: ROLE_WHITELISTED,
+        eventAuthority: pmEventAuthority,
+        program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
       });
       return sendAndCapture(
         rpc,
@@ -736,6 +782,8 @@ async function main() {
         caller: whitelister,
         user: user2.address,
         role: ROLE_WHITELISTED,
+        eventAuthority: pmEventAuthority,
+        program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
       });
       return sendAndCapture(
         rpc,
@@ -755,6 +803,8 @@ async function main() {
         caller: whitelister,
         user: user3.address,
         role: ROLE_WHITELISTED_EXT,
+        eventAuthority: pmEventAuthority,
+        program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
       });
       return sendAndCapture(
         rpc,
@@ -812,6 +862,9 @@ async function main() {
           recipient: user1.address,
           amount: mintRawAmount,
           salt: mintSalt,
+          spikoTokenEventAuthority: stEventAuthority,
+          eventAuthority: mtEventAuthority,
+          program: MINTER_PROGRAM_ADDRESS as Address,
         }),
       );
 
@@ -855,6 +908,7 @@ async function main() {
         (await findUserPermissionsPda({ user: user2.address, config: permConfigAddr }))[0],
         extraMetaListAddr,
         permConfigAddr,
+        thEventAuthority,
         transferARawAmount,
         decimals,
       );
@@ -893,6 +947,7 @@ async function main() {
         (await findUserPermissionsPda({ user: user2.address, config: permConfigAddr }))[0],
         extraMetaListAddr,
         permConfigAddr,
+        thEventAuthority,
         transferBRawAmount,
         decimals,
       );
@@ -950,6 +1005,7 @@ async function main() {
         (await findUserPermissionsPda({ user: user3.address, config: permConfigAddr }))[0],
         extraMetaListAddr,
         permConfigAddr,
+        thEventAuthority,
         custodialWithdrawRawAmount,
         decimals,
       );
@@ -1000,30 +1056,23 @@ async function main() {
         operationId,
       });
 
-      // Build the CG instruction - need to pass transfer hook extra accounts
-      // CG vault authority perms needed for both sender->vault and vault->recipient
-      const senderPerms = (await findUserPermissionsPda({ user: user1.address, config: permConfigAddr }))[0];
-      const recipientPerms = (await findUserPermissionsPda({ user: user3.address, config: permConfigAddr }))[0];
-
+      // Build the CG instruction - CG async resolver handles permission PDAs automatically
       const ix = await getCustodialWithdrawInstructionAsync({
         sender: user1,
         mint: mintAddr,
         senderTokenAccount: user1Ata,
         vaultTokenAccount: cgVaultAta,
         recipientTokenAccount: user3Ata,
-        senderPermissions: senderPerms,
-        vaultAuthorityPermissions: cgVaultAuthPermsAddr,
-        recipientPermissions: recipientPerms,
-        permissionManagerConfig: permConfigAddr,
-        permissionManagerProgram: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
         extraAccountMetasList: extraMetaListAddr,
         hookConfig: hookConfigAddr,
-        transferHookProgram: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address,
+        transferHookEventAuthority: thEventAuthority,
         tokenProgram: TOKEN_2022_PROGRAM_ID,
         operationId,
         recipient: user3.address,
         amount: custodialWithdrawRawAmount,
         salt: custodialWithdrawSalt,
+        eventAuthority: cgEventAuthority,
+        program: CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS as Address,
       });
 
       instructions.push(ix);
@@ -1071,6 +1120,7 @@ async function main() {
         redemptionVaultAuthority: redemptionVaultAuthAddr,
         redemptionConfig: redemptionConfigAddr,
         redemptionOperation: redemptionOpAddr,
+        redemptionEventAuthority: rdEventAuthority,
         amount: redeemRawAmount,
         salt: redeemSalt,
       });
@@ -1082,6 +1132,7 @@ async function main() {
         permConfigAddr,
         redeemerPerms,     // source perms (user2)
         vaultAuthPermsAddr, // dest perms (vault authority)
+        thEventAuthority,
       );
 
       const ixWithRemaining = {
@@ -1128,6 +1179,8 @@ async function main() {
         operationId,
         amount: redeemRawAmount,
         salt: redeemSalt,
+        eventAuthority: rdEventAuthority,
+        program: REDEMPTION_PROGRAM_ADDRESS as Address,
       });
 
       return sendAndCapture(

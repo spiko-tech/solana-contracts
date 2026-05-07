@@ -37,7 +37,7 @@ import {
 } from "../shared";
 
 export const EXECUTE_DISCRIMINATOR = new Uint8Array([
-  130, 221, 242, 154, 13, 193, 189, 29,
+  105, 37, 101, 197, 75, 251, 102, 26,
 ]);
 
 export function getExecuteDiscriminatorBytes() {
@@ -57,6 +57,8 @@ export type ExecuteInstruction<
   TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
   TAccountSourcePermissions extends string | AccountMeta<string> = string,
   TAccountDestinationPermissions extends string | AccountMeta<string> = string,
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -92,6 +94,12 @@ export type ExecuteInstruction<
       TAccountDestinationPermissions extends string
         ? ReadonlyAccount<TAccountDestinationPermissions>
         : TAccountDestinationPermissions,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -141,6 +149,8 @@ export type ExecuteAsyncInput<
   TAccountPermissionManagerConfig extends string = string,
   TAccountSourcePermissions extends string = string,
   TAccountDestinationPermissions extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   source: Address<TAccountSource>;
   mint: Address<TAccountMint>;
@@ -152,6 +162,8 @@ export type ExecuteAsyncInput<
   permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
   sourcePermissions: Address<TAccountSourcePermissions>;
   destinationPermissions: Address<TAccountDestinationPermissions>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   amount: ExecuteInstructionDataArgs["amount"];
 };
 
@@ -166,6 +178,8 @@ export async function getExecuteInstructionAsync<
   TAccountPermissionManagerConfig extends string,
   TAccountSourcePermissions extends string,
   TAccountDestinationPermissions extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS,
 >(
   input: ExecuteAsyncInput<
@@ -178,7 +192,9 @@ export async function getExecuteInstructionAsync<
     TAccountPermissionManagerProgram,
     TAccountPermissionManagerConfig,
     TAccountSourcePermissions,
-    TAccountDestinationPermissions
+    TAccountDestinationPermissions,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -193,7 +209,9 @@ export async function getExecuteInstructionAsync<
     TAccountPermissionManagerProgram,
     TAccountPermissionManagerConfig,
     TAccountSourcePermissions,
-    TAccountDestinationPermissions
+    TAccountDestinationPermissions,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -230,6 +248,8 @@ export async function getExecuteInstructionAsync<
       value: input.destinationPermissions ?? null,
       isWritable: false,
     },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -264,6 +284,8 @@ export async function getExecuteInstructionAsync<
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.sourcePermissions),
       getAccountMeta(accounts.destinationPermissions),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getExecuteInstructionDataEncoder().encode(
       args as ExecuteInstructionDataArgs,
@@ -280,7 +302,9 @@ export async function getExecuteInstructionAsync<
     TAccountPermissionManagerProgram,
     TAccountPermissionManagerConfig,
     TAccountSourcePermissions,
-    TAccountDestinationPermissions
+    TAccountDestinationPermissions,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -295,6 +319,8 @@ export type ExecuteInput<
   TAccountPermissionManagerConfig extends string = string,
   TAccountSourcePermissions extends string = string,
   TAccountDestinationPermissions extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   source: Address<TAccountSource>;
   mint: Address<TAccountMint>;
@@ -306,6 +332,8 @@ export type ExecuteInput<
   permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
   sourcePermissions: Address<TAccountSourcePermissions>;
   destinationPermissions: Address<TAccountDestinationPermissions>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   amount: ExecuteInstructionDataArgs["amount"];
 };
 
@@ -320,6 +348,8 @@ export function getExecuteInstruction<
   TAccountPermissionManagerConfig extends string,
   TAccountSourcePermissions extends string,
   TAccountDestinationPermissions extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS,
 >(
   input: ExecuteInput<
@@ -332,7 +362,9 @@ export function getExecuteInstruction<
     TAccountPermissionManagerProgram,
     TAccountPermissionManagerConfig,
     TAccountSourcePermissions,
-    TAccountDestinationPermissions
+    TAccountDestinationPermissions,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): ExecuteInstruction<
@@ -346,7 +378,9 @@ export function getExecuteInstruction<
   TAccountPermissionManagerProgram,
   TAccountPermissionManagerConfig,
   TAccountSourcePermissions,
-  TAccountDestinationPermissions
+  TAccountDestinationPermissions,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress =
@@ -382,6 +416,8 @@ export function getExecuteInstruction<
       value: input.destinationPermissions ?? null,
       isWritable: false,
     },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -404,6 +440,8 @@ export function getExecuteInstruction<
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.sourcePermissions),
       getAccountMeta(accounts.destinationPermissions),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getExecuteInstructionDataEncoder().encode(
       args as ExecuteInstructionDataArgs,
@@ -420,7 +458,9 @@ export function getExecuteInstruction<
     TAccountPermissionManagerProgram,
     TAccountPermissionManagerConfig,
     TAccountSourcePermissions,
-    TAccountDestinationPermissions
+    TAccountDestinationPermissions,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -440,6 +480,8 @@ export type ParsedExecuteInstruction<
     permissionManagerConfig: TAccountMetas[7];
     sourcePermissions: TAccountMetas[8];
     destinationPermissions: TAccountMetas[9];
+    eventAuthority: TAccountMetas[10];
+    program: TAccountMetas[11];
   };
   data: ExecuteInstructionData;
 };
@@ -452,7 +494,7 @@ export function parseExecuteInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedExecuteInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 10) {
+  if (instruction.accounts.length < 12) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -475,6 +517,8 @@ export function parseExecuteInstruction<
       permissionManagerConfig: getNextAccount(),
       sourcePermissions: getNextAccount(),
       destinationPermissions: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getExecuteInstructionDataDecoder().decode(instruction.data),
   };

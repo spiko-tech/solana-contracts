@@ -7,12 +7,13 @@ use crate::events::Burned;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct BurnTokens<'info> {
     pub burner: Signer<'info>,
 
     #[account(
         seeds = [TOKEN_CONFIG_SEED, token_config.mint.as_ref()],
-        bump,
+        bump = token_config.bump,
         constraint = !token_config.paused @ SpTokenError::TokenPaused,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -33,9 +34,20 @@ pub struct BurnTokens<'info> {
 
     #[account(
         owner = permission_manager_program_id(),
+        seeds = [USER_PERMISSION_SEED, burner.key().as_ref(), permission_manager_config.key().as_ref()],
+        seeds::program = permission_manager_program_id(),
+        bump = burner_permissions.bump,
         constraint = has_role(&burner_permissions, ROLE_BURNER) @ SpTokenError::Unauthorized,
     )]
     pub burner_permissions: Account<'info, UserPermissions>,
+
+    #[account(
+        owner = permission_manager_program_id(),
+        seeds = [PERMISSION_MANAGER_CONFIG_SEED],
+        seeds::program = permission_manager_program_id(),
+        bump = permission_manager_config.bump,
+    )]
+    pub permission_manager_config: Account<'info, PermissionConfig>,
 
     pub token_program: Interface<'info, TokenInterface>,
 }
@@ -46,10 +58,10 @@ pub(crate) fn handler(ctx: Context<BurnTokens>, amount: u64) -> Result<()> {
         from: ctx.accounts.source.to_account_info(),
         authority: ctx.accounts.burner.to_account_info(),
     };
-    let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+    let cpi_ctx = CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts);
     token_interface::burn(cpi_ctx, amount)?;
 
-    emit!(Burned {
+    emit_cpi!(Burned {
         caller: ctx.accounts.burner.key(),
         mint: ctx.accounts.mint.key(),
         source: ctx.accounts.source.key(),

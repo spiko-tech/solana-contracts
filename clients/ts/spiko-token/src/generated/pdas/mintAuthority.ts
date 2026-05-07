@@ -23,7 +23,7 @@ export async function findMintAuthorityPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ" as Address<"6amQsxSBnx64VVVgEueDFHPGkZ62VoUSQvhyLjKYbejZ">,
+    programAddress = "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN" as Address<"F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,

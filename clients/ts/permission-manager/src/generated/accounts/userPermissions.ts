@@ -21,6 +21,8 @@ import {
   getStructEncoder,
   getU16Decoder,
   getU16Encoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -48,9 +50,10 @@ export function getUserPermissionsDiscriminatorBytes() {
 export type UserPermissions = {
   discriminator: ReadonlyUint8Array;
   roles: number;
+  bump: number;
 };
 
-export type UserPermissionsArgs = { roles: number };
+export type UserPermissionsArgs = { roles: number; bump: number };
 
 /** Gets the encoder for {@link UserPermissionsArgs} account data. */
 export function getUserPermissionsEncoder(): FixedSizeEncoder<UserPermissionsArgs> {
@@ -58,6 +61,7 @@ export function getUserPermissionsEncoder(): FixedSizeEncoder<UserPermissionsArg
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["roles", getU16Encoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: USER_PERMISSIONS_DISCRIMINATOR }),
   );
@@ -68,6 +72,7 @@ export function getUserPermissionsDecoder(): FixedSizeDecoder<UserPermissions> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["roles", getU16Decoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -143,5 +148,5 @@ export async function fetchAllMaybeUserPermissions(
 }
 
 export function getUserPermissionsSize(): number {
-  return 10;
+  return 11;
 }

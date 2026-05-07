@@ -7,13 +7,14 @@ use crate::events::DailyLimitUpdated;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct SetDailyLimit<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
 
     #[account(
         seeds = [GATEKEEPER_CONFIG_SEED],
-        bump,
+        bump = gatekeeper_config.bump,
     )]
     pub gatekeeper_config: Account<'info, GatekeeperConfig>,
 
@@ -31,7 +32,7 @@ pub struct SetDailyLimit<'info> {
     #[account(
         owner = permission_manager_program_id(),
         seeds = [PERMISSION_MANAGER_CONFIG_SEED],
-        bump,
+        bump = permission_manager_config.bump,
         seeds::program = permission_manager_program_id(),
         constraint = permission_manager_config.admin == admin.key() @ GatekeeperError::Unauthorized,
     )]
@@ -51,8 +52,9 @@ pub(crate) fn handler(ctx: Context<SetDailyLimit>, limit: u64) -> Result<()> {
     daily_limit.limit = limit;
     daily_limit.used_amount = 0;
     daily_limit.last_day = current_day;
+    daily_limit.bump = ctx.bumps.withdrawal_daily_limit;
 
-    emit!(DailyLimitUpdated {
+    emit_cpi!(DailyLimitUpdated {
         admin: ctx.accounts.admin.key(),
         mint: ctx.accounts.mint.key(),
         limit,

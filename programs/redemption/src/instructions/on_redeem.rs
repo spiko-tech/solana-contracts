@@ -9,6 +9,7 @@ use crate::utils::verify_operation_id;
 
 #[derive(Accounts)]
 #[instruction(operation_id: [u8; 32])]
+#[event_cpi]
 pub struct OnRedeem<'info> {
     pub user: Signer<'info>,
 
@@ -25,7 +26,7 @@ pub struct OnRedeem<'info> {
 
     #[account(
         seeds = [REDEMPTION_CONFIG_SEED],
-        bump,
+        bump = redemption_config.bump,
     )]
     pub redemption_config: Account<'info, RedemptionConfig>,
 
@@ -74,9 +75,10 @@ pub(crate) fn handler(
             user: ctx.accounts.user.key(),
             mint: mint_key,
             amount,
+            bump: ctx.bumps.redemption_operation,
         });
 
-    emit!(RedemptionInitiated {
+    emit_cpi!(RedemptionInitiated {
         user: ctx.accounts.user.key(),
         mint: mint_key,
         amount,

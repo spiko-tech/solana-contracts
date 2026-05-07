@@ -8,20 +8,21 @@ use crate::utils::verify_operation_id;
 
 #[derive(Accounts)]
 #[instruction(operation_id: [u8; 32])]
+#[event_cpi]
 pub struct InitiateMint<'info> {
     #[account(mut)]
     pub minter: Signer<'info>,
 
     #[account(
         seeds = [MINTER_CONFIG_SEED],
-        bump,
+        bump = minter_config.bump,
     )]
     pub minter_config: Account<'info, MinterConfig>,
 
     #[account(
         mut,
         seeds = [MINT_DAILY_LIMIT_SEED, mint.key().as_ref()],
-        bump,
+        bump = mint_daily_limit.bump,
     )]
     pub mint_daily_limit: Account<'info, MintDailyLimit>,
 
@@ -44,6 +45,9 @@ pub struct InitiateMint<'info> {
 
     #[account(
         owner = permission_manager_program_id(),
+        seeds = [USER_PERMISSION_SEED, minter.key().as_ref(), permission_manager_config.key().as_ref()],
+        seeds::program = permission_manager_program_id(),
+        bump = minter_permissions.bump,
         constraint = has_role(&minter_permissions, ROLE_MINT_INITIATOR) @ MinterError::Unauthorized,
     )]
     pub minter_permissions: Account<'info, UserPermissions>,
@@ -52,10 +56,18 @@ pub struct InitiateMint<'info> {
     /// CHECK: Validated by spiko-token program during CPI
     pub minter_config_permissions: UncheckedAccount<'info>,
 
-    /// CHECK: Permission manager config account
-    pub permission_manager_config: UncheckedAccount<'info>,
+    #[account(
+        owner = permission_manager_program_id(),
+        seeds = [PERMISSION_MANAGER_CONFIG_SEED],
+        seeds::program = permission_manager_program_id(),
+        bump = permission_manager_config.bump,
+    )]
+    pub permission_manager_config: Account<'info, PermissionConfig>,
 
     pub spiko_token_program: Program<'info, spiko_token::program::SpikoToken>,
+
+    /// CHECK: Event authority PDA for the spiko-token program (seeds = [b"__event_authority"]).
+    pub spiko_token_event_authority: UncheckedAccount<'info>,
 
     /// CHECK: Token-2022 program, validated by spiko-token program
     pub token_program: UncheckedAccount<'info>,
@@ -107,11 +119,13 @@ pub(crate) fn handler(
             minter_permissions: ctx.accounts.minter_config_permissions.to_account_info(),
             permission_manager_config: ctx.accounts.permission_manager_config.to_account_info(),
             token_program: ctx.accounts.token_program.to_account_info(),
+            event_authority: ctx.accounts.spiko_token_event_authority.to_account_info(),
+            program: ctx.accounts.spiko_token_program.to_account_info(),
         };
-        let seeds = &[MINTER_CONFIG_SEED, &[ctx.bumps.minter_config]];
+        let seeds = &[MINTER_CONFIG_SEED, &[ctx.accounts.minter_config.bump]];
         let signer_seeds = &[&seeds[..]];
         let cpi_ctx = CpiContext::new_with_signer(
-            ctx.accounts.spiko_token_program.to_account_info(),
+            ctx.accounts.spiko_token_program.key(),
             cpi_accounts,
             signer_seeds,
         );
@@ -125,6 +139,7 @@ pub(crate) fn handler(
             amount,
             status: STATUS_DONE,
             deadline: 0,
+            bump: ctx.bumps.mint_operation,
         });
     } else {
         let deadline = clock
@@ -138,9 +153,10 @@ pub(crate) fn handler(
             amount,
             status: STATUS_PENDING,
             deadline,
+            bump: ctx.bumps.mint_operation,
         });
 
-        emit!(MintBlocked {
+        emit_cpi!(MintBlocked {
             caller: ctx.accounts.minter.key(),
             recipient,
             mint: ctx.accounts.mint.key(),
@@ -150,7 +166,7 @@ pub(crate) fn handler(
         });
     }
 
-    emit!(MintInitiated {
+    emit_cpi!(MintInitiated {
         caller: ctx.accounts.minter.key(),
         recipient,
         mint: ctx.accounts.mint.key(),

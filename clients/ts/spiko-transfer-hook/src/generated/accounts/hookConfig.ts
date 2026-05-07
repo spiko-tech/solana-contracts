@@ -23,6 +23,8 @@ import {
   getBytesEncoder,
   getStructDecoder,
   getStructEncoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -49,9 +51,14 @@ export type HookConfig = {
   discriminator: ReadonlyUint8Array;
   paused: boolean;
   permissionManager: Address;
+  bump: number;
 };
 
-export type HookConfigArgs = { paused: boolean; permissionManager: Address };
+export type HookConfigArgs = {
+  paused: boolean;
+  permissionManager: Address;
+  bump: number;
+};
 
 /** Gets the encoder for {@link HookConfigArgs} account data. */
 export function getHookConfigEncoder(): FixedSizeEncoder<HookConfigArgs> {
@@ -60,6 +67,7 @@ export function getHookConfigEncoder(): FixedSizeEncoder<HookConfigArgs> {
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["paused", getBooleanEncoder()],
       ["permissionManager", getAddressEncoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: HOOK_CONFIG_DISCRIMINATOR }),
   );
@@ -71,6 +79,7 @@ export function getHookConfigDecoder(): FixedSizeDecoder<HookConfig> {
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["paused", getBooleanDecoder()],
     ["permissionManager", getAddressDecoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -136,5 +145,5 @@ export async function fetchAllMaybeHookConfig(
 }
 
 export function getHookConfigSize(): number {
-  return 41;
+  return 42;
 }

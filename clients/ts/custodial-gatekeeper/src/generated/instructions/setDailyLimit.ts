@@ -60,6 +60,8 @@ export type SetDailyLimitInstruction<
   TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -84,6 +86,12 @@ export type SetDailyLimitInstruction<
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -129,6 +137,8 @@ export type SetDailyLimitAsyncInput<
   TAccountMint extends string = string,
   TAccountPermissionManagerConfig extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   gatekeeperConfig?: Address<TAccountGatekeeperConfig>;
@@ -136,6 +146,8 @@ export type SetDailyLimitAsyncInput<
   mint: Address<TAccountMint>;
   permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   limit: SetDailyLimitInstructionDataArgs["limit"];
 };
 
@@ -146,6 +158,8 @@ export async function getSetDailyLimitInstructionAsync<
   TAccountMint extends string,
   TAccountPermissionManagerConfig extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
 >(
   input: SetDailyLimitAsyncInput<
@@ -154,7 +168,9 @@ export async function getSetDailyLimitInstructionAsync<
     TAccountWithdrawalDailyLimit,
     TAccountMint,
     TAccountPermissionManagerConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -165,7 +181,9 @@ export async function getSetDailyLimitInstructionAsync<
     TAccountWithdrawalDailyLimit,
     TAccountMint,
     TAccountPermissionManagerConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -189,6 +207,8 @@ export async function getSetDailyLimitInstructionAsync<
       isWritable: false,
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -210,7 +230,7 @@ export async function getSetDailyLimitInstructionAsync<
   if (!accounts.permissionManagerConfig.value) {
     accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
       programAddress:
-        "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">,
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
       seeds: [
         getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
       ],
@@ -230,6 +250,8 @@ export async function getSetDailyLimitInstructionAsync<
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getSetDailyLimitInstructionDataEncoder().encode(
       args as SetDailyLimitInstructionDataArgs,
@@ -242,7 +264,9 @@ export async function getSetDailyLimitInstructionAsync<
     TAccountWithdrawalDailyLimit,
     TAccountMint,
     TAccountPermissionManagerConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -253,6 +277,8 @@ export type SetDailyLimitInput<
   TAccountMint extends string = string,
   TAccountPermissionManagerConfig extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   gatekeeperConfig: Address<TAccountGatekeeperConfig>;
@@ -260,6 +286,8 @@ export type SetDailyLimitInput<
   mint: Address<TAccountMint>;
   permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   limit: SetDailyLimitInstructionDataArgs["limit"];
 };
 
@@ -270,6 +298,8 @@ export function getSetDailyLimitInstruction<
   TAccountMint extends string,
   TAccountPermissionManagerConfig extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
 >(
   input: SetDailyLimitInput<
@@ -278,7 +308,9 @@ export function getSetDailyLimitInstruction<
     TAccountWithdrawalDailyLimit,
     TAccountMint,
     TAccountPermissionManagerConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): SetDailyLimitInstruction<
@@ -288,7 +320,9 @@ export function getSetDailyLimitInstruction<
   TAccountWithdrawalDailyLimit,
   TAccountMint,
   TAccountPermissionManagerConfig,
-  TAccountSystemProgram
+  TAccountSystemProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress =
@@ -311,6 +345,8 @@ export function getSetDailyLimitInstruction<
       isWritable: false,
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -335,6 +371,8 @@ export function getSetDailyLimitInstruction<
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getSetDailyLimitInstructionDataEncoder().encode(
       args as SetDailyLimitInstructionDataArgs,
@@ -347,7 +385,9 @@ export function getSetDailyLimitInstruction<
     TAccountWithdrawalDailyLimit,
     TAccountMint,
     TAccountPermissionManagerConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -363,6 +403,8 @@ export type ParsedSetDailyLimitInstruction<
     mint: TAccountMetas[3];
     permissionManagerConfig: TAccountMetas[4];
     systemProgram: TAccountMetas[5];
+    eventAuthority: TAccountMetas[6];
+    program: TAccountMetas[7];
   };
   data: SetDailyLimitInstructionData;
 };
@@ -375,7 +417,7 @@ export function parseSetDailyLimitInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedSetDailyLimitInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 6) {
+  if (instruction.accounts.length < 8) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -394,6 +436,8 @@ export function parseSetDailyLimitInstruction<
       mint: getNextAccount(),
       permissionManagerConfig: getNextAccount(),
       systemProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getSetDailyLimitInstructionDataDecoder().decode(instruction.data),
   };

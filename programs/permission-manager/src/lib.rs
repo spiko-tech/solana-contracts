@@ -8,7 +8,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE");
+declare_id!("7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD");
 
 #[program]
 pub mod permission_manager {

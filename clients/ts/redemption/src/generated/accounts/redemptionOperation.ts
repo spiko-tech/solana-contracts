@@ -58,6 +58,7 @@ export type RedemptionOperation = {
   user: Address;
   mint: Address;
   amount: bigint;
+  bump: number;
 };
 
 export type RedemptionOperationArgs = {
@@ -66,6 +67,7 @@ export type RedemptionOperationArgs = {
   user: Address;
   mint: Address;
   amount: number | bigint;
+  bump: number;
 };
 
 /** Gets the encoder for {@link RedemptionOperationArgs} account data. */
@@ -78,6 +80,7 @@ export function getRedemptionOperationEncoder(): FixedSizeEncoder<RedemptionOper
       ["user", getAddressEncoder()],
       ["mint", getAddressEncoder()],
       ["amount", getU64Encoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({
       ...value,
@@ -95,6 +98,7 @@ export function getRedemptionOperationDecoder(): FixedSizeDecoder<RedemptionOper
     ["user", getAddressDecoder()],
     ["mint", getAddressDecoder()],
     ["amount", getU64Decoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -179,5 +183,5 @@ export async function fetchAllMaybeRedemptionOperation(
 }
 
 export function getRedemptionOperationSize(): number {
-  return 89;
+  return 90;
 }

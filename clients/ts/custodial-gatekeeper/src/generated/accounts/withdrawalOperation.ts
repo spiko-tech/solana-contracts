@@ -59,6 +59,7 @@ export type WithdrawalOperation = {
   recipient: Address;
   mint: Address;
   amount: bigint;
+  bump: number;
 };
 
 export type WithdrawalOperationArgs = {
@@ -68,6 +69,7 @@ export type WithdrawalOperationArgs = {
   recipient: Address;
   mint: Address;
   amount: number | bigint;
+  bump: number;
 };
 
 /** Gets the encoder for {@link WithdrawalOperationArgs} account data. */
@@ -81,6 +83,7 @@ export function getWithdrawalOperationEncoder(): FixedSizeEncoder<WithdrawalOper
       ["recipient", getAddressEncoder()],
       ["mint", getAddressEncoder()],
       ["amount", getU64Encoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({
       ...value,
@@ -99,6 +102,7 @@ export function getWithdrawalOperationDecoder(): FixedSizeDecoder<WithdrawalOper
     ["recipient", getAddressDecoder()],
     ["mint", getAddressDecoder()],
     ["amount", getU64Decoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -183,5 +187,5 @@ export async function fetchAllMaybeWithdrawalOperation(
 }
 
 export function getWithdrawalOperationSize(): number {
-  return 121;
+  return 122;
 }

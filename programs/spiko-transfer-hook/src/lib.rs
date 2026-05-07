@@ -1,5 +1,4 @@
 use anchor_lang::prelude::*;
-use spl_transfer_hook_interface::instruction::TransferHookInstruction;
 
 pub mod constants;
 pub mod errors;
@@ -9,7 +8,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86");
+declare_id!("7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU");
 
 #[program]
 pub mod spiko_transfer_hook {
@@ -19,6 +18,7 @@ pub mod spiko_transfer_hook {
         instructions::initialize::handler(ctx)
     }
 
+    #[instruction(discriminator = [105, 37, 101, 197, 75, 251, 102, 26])]
     pub fn execute(ctx: Context<Execute>, amount: u64) -> Result<()> {
         instructions::transfer_hook::handler(ctx, amount)
     }
@@ -29,22 +29,5 @@ pub mod spiko_transfer_hook {
 
     pub fn unpause_hook(ctx: Context<UnpauseHook>) -> Result<()> {
         instructions::unpause_hook::handler(ctx)
-    }
-
-    pub fn fallback<'info>(
-        program_id: &Pubkey,
-        accounts: &'info [AccountInfo<'info>],
-        data: &[u8],
-    ) -> Result<()> {
-        let instruction = TransferHookInstruction::unpack(data)?;
-
-        match instruction {
-            TransferHookInstruction::Execute { amount } => {
-                let amount_bytes = amount.to_le_bytes();
-                // Invoke via interface
-                __private::__global::execute(program_id, accounts, &amount_bytes)
-            }
-            _ => Err(ProgramError::InvalidInstructionData.into()),
-        }
     }
 }

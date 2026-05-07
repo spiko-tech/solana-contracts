@@ -8,19 +8,20 @@ use crate::events::RoleGranted;
 use crate::state::{PermissionConfig, UserPermissions};
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct GrantRoleWhitelister<'info> {
     #[account(mut)]
     pub caller: Signer<'info>,
 
     #[account(
         seeds = [CONFIG_SEED],
-        bump,
+        bump = config.bump,
     )]
     pub config: Account<'info, PermissionConfig>,
 
     #[account(
         seeds = [USER_PERMISSION_SEED, caller.key().as_ref(), config.key().as_ref()],
-        bump,
+        bump = caller_permissions.bump,
         constraint = caller_permissions.roles & ROLE_WHITELISTER != 0 @ PermissionError::Unauthorized,
     )]
     pub caller_permissions: Account<'info, UserPermissions>,
@@ -52,8 +53,9 @@ pub(crate) fn handler(ctx: Context<GrantRoleWhitelister>, role: u16) -> Result<(
     );
 
     ctx.accounts.user_permissions.roles |= role;
+    ctx.accounts.user_permissions.bump = ctx.bumps.user_permissions;
 
-    emit!(RoleGranted {
+    emit_cpi!(RoleGranted {
         caller: ctx.accounts.caller.key(),
         user: ctx.accounts.user.key(),
         role,

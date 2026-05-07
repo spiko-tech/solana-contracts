@@ -48,6 +48,8 @@ export type InitializeInstruction<
   TAccountConfig extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -63,6 +65,12 @@ export type InitializeInstruction<
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -98,22 +106,30 @@ export type InitializeAsyncInput<
   TAccountAdmin extends string = string,
   TAccountConfig extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   config?: Address<TAccountConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
 };
 
 export async function getInitializeInstructionAsync<
   TAccountAdmin extends string,
   TAccountConfig extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
   input: InitializeAsyncInput<
     TAccountAdmin,
     TAccountConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -121,7 +137,9 @@ export async function getInitializeInstructionAsync<
     TProgramAddress,
     TAccountAdmin,
     TAccountConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -133,6 +151,8 @@ export async function getInitializeInstructionAsync<
     admin: { value: input.admin ?? null, isWritable: true },
     config: { value: input.config ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -154,6 +174,8 @@ export async function getInitializeInstructionAsync<
       getAccountMeta(accounts.admin),
       getAccountMeta(accounts.config),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode({}),
     programAddress,
@@ -161,7 +183,9 @@ export async function getInitializeInstructionAsync<
     TProgramAddress,
     TAccountAdmin,
     TAccountConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -169,25 +193,39 @@ export type InitializeInput<
   TAccountAdmin extends string = string,
   TAccountConfig extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   config: Address<TAccountConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
 };
 
 export function getInitializeInstruction<
   TAccountAdmin extends string,
   TAccountConfig extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
-  input: InitializeInput<TAccountAdmin, TAccountConfig, TAccountSystemProgram>,
+  input: InitializeInput<
+    TAccountAdmin,
+    TAccountConfig,
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
+  >,
   config?: { programAddress?: TProgramAddress },
 ): InitializeInstruction<
   TProgramAddress,
   TAccountAdmin,
   TAccountConfig,
-  TAccountSystemProgram
+  TAccountSystemProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress =
@@ -198,6 +236,8 @@ export function getInitializeInstruction<
     admin: { value: input.admin ?? null, isWritable: true },
     config: { value: input.config ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -216,6 +256,8 @@ export function getInitializeInstruction<
       getAccountMeta(accounts.admin),
       getAccountMeta(accounts.config),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode({}),
     programAddress,
@@ -223,7 +265,9 @@ export function getInitializeInstruction<
     TProgramAddress,
     TAccountAdmin,
     TAccountConfig,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -236,6 +280,8 @@ export type ParsedInitializeInstruction<
     admin: TAccountMetas[0];
     config: TAccountMetas[1];
     systemProgram: TAccountMetas[2];
+    eventAuthority: TAccountMetas[3];
+    program: TAccountMetas[4];
   };
   data: InitializeInstructionData;
 };
@@ -248,7 +294,7 @@ export function parseInitializeInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 3) {
+  if (instruction.accounts.length < 5) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -264,6 +310,8 @@ export function parseInitializeInstruction<
       admin: getNextAccount(),
       config: getNextAccount(),
       systemProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getInitializeInstructionDataDecoder().decode(instruction.data),
   };

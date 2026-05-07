@@ -1,16 +1,17 @@
 use anchor_lang::{AnchorDeserialize, InstructionData, ToAccountMetas};
+use litesvm::LiteSVM;
 use redemption::state::{RedemptionConfig, RedemptionOperation, VaultAuthority};
 use redemption::utils::compute_operation_id;
-use solana_program_test::*;
+use solana_program_pack::Pack;
 use solana_sdk::{
     instruction::Instruction,
-    program_pack::Pack,
     pubkey::Pubkey,
     signature::Keypair,
     signer::Signer,
-    system_instruction,
     transaction::{Transaction, TransactionError},
 };
+use solana_sdk_ids::system_program;
+use solana_system_interface::instruction as system_instruction;
 
 // ---------------------------------------------------------------------------
 // PDA helpers
@@ -43,25 +44,39 @@ fn redemption_operation_pda(operation_id: &[u8; 32]) -> (Pubkey, u8) {
 // Test harness
 // ---------------------------------------------------------------------------
 
-const TOKEN_2022_PROGRAM_ID: Pubkey = spl_token_2022::ID;
+const TOKEN_2022_PROGRAM_ID: Pubkey = spl_token_2022_interface::ID;
 
-fn program_test() -> ProgramTest {
-    let mut pt = ProgramTest::new("redemption", redemption::ID, None);
-    pt.add_program("permission_manager", permission_manager::ID, None);
-    pt
+fn new_svm() -> LiteSVM {
+    let mut svm = LiteSVM::new().with_default_programs();
+    svm.add_program_from_file(
+        redemption::ID,
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../target/deploy/redemption.so"
+        ),
+    )
+    .unwrap();
+    svm.add_program_from_file(
+        permission_manager::ID,
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../target/deploy/permission_manager.so"
+        ),
+    )
+    .unwrap();
+    svm
 }
 
-async fn create_token2022_mint(
-    banks: &mut BanksClient,
+fn create_token2022_mint(
+    svm: &mut LiteSVM,
     payer: &Keypair,
     mint: &Keypair,
     decimals: u8,
     mint_authority: &Pubkey,
 ) {
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
-    let space = spl_token_2022::state::Mint::LEN;
-    let rent = banks.get_rent().await.unwrap();
-    let lamports = rent.minimum_balance(space);
+    let blockhash = svm.latest_blockhash();
+    let space = spl_token_2022_interface::state::Mint::LEN;
+    let lamports = svm.minimum_balance_for_rent_exemption(space);
 
     let ix = vec![
         system_instruction::create_account(
@@ -71,7 +86,7 @@ async fn create_token2022_mint(
             space as u64,
             &TOKEN_2022_PROGRAM_ID,
         ),
-        spl_token_2022::instruction::initialize_mint2(
+        spl_token_2022_interface::instruction::initialize_mint2(
             &TOKEN_2022_PROGRAM_ID,
             &mint.pubkey(),
             mint_authority,
@@ -82,21 +97,16 @@ async fn create_token2022_mint(
     ];
     let tx =
         Transaction::new_signed_with_payer(&ix, Some(&payer.pubkey()), &[payer, mint], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 }
 
-async fn create_ata(
-    banks: &mut BanksClient,
-    payer: &Keypair,
-    mint: &Pubkey,
-    owner: &Pubkey,
-) -> Pubkey {
+fn create_ata(svm: &mut LiteSVM, payer: &Keypair, mint: &Pubkey, owner: &Pubkey) -> Pubkey {
     let ata = spl_associated_token_account::get_associated_token_address_with_program_id(
         owner,
         mint,
         &TOKEN_2022_PROGRAM_ID,
     );
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = spl_associated_token_account::instruction::create_associated_token_account(
         &payer.pubkey(),
         owner,
@@ -104,16 +114,17 @@ async fn create_ata(
         &TOKEN_2022_PROGRAM_ID,
     );
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&payer.pubkey()), &[payer], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
     ata
 }
 
 /// Setup: init permission-manager + redemption program. Returns everything needed.
-async fn setup(deadline_delay: i64) -> (BanksClient, Keypair, Pubkey, Pubkey) {
-    let ctx = program_test().start_with_context().await;
-    let admin = ctx.payer.insecure_clone();
-    let mut banks = ctx.banks_client.clone();
-    let blockhash = ctx.last_blockhash;
+fn setup(deadline_delay: i64) -> (LiteSVM, Keypair, Pubkey, Pubkey) {
+    let mut svm = new_svm();
+    let admin = Keypair::new();
+    svm.airdrop(&admin.pubkey(), 10_000_000_000).unwrap();
+
+    let blockhash = svm.latest_blockhash();
 
     // Init permission-manager
     let (pm_config, _) = permission_config_pda();
@@ -122,16 +133,22 @@ async fn setup(deadline_delay: i64) -> (BanksClient, Keypair, Pubkey, Pubkey) {
         accounts: permission_manager::accounts::Initialize {
             admin: admin.pubkey(),
             config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &permission_manager::ID,
+            )
+            .0,
+            program: permission_manager::ID,
         }
         .to_account_metas(None),
         data: permission_manager::instruction::Initialize {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Init redemption
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let (redemption_cfg, _) = redemption_config_pda();
     let ix = Instruction {
         program_id: redemption::ID,
@@ -139,26 +156,23 @@ async fn setup(deadline_delay: i64) -> (BanksClient, Keypair, Pubkey, Pubkey) {
             admin: admin.pubkey(),
             redemption_config: redemption_cfg,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::Initialize { deadline_delay }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
-    (banks, admin, pm_config, redemption_cfg)
+    (svm, admin, pm_config, redemption_cfg)
 }
 
-async fn grant_role(
-    banks: &mut BanksClient,
-    admin: &Keypair,
-    pm_config: Pubkey,
-    user: &Pubkey,
-    role: u16,
-) {
+fn grant_role(svm: &mut LiteSVM, admin: &Keypair, pm_config: Pubkey, user: &Pubkey, role: u16) {
     let (user_perms_pda, _) = user_permissions_pda(user, &pm_config);
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: permission_manager::ID,
         accounts: permission_manager::accounts::GrantRole {
@@ -166,29 +180,35 @@ async fn grant_role(
             config: pm_config,
             user_permissions: user_perms_pda,
             user: *user,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &permission_manager::ID,
+            )
+            .0,
+            program: permission_manager::ID,
         }
         .to_account_metas(None),
         data: permission_manager::instruction::GrantRole { role }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 }
 
-async fn fund(banks: &mut BanksClient, payer: &Keypair, to: &Pubkey, lamports: u64) {
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+fn fund(svm: &mut LiteSVM, payer: &Keypair, to: &Pubkey, lamports: u64) {
+    let blockhash = svm.latest_blockhash();
     let ix = system_instruction::transfer(&payer.pubkey(), to, lamports);
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&payer.pubkey()), &[payer], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 }
 
-async fn get_redemption_config(banks: &mut BanksClient, pda: Pubkey) -> RedemptionConfig {
-    let account = banks.get_account(pda).await.unwrap().unwrap();
+fn get_redemption_config(svm: &LiteSVM, pda: Pubkey) -> RedemptionConfig {
+    let account = svm.get_account(&pda).unwrap();
     RedemptionConfig::deserialize(&mut &account.data[8..]).unwrap()
 }
 
-async fn get_redemption_operation(banks: &mut BanksClient, pda: Pubkey) -> RedemptionOperation {
-    let account = banks.get_account(pda).await.unwrap().unwrap();
+fn get_redemption_operation(svm: &LiteSVM, pda: Pubkey) -> RedemptionOperation {
+    let account = svm.get_account(&pda).unwrap();
     RedemptionOperation::deserialize(&mut &account.data[8..]).unwrap()
 }
 
@@ -196,21 +216,23 @@ async fn get_redemption_operation(banks: &mut BanksClient, pda: Pubkey) -> Redem
 // Initialize
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_initialize() {
-    let (mut banks, admin, pm_config, redemption_cfg) = setup(7200).await;
-    let cfg = get_redemption_config(&mut banks, redemption_cfg).await;
+#[test]
+fn test_initialize() {
+    let (svm, _admin, pm_config, redemption_cfg) = setup(7200);
+    let cfg = get_redemption_config(&svm, redemption_cfg);
     assert_eq!(cfg.deadline_delay, 7200);
     assert_eq!(cfg.permission_manager, pm_config);
 }
 
-#[tokio::test]
-async fn test_initialize_unauthorized() {
-    let ctx = program_test().start_with_context().await;
-    let admin = ctx.payer.insecure_clone();
+#[test]
+fn test_initialize_unauthorized() {
+    let mut svm = new_svm();
+    let admin = Keypair::new();
+    svm.airdrop(&admin.pubkey(), 10_000_000_000).unwrap();
     let non_admin = Keypair::new();
-    let mut banks = ctx.banks_client.clone();
-    let blockhash = ctx.last_blockhash;
+    svm.airdrop(&non_admin.pubkey(), 10_000_000_000).unwrap();
+
+    let blockhash = svm.latest_blockhash();
 
     // Init permission-manager
     let (pm_config, _) = permission_config_pda();
@@ -219,19 +241,22 @@ async fn test_initialize_unauthorized() {
         accounts: permission_manager::accounts::Initialize {
             admin: admin.pubkey(),
             config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &permission_manager::ID,
+            )
+            .0,
+            program: permission_manager::ID,
         }
         .to_account_metas(None),
         data: permission_manager::instruction::Initialize {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
-
-    // Fund non_admin
-    fund(&mut banks, &admin, &non_admin.pubkey(), 1_000_000_000).await;
+    svm.send_transaction(tx).unwrap();
 
     // Non-admin tries to initialize redemption
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let (redemption_cfg, _) = redemption_config_pda();
     let ix = Instruction {
         program_id: redemption::ID,
@@ -239,7 +264,10 @@ async fn test_initialize_unauthorized() {
             admin: non_admin.pubkey(),
             redemption_config: redemption_cfg,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::Initialize {
@@ -253,25 +281,22 @@ async fn test_initialize_unauthorized() {
         &[&non_admin],
         blockhash,
     );
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }
 
 // ---------------------------------------------------------------------------
 // Create vault
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_create_vault() {
-    let (mut banks, admin, pm_config, _redemption_cfg) = setup(3600).await;
+#[test]
+fn test_create_vault() {
+    let (mut svm, admin, pm_config, _redemption_cfg) = setup(3600);
     let mint_kp = Keypair::new();
     let (vault_auth, _) = vault_authority_pda(&mint_kp.pubkey());
 
     // Create Token-2022 mint
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
 
     // Create vault ATA for vault_authority
     let vault_ata = spl_associated_token_account::get_associated_token_address_with_program_id(
@@ -280,7 +305,7 @@ async fn test_create_vault() {
         &TOKEN_2022_PROGRAM_ID,
     );
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::CreateVault {
@@ -292,16 +317,19 @@ async fn test_create_vault() {
             vault: vault_ata,
             token_program: TOKEN_2022_PROGRAM_ID,
             associated_token_program: spl_associated_token_account::ID,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::CreateVault {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Verify vault authority exists
-    let account = banks.get_account(vault_auth).await.unwrap().unwrap();
+    let account = svm.get_account(&vault_auth).unwrap();
     let va = VaultAuthority::deserialize(&mut &account.data[8..]).unwrap();
     assert!(va.bump > 0);
 }
@@ -310,14 +338,14 @@ async fn test_create_vault() {
 // on_redeem
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_on_redeem() {
-    let (mut banks, admin, pm_config, _redemption_cfg) = setup(3600).await;
+#[test]
+fn test_on_redeem() {
+    let (mut svm, admin, pm_config, _redemption_cfg) = setup(3600);
     let mint_kp = Keypair::new();
     let (vault_auth, _) = vault_authority_pda(&mint_kp.pubkey());
 
     // Create mint + vault
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
 
     let vault_ata = spl_associated_token_account::get_associated_token_address_with_program_id(
         &vault_auth,
@@ -325,7 +353,7 @@ async fn test_on_redeem() {
         &TOKEN_2022_PROGRAM_ID,
     );
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::CreateVault {
@@ -337,24 +365,27 @@ async fn test_on_redeem() {
             vault: vault_ata,
             token_program: TOKEN_2022_PROGRAM_ID,
             associated_token_program: spl_associated_token_account::ID,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::CreateVault {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // on_redeem
     let user = Keypair::new();
     let mint_auth_kp = Keypair::new();
-    fund(&mut banks, &admin, &user.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &user.pubkey(), 2_000_000_000);
     let amount = 1_000_000u64;
     let salt = 42u64;
     let operation_id = compute_operation_id(&user.pubkey(), &mint_kp.pubkey(), amount, salt);
     let (op_pda, _) = redemption_operation_pda(&operation_id);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::OnRedeem {
@@ -365,7 +396,10 @@ async fn test_on_redeem() {
             redemption_config: redemption_config_pda().0,
             redemption_operation: op_pda,
             payer: user.pubkey(),
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::OnRedeem {
@@ -381,10 +415,10 @@ async fn test_on_redeem() {
         &[&user, &mint_auth_kp],
         blockhash,
     );
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Verify operation
-    let op = get_redemption_operation(&mut banks, op_pda).await;
+    let op = get_redemption_operation(&svm, op_pda);
     assert_eq!(op.status, 1); // STATUS_PENDING
     assert_eq!(op.amount, amount);
     assert_eq!(op.user, user.pubkey());
@@ -396,13 +430,13 @@ async fn test_on_redeem() {
 // on_redeem — invalid operation_id
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_on_redeem_invalid_operation_id() {
-    let (mut banks, admin, pm_config, _redemption_cfg) = setup(3600).await;
+#[test]
+fn test_on_redeem_invalid_operation_id() {
+    let (mut svm, admin, pm_config, _redemption_cfg) = setup(3600);
     let mint_kp = Keypair::new();
     let (vault_auth, _) = vault_authority_pda(&mint_kp.pubkey());
 
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
 
     let vault_ata = spl_associated_token_account::get_associated_token_address_with_program_id(
         &vault_auth,
@@ -410,7 +444,7 @@ async fn test_on_redeem_invalid_operation_id() {
         &TOKEN_2022_PROGRAM_ID,
     );
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::CreateVault {
@@ -422,22 +456,25 @@ async fn test_on_redeem_invalid_operation_id() {
             vault: vault_ata,
             token_program: TOKEN_2022_PROGRAM_ID,
             associated_token_program: spl_associated_token_account::ID,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::CreateVault {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     let user = Keypair::new();
     let mint_auth_kp = Keypair::new();
-    fund(&mut banks, &admin, &user.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &user.pubkey(), 2_000_000_000);
 
     let wrong_op_id = [0u8; 32];
     let (op_pda, _) = redemption_operation_pda(&wrong_op_id);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::OnRedeem {
@@ -448,7 +485,10 @@ async fn test_on_redeem_invalid_operation_id() {
             redemption_config: redemption_config_pda().0,
             redemption_operation: op_pda,
             payer: user.pubkey(),
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::OnRedeem {
@@ -464,36 +504,33 @@ async fn test_on_redeem_invalid_operation_id() {
         &[&user, &mint_auth_kp],
         blockhash,
     );
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }
 
 // ---------------------------------------------------------------------------
 // on_redeem — no vault (unsupported mint)
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_on_redeem_no_vault() {
-    let (mut banks, admin, _pm_config, _redemption_cfg) = setup(3600).await;
+#[test]
+fn test_on_redeem_no_vault() {
+    let (mut svm, admin, _pm_config, _redemption_cfg) = setup(3600);
     let mint_kp = Keypair::new();
     let (vault_auth, _) = vault_authority_pda(&mint_kp.pubkey());
 
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
     // Note: NOT calling create_vault
 
     let user = Keypair::new();
     let mint_auth_kp = Keypair::new();
-    fund(&mut banks, &admin, &user.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &user.pubkey(), 2_000_000_000);
 
     let amount = 1000u64;
     let salt = 1u64;
     let operation_id = compute_operation_id(&user.pubkey(), &mint_kp.pubkey(), amount, salt);
     let (op_pda, _) = redemption_operation_pda(&operation_id);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::OnRedeem {
@@ -504,7 +541,10 @@ async fn test_on_redeem_no_vault() {
             redemption_config: redemption_config_pda().0,
             redemption_operation: op_pda,
             payer: user.pubkey(),
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::OnRedeem {
@@ -520,26 +560,23 @@ async fn test_on_redeem_no_vault() {
         &[&user, &mint_auth_kp],
         blockhash,
     );
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }
 
 // ---------------------------------------------------------------------------
 // Execute (burn) — requires REDEMPTION_EXECUTOR role + tokens in vault
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_execute_redemption() {
-    let (mut banks, admin, pm_config, _redemption_cfg) = setup(86400).await;
+#[test]
+fn test_execute_redemption() {
+    let (mut svm, admin, pm_config, _redemption_cfg) = setup(86400);
     let mint_kp = Keypair::new();
     let (vault_auth, _) = vault_authority_pda(&mint_kp.pubkey());
 
     // Create mint with vault_authority as the freeze/mint authority won't matter,
     // but we need admin as mint authority to mint tokens into vault
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
 
     // Create vault
     let vault_ata = spl_associated_token_account::get_associated_token_address_with_program_id(
@@ -548,7 +585,7 @@ async fn test_execute_redemption() {
         &TOKEN_2022_PROGRAM_ID,
     );
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::CreateVault {
@@ -560,18 +597,21 @@ async fn test_execute_redemption() {
             vault: vault_ata,
             token_program: TOKEN_2022_PROGRAM_ID,
             associated_token_program: spl_associated_token_account::ID,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::CreateVault {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Mint tokens into vault (simulating a redeem deposit)
     let amount = 1_000_000u64;
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
-    let mint_ix = spl_token_2022::instruction::mint_to(
+    let blockhash = svm.latest_blockhash();
+    let mint_ix = spl_token_2022_interface::instruction::mint_to(
         &TOKEN_2022_PROGRAM_ID,
         &mint_kp.pubkey(),
         &vault_ata,
@@ -582,17 +622,17 @@ async fn test_execute_redemption() {
     .unwrap();
     let tx =
         Transaction::new_signed_with_payer(&[mint_ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Create on_redeem operation
     let user = Keypair::new();
     let mint_auth_kp = Keypair::new();
-    fund(&mut banks, &admin, &user.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &user.pubkey(), 2_000_000_000);
     let salt = 42u64;
     let operation_id = compute_operation_id(&user.pubkey(), &mint_kp.pubkey(), amount, salt);
     let (op_pda, _) = redemption_operation_pda(&operation_id);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::OnRedeem {
@@ -603,7 +643,10 @@ async fn test_execute_redemption() {
             redemption_config: redemption_config_pda().0,
             redemption_operation: op_pda,
             payer: user.pubkey(),
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::OnRedeem {
@@ -619,23 +662,22 @@ async fn test_execute_redemption() {
         &[&user, &mint_auth_kp],
         blockhash,
     );
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Grant REDEMPTION_EXECUTOR to burner
     let burner = Keypair::new();
-    fund(&mut banks, &admin, &burner.pubkey(), 1_000_000_000).await;
+    fund(&mut svm, &admin, &burner.pubkey(), 1_000_000_000);
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &burner.pubkey(),
         permission_manager::constants::ROLE_REDEMPTION_EXECUTOR,
-    )
-    .await;
+    );
     let (burner_perms, _) = user_permissions_pda(&burner.pubkey(), &pm_config);
 
     // Execute
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::Execute {
@@ -648,6 +690,9 @@ async fn test_execute_redemption() {
             burner_permissions: burner_perms,
             permission_manager_config: pm_config,
             token_program: TOKEN_2022_PROGRAM_ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::Execute {
@@ -659,10 +704,10 @@ async fn test_execute_redemption() {
     };
     let tx =
         Transaction::new_signed_with_payer(&[ix], Some(&burner.pubkey()), &[&burner], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Verify operation done
-    let op = get_redemption_operation(&mut banks, op_pda).await;
+    let op = get_redemption_operation(&svm, op_pda);
     assert_eq!(op.status, 2); // STATUS_DONE
 }
 
@@ -670,13 +715,13 @@ async fn test_execute_redemption() {
 // Execute — unauthorized (no REDEMPTION_EXECUTOR)
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_execute_unauthorized() {
-    let (mut banks, admin, pm_config, _redemption_cfg) = setup(86400).await;
+#[test]
+fn test_execute_unauthorized() {
+    let (mut svm, admin, pm_config, _redemption_cfg) = setup(86400);
     let mint_kp = Keypair::new();
     let (vault_auth, _) = vault_authority_pda(&mint_kp.pubkey());
 
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
 
     let vault_ata = spl_associated_token_account::get_associated_token_address_with_program_id(
         &vault_auth,
@@ -684,7 +729,7 @@ async fn test_execute_unauthorized() {
         &TOKEN_2022_PROGRAM_ID,
     );
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::CreateVault {
@@ -696,24 +741,27 @@ async fn test_execute_unauthorized() {
             vault: vault_ata,
             token_program: TOKEN_2022_PROGRAM_ID,
             associated_token_program: spl_associated_token_account::ID,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::CreateVault {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Create operation
     let user = Keypair::new();
     let mint_auth_kp = Keypair::new();
-    fund(&mut banks, &admin, &user.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &user.pubkey(), 2_000_000_000);
     let amount = 1000u64;
     let salt = 1u64;
     let operation_id = compute_operation_id(&user.pubkey(), &mint_kp.pubkey(), amount, salt);
     let (op_pda, _) = redemption_operation_pda(&operation_id);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::OnRedeem {
@@ -724,7 +772,10 @@ async fn test_execute_unauthorized() {
             redemption_config: redemption_config_pda().0,
             redemption_operation: op_pda,
             payer: user.pubkey(),
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::OnRedeem {
@@ -740,23 +791,22 @@ async fn test_execute_unauthorized() {
         &[&user, &mint_auth_kp],
         blockhash,
     );
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
 
     // Non-executor tries to execute
     let non_executor = Keypair::new();
-    fund(&mut banks, &admin, &non_executor.pubkey(), 1_000_000_000).await;
+    fund(&mut svm, &admin, &non_executor.pubkey(), 1_000_000_000);
     // Grant MINTER (not REDEMPTION_EXECUTOR)
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &non_executor.pubkey(),
         permission_manager::constants::ROLE_MINTER,
-    )
-    .await;
+    );
     let (perms, _) = user_permissions_pda(&non_executor.pubkey(), &pm_config);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: redemption::ID,
         accounts: redemption::accounts::Execute {
@@ -769,6 +819,9 @@ async fn test_execute_unauthorized() {
             burner_permissions: perms,
             permission_manager_config: pm_config,
             token_program: TOKEN_2022_PROGRAM_ID,
+            event_authority: Pubkey::find_program_address(&[b"__event_authority"], &redemption::ID)
+                .0,
+            program: redemption::ID,
         }
         .to_account_metas(None),
         data: redemption::instruction::Execute {
@@ -784,9 +837,6 @@ async fn test_execute_unauthorized() {
         &[&non_executor],
         blockhash,
     );
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }

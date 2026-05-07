@@ -64,6 +64,8 @@ export type CreateVaultInstruction<
     "ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL",
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -97,6 +99,12 @@ export type CreateVaultInstruction<
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -138,6 +146,8 @@ export type CreateVaultAsyncInput<
   TAccountTokenProgram extends string = string,
   TAccountAssociatedTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   redemptionConfig?: Address<TAccountRedemptionConfig>;
@@ -148,6 +158,8 @@ export type CreateVaultAsyncInput<
   tokenProgram?: Address<TAccountTokenProgram>;
   associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
 };
 
 export async function getCreateVaultInstructionAsync<
@@ -160,6 +172,8 @@ export async function getCreateVaultInstructionAsync<
   TAccountTokenProgram extends string,
   TAccountAssociatedTokenProgram extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: CreateVaultAsyncInput<
@@ -171,7 +185,9 @@ export async function getCreateVaultInstructionAsync<
     TAccountVault,
     TAccountTokenProgram,
     TAccountAssociatedTokenProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -185,7 +201,9 @@ export async function getCreateVaultInstructionAsync<
     TAccountVault,
     TAccountTokenProgram,
     TAccountAssociatedTokenProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -211,6 +229,8 @@ export async function getCreateVaultInstructionAsync<
       isWritable: false,
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -224,7 +244,7 @@ export async function getCreateVaultInstructionAsync<
   if (!accounts.permissionManagerConfig.value) {
     accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
       programAddress:
-        "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">,
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
       seeds: [
         getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
       ],
@@ -273,6 +293,8 @@ export async function getCreateVaultInstructionAsync<
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.associatedTokenProgram),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getCreateVaultInstructionDataEncoder().encode({}),
     programAddress,
@@ -286,7 +308,9 @@ export async function getCreateVaultInstructionAsync<
     TAccountVault,
     TAccountTokenProgram,
     TAccountAssociatedTokenProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -300,6 +324,8 @@ export type CreateVaultInput<
   TAccountTokenProgram extends string = string,
   TAccountAssociatedTokenProgram extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   redemptionConfig: Address<TAccountRedemptionConfig>;
@@ -310,6 +336,8 @@ export type CreateVaultInput<
   tokenProgram?: Address<TAccountTokenProgram>;
   associatedTokenProgram?: Address<TAccountAssociatedTokenProgram>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
 };
 
 export function getCreateVaultInstruction<
@@ -322,6 +350,8 @@ export function getCreateVaultInstruction<
   TAccountTokenProgram extends string,
   TAccountAssociatedTokenProgram extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: CreateVaultInput<
@@ -333,7 +363,9 @@ export function getCreateVaultInstruction<
     TAccountVault,
     TAccountTokenProgram,
     TAccountAssociatedTokenProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): CreateVaultInstruction<
@@ -346,7 +378,9 @@ export function getCreateVaultInstruction<
   TAccountVault,
   TAccountTokenProgram,
   TAccountAssociatedTokenProgram,
-  TAccountSystemProgram
+  TAccountSystemProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? REDEMPTION_PROGRAM_ADDRESS;
@@ -371,6 +405,8 @@ export function getCreateVaultInstruction<
       isWritable: false,
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -403,6 +439,8 @@ export function getCreateVaultInstruction<
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.associatedTokenProgram),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getCreateVaultInstructionDataEncoder().encode({}),
     programAddress,
@@ -416,7 +454,9 @@ export function getCreateVaultInstruction<
     TAccountVault,
     TAccountTokenProgram,
     TAccountAssociatedTokenProgram,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -435,6 +475,8 @@ export type ParsedCreateVaultInstruction<
     tokenProgram: TAccountMetas[6];
     associatedTokenProgram: TAccountMetas[7];
     systemProgram: TAccountMetas[8];
+    eventAuthority: TAccountMetas[9];
+    program: TAccountMetas[10];
   };
   data: CreateVaultInstructionData;
 };
@@ -447,7 +489,7 @@ export function parseCreateVaultInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCreateVaultInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 9) {
+  if (instruction.accounts.length < 11) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -469,6 +511,8 @@ export function parseCreateVaultInstruction<
       tokenProgram: getNextAccount(),
       associatedTokenProgram: getNextAccount(),
       systemProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getCreateVaultInstructionDataDecoder().decode(instruction.data),
   };

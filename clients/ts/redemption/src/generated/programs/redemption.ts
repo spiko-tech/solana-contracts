@@ -30,13 +30,11 @@ import {
 } from "../instructions";
 
 export const REDEMPTION_PROGRAM_ADDRESS =
-  "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu" as Address<"F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu">;
+  "2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D" as Address<"2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D">;
 
 export enum RedemptionAccount {
-  PermissionConfig,
   RedemptionConfig,
   RedemptionOperation,
-  UserPermissions,
   VaultAuthority,
 }
 
@@ -44,17 +42,6 @@ export function identifyRedemptionAccount(
   account: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): RedemptionAccount {
   const data = "data" in account ? account.data : account;
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([101, 130, 176, 66, 62, 36, 230, 93]),
-      ),
-      0,
-    )
-  ) {
-    return RedemptionAccount.PermissionConfig;
-  }
   if (
     containsBytes(
       data,
@@ -76,17 +63,6 @@ export function identifyRedemptionAccount(
     )
   ) {
     return RedemptionAccount.RedemptionOperation;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([195, 173, 80, 32, 40, 216, 78, 110]),
-      ),
-      0,
-    )
-  ) {
-    return RedemptionAccount.UserPermissions;
   }
   if (
     containsBytes(
@@ -177,7 +153,7 @@ export function identifyRedemptionInstruction(
 }
 
 export type ParsedRedemptionInstruction<
-  TProgram extends string = "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu",
+  TProgram extends string = "2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D",
 > =
   | ({
       instructionType: RedemptionInstruction.Cancel;

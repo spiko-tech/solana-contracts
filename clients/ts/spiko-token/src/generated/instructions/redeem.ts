@@ -10,8 +10,10 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
+  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -61,11 +63,13 @@ export type RedeemInstruction<
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
   TAccountRedemptionProgram extends string | AccountMeta<string> =
-    "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu",
+    "2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D",
   TAccountRedemptionVaultAuthority extends string | AccountMeta<string> =
     string,
   TAccountRedemptionConfig extends string | AccountMeta<string> = string,
   TAccountRedemptionOperation extends string | AccountMeta<string> = string,
+  TAccountRedemptionEventAuthority extends string | AccountMeta<string> =
+    string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
@@ -113,6 +117,9 @@ export type RedeemInstruction<
       TAccountRedemptionOperation extends string
         ? WritableAccount<TAccountRedemptionOperation>
         : TAccountRedemptionOperation,
+      TAccountRedemptionEventAuthority extends string
+        ? ReadonlyAccount<TAccountRedemptionEventAuthority>
+        : TAccountRedemptionEventAuthority,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -174,6 +181,7 @@ export type RedeemAsyncInput<
   TAccountRedemptionVaultAuthority extends string = string,
   TAccountRedemptionConfig extends string = string,
   TAccountRedemptionOperation extends string = string,
+  TAccountRedemptionEventAuthority extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   redeemer: TransactionSigner<TAccountRedeemer>;
@@ -181,14 +189,15 @@ export type RedeemAsyncInput<
   mint: Address<TAccountMint>;
   source: Address<TAccountSource>;
   vault: Address<TAccountVault>;
-  redeemerPermissions: Address<TAccountRedeemerPermissions>;
-  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
+  redeemerPermissions?: Address<TAccountRedeemerPermissions>;
+  permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
   mintAuthority?: Address<TAccountMintAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
   redemptionProgram?: Address<TAccountRedemptionProgram>;
   redemptionVaultAuthority: Address<TAccountRedemptionVaultAuthority>;
   redemptionConfig: Address<TAccountRedemptionConfig>;
   redemptionOperation: Address<TAccountRedemptionOperation>;
+  redemptionEventAuthority: Address<TAccountRedemptionEventAuthority>;
   systemProgram?: Address<TAccountSystemProgram>;
   amount: RedeemInstructionDataArgs["amount"];
   salt: RedeemInstructionDataArgs["salt"];
@@ -208,6 +217,7 @@ export async function getRedeemInstructionAsync<
   TAccountRedemptionVaultAuthority extends string,
   TAccountRedemptionConfig extends string,
   TAccountRedemptionOperation extends string,
+  TAccountRedemptionEventAuthority extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
 >(
@@ -225,6 +235,7 @@ export async function getRedeemInstructionAsync<
     TAccountRedemptionVaultAuthority,
     TAccountRedemptionConfig,
     TAccountRedemptionOperation,
+    TAccountRedemptionEventAuthority,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -244,6 +255,7 @@ export async function getRedeemInstructionAsync<
     TAccountRedemptionVaultAuthority,
     TAccountRedemptionConfig,
     TAccountRedemptionOperation,
+    TAccountRedemptionEventAuthority,
     TAccountSystemProgram
   >
 > {
@@ -283,6 +295,10 @@ export async function getRedeemInstructionAsync<
       value: input.redemptionOperation ?? null,
       isWritable: true,
     },
+    redemptionEventAuthority: {
+      value: input.redemptionEventAuthority ?? null,
+      isWritable: false,
+    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -294,6 +310,33 @@ export async function getRedeemInstructionAsync<
   const args = { ...input };
 
   // Resolve default values.
+  if (!accounts.permissionManagerConfig.value) {
+    accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
+      ],
+    });
+  }
+  if (!accounts.redeemerPermissions.value) {
+    accounts.redeemerPermissions.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
+            110,
+          ]),
+        ),
+        getAddressEncoder().encode(expectAddress(accounts.redeemer.value)),
+        getAddressEncoder().encode(
+          expectAddress(accounts.permissionManagerConfig.value),
+        ),
+      ],
+    });
+  }
   if (!accounts.mintAuthority.value) {
     accounts.mintAuthority.value = await findMintAuthorityPda({
       mint: expectAddress(accounts.mint.value),
@@ -305,7 +348,7 @@ export async function getRedeemInstructionAsync<
   }
   if (!accounts.redemptionProgram.value) {
     accounts.redemptionProgram.value =
-      "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu" as Address<"F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu">;
+      "2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D" as Address<"2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D">;
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
@@ -328,6 +371,7 @@ export async function getRedeemInstructionAsync<
       getAccountMeta(accounts.redemptionVaultAuthority),
       getAccountMeta(accounts.redemptionConfig),
       getAccountMeta(accounts.redemptionOperation),
+      getAccountMeta(accounts.redemptionEventAuthority),
       getAccountMeta(accounts.systemProgram),
     ],
     data: getRedeemInstructionDataEncoder().encode(
@@ -349,6 +393,7 @@ export async function getRedeemInstructionAsync<
     TAccountRedemptionVaultAuthority,
     TAccountRedemptionConfig,
     TAccountRedemptionOperation,
+    TAccountRedemptionEventAuthority,
     TAccountSystemProgram
   >);
 }
@@ -367,6 +412,7 @@ export type RedeemInput<
   TAccountRedemptionVaultAuthority extends string = string,
   TAccountRedemptionConfig extends string = string,
   TAccountRedemptionOperation extends string = string,
+  TAccountRedemptionEventAuthority extends string = string,
   TAccountSystemProgram extends string = string,
 > = {
   redeemer: TransactionSigner<TAccountRedeemer>;
@@ -382,6 +428,7 @@ export type RedeemInput<
   redemptionVaultAuthority: Address<TAccountRedemptionVaultAuthority>;
   redemptionConfig: Address<TAccountRedemptionConfig>;
   redemptionOperation: Address<TAccountRedemptionOperation>;
+  redemptionEventAuthority: Address<TAccountRedemptionEventAuthority>;
   systemProgram?: Address<TAccountSystemProgram>;
   amount: RedeemInstructionDataArgs["amount"];
   salt: RedeemInstructionDataArgs["salt"];
@@ -401,6 +448,7 @@ export function getRedeemInstruction<
   TAccountRedemptionVaultAuthority extends string,
   TAccountRedemptionConfig extends string,
   TAccountRedemptionOperation extends string,
+  TAccountRedemptionEventAuthority extends string,
   TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
 >(
@@ -418,6 +466,7 @@ export function getRedeemInstruction<
     TAccountRedemptionVaultAuthority,
     TAccountRedemptionConfig,
     TAccountRedemptionOperation,
+    TAccountRedemptionEventAuthority,
     TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
@@ -436,6 +485,7 @@ export function getRedeemInstruction<
   TAccountRedemptionVaultAuthority,
   TAccountRedemptionConfig,
   TAccountRedemptionOperation,
+  TAccountRedemptionEventAuthority,
   TAccountSystemProgram
 > {
   // Program address.
@@ -474,6 +524,10 @@ export function getRedeemInstruction<
       value: input.redemptionOperation ?? null,
       isWritable: true,
     },
+    redemptionEventAuthority: {
+      value: input.redemptionEventAuthority ?? null,
+      isWritable: false,
+    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
@@ -491,7 +545,7 @@ export function getRedeemInstruction<
   }
   if (!accounts.redemptionProgram.value) {
     accounts.redemptionProgram.value =
-      "F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu" as Address<"F6P3cmm4xDxxZCF6vj3K9pbY2LFjVrYpEft6x6CXJxmu">;
+      "2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D" as Address<"2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D">;
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
@@ -514,6 +568,7 @@ export function getRedeemInstruction<
       getAccountMeta(accounts.redemptionVaultAuthority),
       getAccountMeta(accounts.redemptionConfig),
       getAccountMeta(accounts.redemptionOperation),
+      getAccountMeta(accounts.redemptionEventAuthority),
       getAccountMeta(accounts.systemProgram),
     ],
     data: getRedeemInstructionDataEncoder().encode(
@@ -535,6 +590,7 @@ export function getRedeemInstruction<
     TAccountRedemptionVaultAuthority,
     TAccountRedemptionConfig,
     TAccountRedemptionOperation,
+    TAccountRedemptionEventAuthority,
     TAccountSystemProgram
   >);
 }
@@ -558,7 +614,8 @@ export type ParsedRedeemInstruction<
     redemptionVaultAuthority: TAccountMetas[10];
     redemptionConfig: TAccountMetas[11];
     redemptionOperation: TAccountMetas[12];
-    systemProgram: TAccountMetas[13];
+    redemptionEventAuthority: TAccountMetas[13];
+    systemProgram: TAccountMetas[14];
   };
   data: RedeemInstructionData;
 };
@@ -571,7 +628,7 @@ export function parseRedeemInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedRedeemInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 14) {
+  if (instruction.accounts.length < 15) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -597,6 +654,7 @@ export function parseRedeemInstruction<
       redemptionVaultAuthority: getNextAccount(),
       redemptionConfig: getNextAccount(),
       redemptionOperation: getNextAccount(),
+      redemptionEventAuthority: getNextAccount(),
       systemProgram: getNextAccount(),
     },
     data: getRedeemInstructionDataDecoder().decode(instruction.data),

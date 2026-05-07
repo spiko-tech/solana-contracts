@@ -64,6 +64,8 @@ export type CancelInstruction<
   TAccountVaultAuthority extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -94,6 +96,12 @@ export type CancelInstruction<
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -151,6 +159,8 @@ export type CancelAsyncInput<
   TAccountUserTokenAccount extends string = string,
   TAccountVaultAuthority extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   caller: TransactionSigner<TAccountCaller>;
   mint: Address<TAccountMint>;
@@ -160,6 +170,8 @@ export type CancelAsyncInput<
   userTokenAccount: Address<TAccountUserTokenAccount>;
   vaultAuthority?: Address<TAccountVaultAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   operationId: CancelInstructionDataArgs["operationId"];
   amount: CancelInstructionDataArgs["amount"];
   salt: CancelInstructionDataArgs["salt"];
@@ -174,6 +186,8 @@ export async function getCancelInstructionAsync<
   TAccountUserTokenAccount extends string,
   TAccountVaultAuthority extends string,
   TAccountTokenProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: CancelAsyncInput<
@@ -184,7 +198,9 @@ export async function getCancelInstructionAsync<
     TAccountVault,
     TAccountUserTokenAccount,
     TAccountVaultAuthority,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -197,7 +213,9 @@ export async function getCancelInstructionAsync<
     TAccountVault,
     TAccountUserTokenAccount,
     TAccountVaultAuthority,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -222,6 +240,8 @@ export async function getCancelInstructionAsync<
     },
     vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -261,6 +281,8 @@ export async function getCancelInstructionAsync<
       getAccountMeta(accounts.userTokenAccount),
       getAccountMeta(accounts.vaultAuthority),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getCancelInstructionDataEncoder().encode(
       args as CancelInstructionDataArgs,
@@ -275,7 +297,9 @@ export async function getCancelInstructionAsync<
     TAccountVault,
     TAccountUserTokenAccount,
     TAccountVaultAuthority,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -288,6 +312,8 @@ export type CancelInput<
   TAccountUserTokenAccount extends string = string,
   TAccountVaultAuthority extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   caller: TransactionSigner<TAccountCaller>;
   mint: Address<TAccountMint>;
@@ -297,6 +323,8 @@ export type CancelInput<
   userTokenAccount: Address<TAccountUserTokenAccount>;
   vaultAuthority: Address<TAccountVaultAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   operationId: CancelInstructionDataArgs["operationId"];
   amount: CancelInstructionDataArgs["amount"];
   salt: CancelInstructionDataArgs["salt"];
@@ -311,6 +339,8 @@ export function getCancelInstruction<
   TAccountUserTokenAccount extends string,
   TAccountVaultAuthority extends string,
   TAccountTokenProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: CancelInput<
@@ -321,7 +351,9 @@ export function getCancelInstruction<
     TAccountVault,
     TAccountUserTokenAccount,
     TAccountVaultAuthority,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): CancelInstruction<
@@ -333,7 +365,9 @@ export function getCancelInstruction<
   TAccountVault,
   TAccountUserTokenAccount,
   TAccountVaultAuthority,
-  TAccountTokenProgram
+  TAccountTokenProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? REDEMPTION_PROGRAM_ADDRESS;
@@ -357,6 +391,8 @@ export function getCancelInstruction<
     },
     vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -383,6 +419,8 @@ export function getCancelInstruction<
       getAccountMeta(accounts.userTokenAccount),
       getAccountMeta(accounts.vaultAuthority),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getCancelInstructionDataEncoder().encode(
       args as CancelInstructionDataArgs,
@@ -397,7 +435,9 @@ export function getCancelInstruction<
     TAccountVault,
     TAccountUserTokenAccount,
     TAccountVaultAuthority,
-    TAccountTokenProgram
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -415,6 +455,8 @@ export type ParsedCancelInstruction<
     userTokenAccount: TAccountMetas[5];
     vaultAuthority: TAccountMetas[6];
     tokenProgram: TAccountMetas[7];
+    eventAuthority: TAccountMetas[8];
+    program: TAccountMetas[9];
   };
   data: CancelInstructionData;
 };
@@ -427,7 +469,7 @@ export function parseCancelInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCancelInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 8) {
+  if (instruction.accounts.length < 10) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -448,6 +490,8 @@ export function parseCancelInstruction<
       userTokenAccount: getNextAccount(),
       vaultAuthority: getNextAccount(),
       tokenProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getCancelInstructionDataDecoder().decode(instruction.data),
   };

@@ -14,6 +14,7 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
+  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -34,13 +35,10 @@ import {
   type TransactionSigner,
   type WritableAccount,
 } from "@solana/kit";
-import {
-  findGatekeeperConfigPda,
-  findVaultAuthorityPda,
-  findWithdrawalOperationPda,
-} from "../pdas";
+import { findVaultAuthorityPda, findWithdrawalOperationPda } from "../pdas";
 import { CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS } from "../programs";
 import {
+  expectAddress,
   expectSome,
   getAccountMetaFactory,
   type ResolvedAccount,
@@ -59,7 +57,6 @@ export function getApproveWithdrawalDiscriminatorBytes() {
 export type ApproveWithdrawalInstruction<
   TProgram extends string = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
   TAccountApprover extends string | AccountMeta<string> = string,
-  TAccountGatekeeperConfig extends string | AccountMeta<string> = string,
   TAccountWithdrawalOperation extends string | AccountMeta<string> = string,
   TAccountMint extends string | AccountMeta<string> = string,
   TAccountVaultTokenAccount extends string | AccountMeta<string> = string,
@@ -71,13 +68,17 @@ export type ApproveWithdrawalInstruction<
   TAccountRecipientPermissions extends string | AccountMeta<string> = string,
   TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
   TAccountPermissionManagerProgram extends string | AccountMeta<string> =
-    "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE",
+    "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD",
   TAccountExtraAccountMetasList extends string | AccountMeta<string> = string,
   TAccountHookConfig extends string | AccountMeta<string> = string,
   TAccountTransferHookProgram extends string | AccountMeta<string> =
-    "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86",
+    "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU",
+  TAccountTransferHookEventAuthority extends string | AccountMeta<string> =
+    string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -87,9 +88,6 @@ export type ApproveWithdrawalInstruction<
         ? ReadonlySignerAccount<TAccountApprover> &
             AccountSignerMeta<TAccountApprover>
         : TAccountApprover,
-      TAccountGatekeeperConfig extends string
-        ? ReadonlyAccount<TAccountGatekeeperConfig>
-        : TAccountGatekeeperConfig,
       TAccountWithdrawalOperation extends string
         ? WritableAccount<TAccountWithdrawalOperation>
         : TAccountWithdrawalOperation,
@@ -129,9 +127,18 @@ export type ApproveWithdrawalInstruction<
       TAccountTransferHookProgram extends string
         ? ReadonlyAccount<TAccountTransferHookProgram>
         : TAccountTransferHookProgram,
+      TAccountTransferHookEventAuthority extends string
+        ? ReadonlyAccount<TAccountTransferHookEventAuthority>
+        : TAccountTransferHookEventAuthority,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -186,7 +193,6 @@ export function getApproveWithdrawalInstructionDataCodec(): FixedSizeCodec<
 
 export type ApproveWithdrawalAsyncInput<
   TAccountApprover extends string = string,
-  TAccountGatekeeperConfig extends string = string,
   TAccountWithdrawalOperation extends string = string,
   TAccountMint extends string = string,
   TAccountVaultTokenAccount extends string = string,
@@ -200,24 +206,29 @@ export type ApproveWithdrawalAsyncInput<
   TAccountExtraAccountMetasList extends string = string,
   TAccountHookConfig extends string = string,
   TAccountTransferHookProgram extends string = string,
+  TAccountTransferHookEventAuthority extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   approver: TransactionSigner<TAccountApprover>;
-  gatekeeperConfig?: Address<TAccountGatekeeperConfig>;
   withdrawalOperation?: Address<TAccountWithdrawalOperation>;
   mint: Address<TAccountMint>;
   vaultTokenAccount: Address<TAccountVaultTokenAccount>;
   recipientTokenAccount: Address<TAccountRecipientTokenAccount>;
   vaultAuthority?: Address<TAccountVaultAuthority>;
-  approverPermissions: Address<TAccountApproverPermissions>;
-  vaultAuthorityPermissions: Address<TAccountVaultAuthorityPermissions>;
-  recipientPermissions: Address<TAccountRecipientPermissions>;
-  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
+  approverPermissions?: Address<TAccountApproverPermissions>;
+  vaultAuthorityPermissions?: Address<TAccountVaultAuthorityPermissions>;
+  recipientPermissions?: Address<TAccountRecipientPermissions>;
+  permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
   permissionManagerProgram?: Address<TAccountPermissionManagerProgram>;
   extraAccountMetasList: Address<TAccountExtraAccountMetasList>;
   hookConfig: Address<TAccountHookConfig>;
   transferHookProgram?: Address<TAccountTransferHookProgram>;
+  transferHookEventAuthority: Address<TAccountTransferHookEventAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   operationId: ApproveWithdrawalInstructionDataArgs["operationId"];
   recipient: ApproveWithdrawalInstructionDataArgs["recipient"];
   amount: ApproveWithdrawalInstructionDataArgs["amount"];
@@ -226,7 +237,6 @@ export type ApproveWithdrawalAsyncInput<
 
 export async function getApproveWithdrawalInstructionAsync<
   TAccountApprover extends string,
-  TAccountGatekeeperConfig extends string,
   TAccountWithdrawalOperation extends string,
   TAccountMint extends string,
   TAccountVaultTokenAccount extends string,
@@ -240,12 +250,14 @@ export async function getApproveWithdrawalInstructionAsync<
   TAccountExtraAccountMetasList extends string,
   TAccountHookConfig extends string,
   TAccountTransferHookProgram extends string,
+  TAccountTransferHookEventAuthority extends string,
   TAccountTokenProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
 >(
   input: ApproveWithdrawalAsyncInput<
     TAccountApprover,
-    TAccountGatekeeperConfig,
     TAccountWithdrawalOperation,
     TAccountMint,
     TAccountVaultTokenAccount,
@@ -259,14 +271,16 @@ export async function getApproveWithdrawalInstructionAsync<
     TAccountExtraAccountMetasList,
     TAccountHookConfig,
     TAccountTransferHookProgram,
-    TAccountTokenProgram
+    TAccountTransferHookEventAuthority,
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
   ApproveWithdrawalInstruction<
     TProgramAddress,
     TAccountApprover,
-    TAccountGatekeeperConfig,
     TAccountWithdrawalOperation,
     TAccountMint,
     TAccountVaultTokenAccount,
@@ -280,7 +294,10 @@ export async function getApproveWithdrawalInstructionAsync<
     TAccountExtraAccountMetasList,
     TAccountHookConfig,
     TAccountTransferHookProgram,
-    TAccountTokenProgram
+    TAccountTransferHookEventAuthority,
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -290,10 +307,6 @@ export async function getApproveWithdrawalInstructionAsync<
   // Original accounts.
   const originalAccounts = {
     approver: { value: input.approver ?? null, isWritable: false },
-    gatekeeperConfig: {
-      value: input.gatekeeperConfig ?? null,
-      isWritable: false,
-    },
     withdrawalOperation: {
       value: input.withdrawalOperation ?? null,
       isWritable: true,
@@ -337,7 +350,13 @@ export async function getApproveWithdrawalInstructionAsync<
       value: input.transferHookProgram ?? null,
       isWritable: false,
     },
+    transferHookEventAuthority: {
+      value: input.transferHookEventAuthority ?? null,
+      isWritable: false,
+    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -348,9 +367,6 @@ export async function getApproveWithdrawalInstructionAsync<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.gatekeeperConfig.value) {
-    accounts.gatekeeperConfig.value = await findGatekeeperConfigPda();
-  }
   if (!accounts.withdrawalOperation.value) {
     accounts.withdrawalOperation.value = await findWithdrawalOperationPda({
       operationId: expectSome(args.operationId),
@@ -359,13 +375,78 @@ export async function getApproveWithdrawalInstructionAsync<
   if (!accounts.vaultAuthority.value) {
     accounts.vaultAuthority.value = await findVaultAuthorityPda();
   }
+  if (!accounts.permissionManagerConfig.value) {
+    accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
+      ],
+    });
+  }
+  if (!accounts.approverPermissions.value) {
+    accounts.approverPermissions.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
+            110,
+          ]),
+        ),
+        getAddressEncoder().encode(expectAddress(accounts.approver.value)),
+        getAddressEncoder().encode(
+          expectAddress(accounts.permissionManagerConfig.value),
+        ),
+      ],
+    });
+  }
+  if (!accounts.vaultAuthorityPermissions.value) {
+    accounts.vaultAuthorityPermissions.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
+            110,
+          ]),
+        ),
+        getAddressEncoder().encode(
+          expectAddress(accounts.vaultAuthority.value),
+        ),
+        getAddressEncoder().encode(
+          expectAddress(accounts.permissionManagerConfig.value),
+        ),
+      ],
+    });
+  }
+  if (!accounts.recipientPermissions.value) {
+    accounts.recipientPermissions.value = await getProgramDerivedAddress({
+      programAddress:
+        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
+      seeds: [
+        getBytesEncoder().encode(
+          new Uint8Array([
+            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
+            110,
+          ]),
+        ),
+        getAddressEncoder().encode(expectSome(args.recipient)),
+        getAddressEncoder().encode(
+          expectAddress(accounts.permissionManagerConfig.value),
+        ),
+      ],
+    });
+  }
   if (!accounts.permissionManagerProgram.value) {
     accounts.permissionManagerProgram.value =
-      "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">;
+      "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">;
   }
   if (!accounts.transferHookProgram.value) {
     accounts.transferHookProgram.value =
-      "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">;
+      "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU" as Address<"7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU">;
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
@@ -376,7 +457,6 @@ export async function getApproveWithdrawalInstructionAsync<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.approver),
-      getAccountMeta(accounts.gatekeeperConfig),
       getAccountMeta(accounts.withdrawalOperation),
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.vaultTokenAccount),
@@ -390,7 +470,10 @@ export async function getApproveWithdrawalInstructionAsync<
       getAccountMeta(accounts.extraAccountMetasList),
       getAccountMeta(accounts.hookConfig),
       getAccountMeta(accounts.transferHookProgram),
+      getAccountMeta(accounts.transferHookEventAuthority),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getApproveWithdrawalInstructionDataEncoder().encode(
       args as ApproveWithdrawalInstructionDataArgs,
@@ -399,7 +482,6 @@ export async function getApproveWithdrawalInstructionAsync<
   } as ApproveWithdrawalInstruction<
     TProgramAddress,
     TAccountApprover,
-    TAccountGatekeeperConfig,
     TAccountWithdrawalOperation,
     TAccountMint,
     TAccountVaultTokenAccount,
@@ -413,13 +495,15 @@ export async function getApproveWithdrawalInstructionAsync<
     TAccountExtraAccountMetasList,
     TAccountHookConfig,
     TAccountTransferHookProgram,
-    TAccountTokenProgram
+    TAccountTransferHookEventAuthority,
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
 export type ApproveWithdrawalInput<
   TAccountApprover extends string = string,
-  TAccountGatekeeperConfig extends string = string,
   TAccountWithdrawalOperation extends string = string,
   TAccountMint extends string = string,
   TAccountVaultTokenAccount extends string = string,
@@ -433,10 +517,12 @@ export type ApproveWithdrawalInput<
   TAccountExtraAccountMetasList extends string = string,
   TAccountHookConfig extends string = string,
   TAccountTransferHookProgram extends string = string,
+  TAccountTransferHookEventAuthority extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   approver: TransactionSigner<TAccountApprover>;
-  gatekeeperConfig: Address<TAccountGatekeeperConfig>;
   withdrawalOperation: Address<TAccountWithdrawalOperation>;
   mint: Address<TAccountMint>;
   vaultTokenAccount: Address<TAccountVaultTokenAccount>;
@@ -450,7 +536,10 @@ export type ApproveWithdrawalInput<
   extraAccountMetasList: Address<TAccountExtraAccountMetasList>;
   hookConfig: Address<TAccountHookConfig>;
   transferHookProgram?: Address<TAccountTransferHookProgram>;
+  transferHookEventAuthority: Address<TAccountTransferHookEventAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   operationId: ApproveWithdrawalInstructionDataArgs["operationId"];
   recipient: ApproveWithdrawalInstructionDataArgs["recipient"];
   amount: ApproveWithdrawalInstructionDataArgs["amount"];
@@ -459,7 +548,6 @@ export type ApproveWithdrawalInput<
 
 export function getApproveWithdrawalInstruction<
   TAccountApprover extends string,
-  TAccountGatekeeperConfig extends string,
   TAccountWithdrawalOperation extends string,
   TAccountMint extends string,
   TAccountVaultTokenAccount extends string,
@@ -473,12 +561,14 @@ export function getApproveWithdrawalInstruction<
   TAccountExtraAccountMetasList extends string,
   TAccountHookConfig extends string,
   TAccountTransferHookProgram extends string,
+  TAccountTransferHookEventAuthority extends string,
   TAccountTokenProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
 >(
   input: ApproveWithdrawalInput<
     TAccountApprover,
-    TAccountGatekeeperConfig,
     TAccountWithdrawalOperation,
     TAccountMint,
     TAccountVaultTokenAccount,
@@ -492,13 +582,15 @@ export function getApproveWithdrawalInstruction<
     TAccountExtraAccountMetasList,
     TAccountHookConfig,
     TAccountTransferHookProgram,
-    TAccountTokenProgram
+    TAccountTransferHookEventAuthority,
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): ApproveWithdrawalInstruction<
   TProgramAddress,
   TAccountApprover,
-  TAccountGatekeeperConfig,
   TAccountWithdrawalOperation,
   TAccountMint,
   TAccountVaultTokenAccount,
@@ -512,7 +604,10 @@ export function getApproveWithdrawalInstruction<
   TAccountExtraAccountMetasList,
   TAccountHookConfig,
   TAccountTransferHookProgram,
-  TAccountTokenProgram
+  TAccountTransferHookEventAuthority,
+  TAccountTokenProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress =
@@ -521,10 +616,6 @@ export function getApproveWithdrawalInstruction<
   // Original accounts.
   const originalAccounts = {
     approver: { value: input.approver ?? null, isWritable: false },
-    gatekeeperConfig: {
-      value: input.gatekeeperConfig ?? null,
-      isWritable: false,
-    },
     withdrawalOperation: {
       value: input.withdrawalOperation ?? null,
       isWritable: true,
@@ -568,7 +659,13 @@ export function getApproveWithdrawalInstruction<
       value: input.transferHookProgram ?? null,
       isWritable: false,
     },
+    transferHookEventAuthority: {
+      value: input.transferHookEventAuthority ?? null,
+      isWritable: false,
+    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -581,11 +678,11 @@ export function getApproveWithdrawalInstruction<
   // Resolve default values.
   if (!accounts.permissionManagerProgram.value) {
     accounts.permissionManagerProgram.value =
-      "G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE" as Address<"G3KXsXdrTz85MjA7avs89fTHmQa4SkybRdRRNBYq5XZE">;
+      "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">;
   }
   if (!accounts.transferHookProgram.value) {
     accounts.transferHookProgram.value =
-      "21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86" as Address<"21Qu5pfKsxFpmDpwrXq1ZjVxCDW5kA9jrtBuMeQCNh86">;
+      "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU" as Address<"7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU">;
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
@@ -596,7 +693,6 @@ export function getApproveWithdrawalInstruction<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.approver),
-      getAccountMeta(accounts.gatekeeperConfig),
       getAccountMeta(accounts.withdrawalOperation),
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.vaultTokenAccount),
@@ -610,7 +706,10 @@ export function getApproveWithdrawalInstruction<
       getAccountMeta(accounts.extraAccountMetasList),
       getAccountMeta(accounts.hookConfig),
       getAccountMeta(accounts.transferHookProgram),
+      getAccountMeta(accounts.transferHookEventAuthority),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getApproveWithdrawalInstructionDataEncoder().encode(
       args as ApproveWithdrawalInstructionDataArgs,
@@ -619,7 +718,6 @@ export function getApproveWithdrawalInstruction<
   } as ApproveWithdrawalInstruction<
     TProgramAddress,
     TAccountApprover,
-    TAccountGatekeeperConfig,
     TAccountWithdrawalOperation,
     TAccountMint,
     TAccountVaultTokenAccount,
@@ -633,7 +731,10 @@ export function getApproveWithdrawalInstruction<
     TAccountExtraAccountMetasList,
     TAccountHookConfig,
     TAccountTransferHookProgram,
-    TAccountTokenProgram
+    TAccountTransferHookEventAuthority,
+    TAccountTokenProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -644,21 +745,23 @@ export type ParsedApproveWithdrawalInstruction<
   programAddress: Address<TProgram>;
   accounts: {
     approver: TAccountMetas[0];
-    gatekeeperConfig: TAccountMetas[1];
-    withdrawalOperation: TAccountMetas[2];
-    mint: TAccountMetas[3];
-    vaultTokenAccount: TAccountMetas[4];
-    recipientTokenAccount: TAccountMetas[5];
-    vaultAuthority: TAccountMetas[6];
-    approverPermissions: TAccountMetas[7];
-    vaultAuthorityPermissions: TAccountMetas[8];
-    recipientPermissions: TAccountMetas[9];
-    permissionManagerConfig: TAccountMetas[10];
-    permissionManagerProgram: TAccountMetas[11];
-    extraAccountMetasList: TAccountMetas[12];
-    hookConfig: TAccountMetas[13];
-    transferHookProgram: TAccountMetas[14];
+    withdrawalOperation: TAccountMetas[1];
+    mint: TAccountMetas[2];
+    vaultTokenAccount: TAccountMetas[3];
+    recipientTokenAccount: TAccountMetas[4];
+    vaultAuthority: TAccountMetas[5];
+    approverPermissions: TAccountMetas[6];
+    vaultAuthorityPermissions: TAccountMetas[7];
+    recipientPermissions: TAccountMetas[8];
+    permissionManagerConfig: TAccountMetas[9];
+    permissionManagerProgram: TAccountMetas[10];
+    extraAccountMetasList: TAccountMetas[11];
+    hookConfig: TAccountMetas[12];
+    transferHookProgram: TAccountMetas[13];
+    transferHookEventAuthority: TAccountMetas[14];
     tokenProgram: TAccountMetas[15];
+    eventAuthority: TAccountMetas[16];
+    program: TAccountMetas[17];
   };
   data: ApproveWithdrawalInstructionData;
 };
@@ -671,7 +774,7 @@ export function parseApproveWithdrawalInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedApproveWithdrawalInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 16) {
+  if (instruction.accounts.length < 18) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -685,7 +788,6 @@ export function parseApproveWithdrawalInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       approver: getNextAccount(),
-      gatekeeperConfig: getNextAccount(),
       withdrawalOperation: getNextAccount(),
       mint: getNextAccount(),
       vaultTokenAccount: getNextAccount(),
@@ -699,7 +801,10 @@ export function parseApproveWithdrawalInstruction<
       extraAccountMetasList: getNextAccount(),
       hookConfig: getNextAccount(),
       transferHookProgram: getNextAccount(),
+      transferHookEventAuthority: getNextAccount(),
       tokenProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getApproveWithdrawalInstructionDataDecoder().decode(instruction.data),
   };

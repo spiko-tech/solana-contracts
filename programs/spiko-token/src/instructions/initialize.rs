@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token_2022::spl_token_2022::instruction::AuthorityType;
 use anchor_spl::token_interface::{self, Mint, SetAuthority, TokenInterface};
+use spl_token_2022_interface::instruction::AuthorityType;
 
 use crate::constants::*;
 use crate::errors::SpTokenError;
@@ -8,6 +8,7 @@ use crate::events::TokenInitialized;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -39,7 +40,7 @@ pub struct Initialize<'info> {
     #[account(
         owner = permission_manager_program_id(),
         seeds = [PERMISSION_MANAGER_CONFIG_SEED],
-        bump,
+        bump = permission_manager_config.bump,
         seeds::program = permission_manager_program_id(),
         constraint = permission_manager_config.admin == admin.key() @ SpTokenError::Unauthorized,
     )]
@@ -55,6 +56,7 @@ pub(crate) fn handler(ctx: Context<Initialize>) -> Result<()> {
         paused: false,
         permission_manager: ctx.accounts.permission_manager_config.key(),
         mint: ctx.accounts.mint.key(),
+        bump: ctx.bumps.token_config,
     });
 
     let mint_authority = &mut ctx.accounts.mint_authority;
@@ -65,14 +67,14 @@ pub(crate) fn handler(ctx: Context<Initialize>) -> Result<()> {
         current_authority: ctx.accounts.admin.to_account_info(),
         account_or_mint: ctx.accounts.mint.to_account_info(),
     };
-    let cpi_ctx = CpiContext::new(ctx.accounts.token_program.to_account_info(), cpi_accounts);
+    let cpi_ctx = CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts);
     token_interface::set_authority(
         cpi_ctx,
         AuthorityType::MintTokens,
         Some(ctx.accounts.mint_authority.key()),
     )?;
 
-    emit!(TokenInitialized {
+    emit_cpi!(TokenInitialized {
         admin: ctx.accounts.admin.key(),
         mint: ctx.accounts.mint.key(),
         permission_manager: ctx.accounts.permission_manager_config.key(),

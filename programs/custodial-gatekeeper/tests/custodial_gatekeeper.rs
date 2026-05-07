@@ -3,16 +3,17 @@ use custodial_gatekeeper::state::{
     GatekeeperConfig, VaultAuthority, WithdrawalDailyLimit, WithdrawalOperation,
 };
 use custodial_gatekeeper::utils::compute_operation_id;
-use solana_program_test::*;
+use litesvm::LiteSVM;
+use solana_program_pack::Pack;
 use solana_sdk::{
     instruction::Instruction,
-    program_pack::Pack,
     pubkey::Pubkey,
     signature::Keypair,
     signer::Signer,
-    system_instruction,
     transaction::{Transaction, TransactionError},
 };
+use solana_sdk_ids::system_program;
+use solana_system_interface::instruction as system_instruction;
 
 // ---------------------------------------------------------------------------
 // PDA helpers
@@ -72,29 +73,26 @@ fn transfer_hook_program_id() -> Pubkey {
     custodial_gatekeeper::constants::transfer_hook_program_id()
 }
 
+fn find_transfer_hook_event_authority() -> Pubkey {
+    Pubkey::find_program_address(&[b"__event_authority"], &transfer_hook_program_id()).0
+}
+
 // ---------------------------------------------------------------------------
 // Test harness
 // ---------------------------------------------------------------------------
 
-const TOKEN_2022_PROGRAM_ID: Pubkey = spl_token_2022::ID;
+const TOKEN_2022_PROGRAM_ID: Pubkey = spl_token_2022_interface::ID;
 
-fn program_test() -> ProgramTest {
-    let mut pt = ProgramTest::new("custodial_gatekeeper", custodial_gatekeeper::ID, None);
-    pt.add_program("permission_manager", permission_manager::ID, None);
-    pt
-}
-
-async fn create_token2022_mint(
-    banks: &mut BanksClient,
+fn create_token2022_mint(
+    svm: &mut LiteSVM,
     payer: &Keypair,
     mint: &Keypair,
     decimals: u8,
     mint_authority: &Pubkey,
 ) {
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
-    let space = spl_token_2022::state::Mint::LEN;
-    let rent = banks.get_rent().await.unwrap();
-    let lamports = rent.minimum_balance(space);
+    let blockhash = svm.latest_blockhash();
+    let space = spl_token_2022_interface::state::Mint::LEN;
+    let lamports = svm.minimum_balance_for_rent_exemption(space);
     let ix = vec![
         system_instruction::create_account(
             &payer.pubkey(),
@@ -103,7 +101,7 @@ async fn create_token2022_mint(
             space as u64,
             &TOKEN_2022_PROGRAM_ID,
         ),
-        spl_token_2022::instruction::initialize_mint2(
+        spl_token_2022_interface::instruction::initialize_mint2(
             &TOKEN_2022_PROGRAM_ID,
             &mint.pubkey(),
             mint_authority,
@@ -114,21 +112,17 @@ async fn create_token2022_mint(
     ];
     let tx =
         Transaction::new_signed_with_payer(&ix, Some(&payer.pubkey()), &[payer, mint], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 }
 
-async fn create_ata(
-    banks: &mut BanksClient,
-    payer: &Keypair,
-    mint: &Pubkey,
-    owner: &Pubkey,
-) -> Pubkey {
+fn create_ata(svm: &mut LiteSVM, payer: &Keypair, mint: &Pubkey, owner: &Pubkey) -> Pubkey {
     let ata = spl_associated_token_account::get_associated_token_address_with_program_id(
         owner,
         mint,
         &TOKEN_2022_PROGRAM_ID,
     );
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = spl_associated_token_account::instruction::create_associated_token_account(
         &payer.pubkey(),
         owner,
@@ -136,20 +130,21 @@ async fn create_ata(
         &TOKEN_2022_PROGRAM_ID,
     );
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&payer.pubkey()), &[payer], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
     ata
 }
 
-async fn mint_tokens(
-    banks: &mut BanksClient,
+fn mint_tokens(
+    svm: &mut LiteSVM,
     payer: &Keypair,
     mint: &Pubkey,
     dest: &Pubkey,
     authority: &Keypair,
     amount: u64,
 ) {
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
-    let ix = spl_token_2022::instruction::mint_to(
+    let blockhash = svm.latest_blockhash();
+    let ix = spl_token_2022_interface::instruction::mint_to(
         &TOKEN_2022_PROGRAM_ID,
         mint,
         dest,
@@ -164,32 +159,56 @@ async fn mint_tokens(
         &[payer, authority],
         blockhash,
     );
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 }
 
-async fn setup(max_delay: i64) -> (BanksClient, Keypair, Pubkey, Pubkey, Pubkey) {
-    let ctx = program_test().start_with_context().await;
-    let admin = ctx.payer.insecure_clone();
-    let mut banks = ctx.banks_client.clone();
-    let blockhash = ctx.last_blockhash;
+fn setup(max_delay: i64) -> (LiteSVM, Keypair, Pubkey, Pubkey, Pubkey) {
+    let mut svm = LiteSVM::new().with_default_programs();
+    svm.add_program_from_file(
+        custodial_gatekeeper::ID,
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../target/deploy/custodial_gatekeeper.so"
+        ),
+    )
+    .unwrap();
+    svm.add_program_from_file(
+        permission_manager::ID,
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../target/deploy/permission_manager.so"
+        ),
+    )
+    .unwrap();
+    let admin = Keypair::new();
+    svm.airdrop(&admin.pubkey(), 10_000_000_000).unwrap();
 
     // Init permission-manager
     let (pm_config, _) = permission_config_pda();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: permission_manager::ID,
         accounts: permission_manager::accounts::Initialize {
             admin: admin.pubkey(),
             config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &permission_manager::ID,
+            )
+            .0,
+            program: permission_manager::ID,
         }
         .to_account_metas(None),
         data: permission_manager::instruction::Initialize {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
     // Init gatekeeper
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let (gk_config, _) = gatekeeper_config_pda();
     let (vault_auth, _) = vault_authority_pda();
     let ix = Instruction {
@@ -199,7 +218,13 @@ async fn setup(max_delay: i64) -> (BanksClient, Keypair, Pubkey, Pubkey, Pubkey)
             gatekeeper_config: gk_config,
             vault_authority: vault_auth,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::Initialize {
@@ -209,20 +234,15 @@ async fn setup(max_delay: i64) -> (BanksClient, Keypair, Pubkey, Pubkey, Pubkey)
         .data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
-    (banks, admin, pm_config, gk_config, vault_auth)
+    (svm, admin, pm_config, gk_config, vault_auth)
 }
 
-async fn grant_role(
-    banks: &mut BanksClient,
-    admin: &Keypair,
-    pm_config: Pubkey,
-    user: &Pubkey,
-    role: u16,
-) {
+fn grant_role(svm: &mut LiteSVM, admin: &Keypair, pm_config: Pubkey, user: &Pubkey, role: u16) {
     let (user_perms_pda, _) = user_permissions_pda(user, &pm_config);
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: permission_manager::ID,
         accounts: permission_manager::accounts::GrantRole {
@@ -230,29 +250,37 @@ async fn grant_role(
             config: pm_config,
             user_permissions: user_perms_pda,
             user: *user,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &permission_manager::ID,
+            )
+            .0,
+            program: permission_manager::ID,
         }
         .to_account_metas(None),
         data: permission_manager::instruction::GrantRole { role }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 }
 
-async fn fund(banks: &mut BanksClient, payer: &Keypair, to: &Pubkey, lamports: u64) {
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+fn fund(svm: &mut LiteSVM, payer: &Keypair, to: &Pubkey, lamports: u64) {
+    let blockhash = svm.latest_blockhash();
     let ix = system_instruction::transfer(&payer.pubkey(), to, lamports);
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&payer.pubkey()), &[payer], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 }
 
-async fn get_gatekeeper_config(banks: &mut BanksClient, pda: Pubkey) -> GatekeeperConfig {
-    let account = banks.get_account(pda).await.unwrap().unwrap();
+fn get_gatekeeper_config(svm: &LiteSVM, pda: Pubkey) -> GatekeeperConfig {
+    let account = svm.get_account(&pda).unwrap();
     GatekeeperConfig::deserialize(&mut &account.data[8..]).unwrap()
 }
 
-async fn get_withdrawal_operation(banks: &mut BanksClient, pda: Pubkey) -> WithdrawalOperation {
-    let account = banks.get_account(pda).await.unwrap().unwrap();
+fn get_withdrawal_operation(svm: &LiteSVM, pda: Pubkey) -> WithdrawalOperation {
+    let account = svm.get_account(&pda).unwrap();
     WithdrawalOperation::deserialize(&mut &account.data[8..]).unwrap()
 }
 
@@ -260,39 +288,61 @@ async fn get_withdrawal_operation(banks: &mut BanksClient, pda: Pubkey) -> Withd
 // Initialize
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_initialize() {
-    let (mut banks, _admin, pm_config, gk_config, _vault_auth) = setup(3600).await;
-    let cfg = get_gatekeeper_config(&mut banks, gk_config).await;
+#[test]
+fn test_initialize() {
+    let (svm, _admin, pm_config, gk_config, _vault_auth) = setup(3600);
+    let cfg = get_gatekeeper_config(&svm, gk_config);
     assert_eq!(cfg.max_delay, 3600);
     assert_eq!(cfg.permission_manager, pm_config);
 }
 
-#[tokio::test]
-async fn test_initialize_unauthorized() {
-    let ctx = program_test().start_with_context().await;
-    let admin = ctx.payer.insecure_clone();
+#[test]
+fn test_initialize_unauthorized() {
+    let mut svm = LiteSVM::new().with_default_programs();
+    svm.add_program_from_file(
+        custodial_gatekeeper::ID,
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../target/deploy/custodial_gatekeeper.so"
+        ),
+    )
+    .unwrap();
+    svm.add_program_from_file(
+        permission_manager::ID,
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../target/deploy/permission_manager.so"
+        ),
+    )
+    .unwrap();
+    let admin = Keypair::new();
+    svm.airdrop(&admin.pubkey(), 10_000_000_000).unwrap();
     let non_admin = Keypair::new();
-    let mut banks = ctx.banks_client.clone();
-    let blockhash = ctx.last_blockhash;
+    svm.airdrop(&non_admin.pubkey(), 1_000_000_000).unwrap();
 
     let (pm_config, _) = permission_config_pda();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: permission_manager::ID,
         accounts: permission_manager::accounts::Initialize {
             admin: admin.pubkey(),
             config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &permission_manager::ID,
+            )
+            .0,
+            program: permission_manager::ID,
         }
         .to_account_metas(None),
         data: permission_manager::instruction::Initialize {}.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
-    fund(&mut banks, &admin, &non_admin.pubkey(), 1_000_000_000).await;
-
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let (gk_config, _) = gatekeeper_config_pda();
     let (vault_auth, _) = vault_authority_pda();
     let ix = Instruction {
@@ -302,7 +352,13 @@ async fn test_initialize_unauthorized() {
             gatekeeper_config: gk_config,
             vault_authority: vault_auth,
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::Initialize {
@@ -317,25 +373,22 @@ async fn test_initialize_unauthorized() {
         &[&non_admin],
         blockhash,
     );
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }
 
 // ---------------------------------------------------------------------------
 // Set daily limit
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_set_daily_limit() {
-    let (mut banks, admin, pm_config, gk_config, _vault_auth) = setup(3600).await;
+#[test]
+fn test_set_daily_limit() {
+    let (mut svm, admin, pm_config, gk_config, _vault_auth) = setup(3600);
     let mint_kp = Keypair::new();
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
 
     let (daily_limit_pda, _) = withdrawal_daily_limit_pda(&mint_kp.pubkey());
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: custodial_gatekeeper::ID,
         accounts: custodial_gatekeeper::accounts::SetDailyLimit {
@@ -344,15 +397,22 @@ async fn test_set_daily_limit() {
             withdrawal_daily_limit: daily_limit_pda,
             mint: mint_kp.pubkey(),
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::SetDailyLimit { limit: 5_000_000 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
-    let account = banks.get_account(daily_limit_pda).await.unwrap().unwrap();
+    let account = svm.get_account(&daily_limit_pda).unwrap();
     let dl = WithdrawalDailyLimit::deserialize(&mut &account.data[8..]).unwrap();
     assert_eq!(dl.limit, 5_000_000);
     assert_eq!(dl.used_amount, 0);
@@ -362,15 +422,15 @@ async fn test_set_daily_limit() {
 // Custodial withdraw — within limit (immediate transfer)
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_custodial_withdraw_within_limit() {
-    let (mut banks, admin, pm_config, gk_config, vault_auth) = setup(3600).await;
+#[test]
+fn test_custodial_withdraw_within_limit() {
+    let (mut svm, admin, pm_config, gk_config, vault_auth) = setup(3600);
     let mint_kp = Keypair::new();
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
 
     // Set daily limit
     let (daily_limit_pda, _) = withdrawal_daily_limit_pda(&mint_kp.pubkey());
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: custodial_gatekeeper::ID,
         accounts: custodial_gatekeeper::accounts::SetDailyLimit {
@@ -379,62 +439,64 @@ async fn test_custodial_withdraw_within_limit() {
             withdrawal_daily_limit: daily_limit_pda,
             mint: mint_kp.pubkey(),
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::SetDailyLimit { limit: 10_000_000 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
     // Setup sender (WHITELISTED) and recipient (WHITELISTED_EXT)
     let sender = Keypair::new();
     let recipient = Keypair::new();
-    fund(&mut banks, &admin, &sender.pubkey(), 2_000_000_000).await;
-    fund(&mut banks, &admin, &recipient.pubkey(), 1_000_000_000).await;
+    fund(&mut svm, &admin, &sender.pubkey(), 2_000_000_000);
+    fund(&mut svm, &admin, &recipient.pubkey(), 1_000_000_000);
 
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &sender.pubkey(),
         permission_manager::constants::ROLE_WHITELISTED,
-    )
-    .await;
+    );
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &recipient.pubkey(),
         permission_manager::constants::ROLE_WHITELISTED_EXT,
-    )
-    .await;
+    );
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &vault_auth,
         permission_manager::constants::ROLE_WHITELISTED,
-    )
-    .await;
+    );
 
     // Create token accounts
-    let sender_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &sender.pubkey()).await;
-    let vault_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &vault_auth).await;
-    let recipient_ata =
-        create_ata(&mut banks, &admin, &mint_kp.pubkey(), &recipient.pubkey()).await;
+    let sender_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &sender.pubkey());
+    let vault_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &vault_auth);
+    let recipient_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &recipient.pubkey());
 
     // Mint tokens to sender
     let amount = 1_000_000u64;
     mint_tokens(
-        &mut banks,
+        &mut svm,
         &admin,
         &mint_kp.pubkey(),
         &sender_ata,
         &admin,
         amount,
-    )
-    .await;
+    );
 
     // Custodial withdraw
     let salt = 1u64;
@@ -443,7 +505,7 @@ async fn test_custodial_withdraw_within_limit() {
     let (sender_perms, _) = user_permissions_pda(&sender.pubkey(), &pm_config);
     let (recipient_perms, _) = user_permissions_pda(&recipient.pubkey(), &pm_config);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: custodial_gatekeeper::ID,
         accounts: custodial_gatekeeper::accounts::CustodialWithdraw {
@@ -464,8 +526,15 @@ async fn test_custodial_withdraw_within_limit() {
             extra_account_metas_list: extra_account_metas_list_pda(&mint_kp.pubkey()),
             hook_config: hook_config_pda(&mint_kp.pubkey()),
             transfer_hook_program: transfer_hook_program_id(),
+            transfer_hook_event_authority: find_transfer_hook_event_authority(),
             token_program: TOKEN_2022_PROGRAM_ID,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::CustodialWithdraw {
@@ -478,10 +547,11 @@ async fn test_custodial_withdraw_within_limit() {
     };
     let tx =
         Transaction::new_signed_with_payer(&[ix], Some(&sender.pubkey()), &[&sender], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
     // Verify: operation is DONE, recipient got tokens
-    let op = get_withdrawal_operation(&mut banks, op_pda).await;
+    let op = get_withdrawal_operation(&svm, op_pda);
     assert_eq!(op.status, 2); // STATUS_DONE
 }
 
@@ -489,15 +559,15 @@ async fn test_custodial_withdraw_within_limit() {
 // Custodial withdraw — over limit (blocked)
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_custodial_withdraw_over_limit_blocked() {
-    let (mut banks, admin, pm_config, gk_config, vault_auth) = setup(3600).await;
+#[test]
+fn test_custodial_withdraw_over_limit_blocked() {
+    let (mut svm, admin, pm_config, gk_config, vault_auth) = setup(3600);
     let mint_kp = Keypair::new();
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
 
     // Set daily limit to 100
     let (daily_limit_pda, _) = withdrawal_daily_limit_pda(&mint_kp.pubkey());
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: custodial_gatekeeper::ID,
         accounts: custodial_gatekeeper::accounts::SetDailyLimit {
@@ -506,67 +576,68 @@ async fn test_custodial_withdraw_over_limit_blocked() {
             withdrawal_daily_limit: daily_limit_pda,
             mint: mint_kp.pubkey(),
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::SetDailyLimit { limit: 100 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
     let sender = Keypair::new();
     let recipient = Keypair::new();
-    fund(&mut banks, &admin, &sender.pubkey(), 2_000_000_000).await;
-    fund(&mut banks, &admin, &recipient.pubkey(), 1_000_000_000).await;
+    fund(&mut svm, &admin, &sender.pubkey(), 2_000_000_000);
+    fund(&mut svm, &admin, &recipient.pubkey(), 1_000_000_000);
 
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &sender.pubkey(),
         permission_manager::constants::ROLE_WHITELISTED,
-    )
-    .await;
+    );
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &recipient.pubkey(),
         permission_manager::constants::ROLE_WHITELISTED_EXT,
-    )
-    .await;
+    );
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &recipient.pubkey(),
         permission_manager::constants::ROLE_WHITELISTED_EXT,
-    )
-    .await;
+    );
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &vault_auth,
         permission_manager::constants::ROLE_WHITELISTED,
-    )
-    .await;
+    );
 
-    let sender_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &sender.pubkey()).await;
-    let vault_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &vault_auth).await;
-    let recipient_ata =
-        create_ata(&mut banks, &admin, &mint_kp.pubkey(), &recipient.pubkey()).await;
+    let sender_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &sender.pubkey());
+    let vault_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &vault_auth);
+    let recipient_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &recipient.pubkey());
 
     let amount = 500u64; // > 100 limit
     mint_tokens(
-        &mut banks,
+        &mut svm,
         &admin,
         &mint_kp.pubkey(),
         &sender_ata,
         &admin,
         amount,
-    )
-    .await;
+    );
 
     let salt = 1u64;
     let operation_id = compute_operation_id(&sender.pubkey(), &mint_kp.pubkey(), amount, salt);
@@ -574,7 +645,7 @@ async fn test_custodial_withdraw_over_limit_blocked() {
     let (sender_perms, _) = user_permissions_pda(&sender.pubkey(), &pm_config);
     let (recipient_perms, _) = user_permissions_pda(&recipient.pubkey(), &pm_config);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: custodial_gatekeeper::ID,
         accounts: custodial_gatekeeper::accounts::CustodialWithdraw {
@@ -595,8 +666,15 @@ async fn test_custodial_withdraw_over_limit_blocked() {
             extra_account_metas_list: extra_account_metas_list_pda(&mint_kp.pubkey()),
             hook_config: hook_config_pda(&mint_kp.pubkey()),
             transfer_hook_program: transfer_hook_program_id(),
+            transfer_hook_event_authority: find_transfer_hook_event_authority(),
             token_program: TOKEN_2022_PROGRAM_ID,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::CustodialWithdraw {
@@ -609,10 +687,11 @@ async fn test_custodial_withdraw_over_limit_blocked() {
     };
     let tx =
         Transaction::new_signed_with_payer(&[ix], Some(&sender.pubkey()), &[&sender], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
     // Verify: operation is PENDING (blocked)
-    let op = get_withdrawal_operation(&mut banks, op_pda).await;
+    let op = get_withdrawal_operation(&svm, op_pda);
     assert_eq!(op.status, 1); // STATUS_PENDING
     assert!(op.deadline > 0);
 }
@@ -621,15 +700,15 @@ async fn test_custodial_withdraw_over_limit_blocked() {
 // Approve withdrawal
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_approve_withdrawal() {
-    let (mut banks, admin, pm_config, gk_config, vault_auth) = setup(86400).await;
+#[test]
+fn test_approve_withdrawal() {
+    let (mut svm, admin, pm_config, gk_config, vault_auth) = setup(86400);
     let mint_kp = Keypair::new();
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
 
     // Set daily limit to 100 (so 500 will be blocked)
     let (daily_limit_pda, _) = withdrawal_daily_limit_pda(&mint_kp.pubkey());
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: custodial_gatekeeper::ID,
         accounts: custodial_gatekeeper::accounts::SetDailyLimit {
@@ -638,59 +717,61 @@ async fn test_approve_withdrawal() {
             withdrawal_daily_limit: daily_limit_pda,
             mint: mint_kp.pubkey(),
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::SetDailyLimit { limit: 100 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
     let sender = Keypair::new();
     let recipient = Keypair::new();
-    fund(&mut banks, &admin, &sender.pubkey(), 2_000_000_000).await;
-    fund(&mut banks, &admin, &recipient.pubkey(), 1_000_000_000).await;
+    fund(&mut svm, &admin, &sender.pubkey(), 2_000_000_000);
+    fund(&mut svm, &admin, &recipient.pubkey(), 1_000_000_000);
 
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &sender.pubkey(),
         permission_manager::constants::ROLE_WHITELISTED,
-    )
-    .await;
+    );
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &recipient.pubkey(),
         permission_manager::constants::ROLE_WHITELISTED_EXT,
-    )
-    .await;
+    );
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &vault_auth,
         permission_manager::constants::ROLE_WHITELISTED,
-    )
-    .await;
+    );
 
-    let sender_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &sender.pubkey()).await;
-    let vault_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &vault_auth).await;
-    let recipient_ata =
-        create_ata(&mut banks, &admin, &mint_kp.pubkey(), &recipient.pubkey()).await;
+    let sender_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &sender.pubkey());
+    let vault_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &vault_auth);
+    let recipient_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &recipient.pubkey());
 
     let amount = 500u64;
     mint_tokens(
-        &mut banks,
+        &mut svm,
         &admin,
         &mint_kp.pubkey(),
         &sender_ata,
         &admin,
         amount,
-    )
-    .await;
+    );
 
     let salt = 1u64;
     let operation_id = compute_operation_id(&sender.pubkey(), &mint_kp.pubkey(), amount, salt);
@@ -699,7 +780,7 @@ async fn test_approve_withdrawal() {
     let (recipient_perms, _) = user_permissions_pda(&recipient.pubkey(), &pm_config);
 
     // Create blocked withdrawal
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: custodial_gatekeeper::ID,
         accounts: custodial_gatekeeper::accounts::CustodialWithdraw {
@@ -720,8 +801,15 @@ async fn test_approve_withdrawal() {
             extra_account_metas_list: extra_account_metas_list_pda(&mint_kp.pubkey()),
             hook_config: hook_config_pda(&mint_kp.pubkey()),
             transfer_hook_program: transfer_hook_program_id(),
+            transfer_hook_event_authority: find_transfer_hook_event_authority(),
             token_program: TOKEN_2022_PROGRAM_ID,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::CustodialWithdraw {
@@ -734,28 +822,27 @@ async fn test_approve_withdrawal() {
     };
     let tx =
         Transaction::new_signed_with_payer(&[ix], Some(&sender.pubkey()), &[&sender], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
     // Grant CUSTODIAL_GATEKEEPER_APPROVER to approver
     let approver = Keypair::new();
-    fund(&mut banks, &admin, &approver.pubkey(), 1_000_000_000).await;
+    fund(&mut svm, &admin, &approver.pubkey(), 1_000_000_000);
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &approver.pubkey(),
         permission_manager::constants::ROLE_CUSTODIAL_GATEKEEPER_APPROVER,
-    )
-    .await;
+    );
     let (approver_perms, _) = user_permissions_pda(&approver.pubkey(), &pm_config);
 
     // Approve
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: custodial_gatekeeper::ID,
         accounts: custodial_gatekeeper::accounts::ApproveWithdrawal {
             approver: approver.pubkey(),
-            gatekeeper_config: gk_config,
             withdrawal_operation: op_pda,
             mint: mint_kp.pubkey(),
             vault_token_account: vault_ata,
@@ -769,7 +856,14 @@ async fn test_approve_withdrawal() {
             extra_account_metas_list: extra_account_metas_list_pda(&mint_kp.pubkey()),
             hook_config: hook_config_pda(&mint_kp.pubkey()),
             transfer_hook_program: transfer_hook_program_id(),
+            transfer_hook_event_authority: find_transfer_hook_event_authority(),
             token_program: TOKEN_2022_PROGRAM_ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::ApproveWithdrawal {
@@ -786,9 +880,10 @@ async fn test_approve_withdrawal() {
         &[&approver],
         blockhash,
     );
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
-    let op = get_withdrawal_operation(&mut banks, op_pda).await;
+    let op = get_withdrawal_operation(&svm, op_pda);
     assert_eq!(op.status, 2); // STATUS_DONE
 }
 
@@ -796,14 +891,14 @@ async fn test_approve_withdrawal() {
 // Unauthorized sender (not WHITELISTED)
 // ---------------------------------------------------------------------------
 
-#[tokio::test]
-async fn test_custodial_withdraw_unauthorized_sender() {
-    let (mut banks, admin, pm_config, gk_config, vault_auth) = setup(3600).await;
+#[test]
+fn test_custodial_withdraw_unauthorized_sender() {
+    let (mut svm, admin, pm_config, gk_config, vault_auth) = setup(3600);
     let mint_kp = Keypair::new();
-    create_token2022_mint(&mut banks, &admin, &mint_kp, 6, &admin.pubkey()).await;
+    create_token2022_mint(&mut svm, &admin, &mint_kp, 6, &admin.pubkey());
 
     let (daily_limit_pda, _) = withdrawal_daily_limit_pda(&mint_kp.pubkey());
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: custodial_gatekeeper::ID,
         accounts: custodial_gatekeeper::accounts::SetDailyLimit {
@@ -812,59 +907,61 @@ async fn test_custodial_withdraw_unauthorized_sender() {
             withdrawal_daily_limit: daily_limit_pda,
             mint: mint_kp.pubkey(),
             permission_manager_config: pm_config,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::SetDailyLimit { limit: 10_000_000 }.data(),
     };
     let tx = Transaction::new_signed_with_payer(&[ix], Some(&admin.pubkey()), &[&admin], blockhash);
-    banks.process_transaction(tx).await.unwrap();
+    svm.send_transaction(tx).unwrap();
+    svm.expire_blockhash();
 
     // sender has MINTER role (not WHITELISTED)
     let sender = Keypair::new();
     let recipient = Keypair::new();
-    fund(&mut banks, &admin, &sender.pubkey(), 2_000_000_000).await;
+    fund(&mut svm, &admin, &sender.pubkey(), 2_000_000_000);
 
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &sender.pubkey(),
         permission_manager::constants::ROLE_MINTER,
-    )
-    .await;
+    );
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &recipient.pubkey(),
         permission_manager::constants::ROLE_WHITELISTED_EXT,
-    )
-    .await;
+    );
     grant_role(
-        &mut banks,
+        &mut svm,
         &admin,
         pm_config,
         &vault_auth,
         permission_manager::constants::ROLE_WHITELISTED,
-    )
-    .await;
+    );
 
-    let sender_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &sender.pubkey()).await;
-    let vault_ata = create_ata(&mut banks, &admin, &mint_kp.pubkey(), &vault_auth).await;
-    let recipient_ata =
-        create_ata(&mut banks, &admin, &mint_kp.pubkey(), &recipient.pubkey()).await;
+    let sender_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &sender.pubkey());
+    let vault_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &vault_auth);
+    let recipient_ata = create_ata(&mut svm, &admin, &mint_kp.pubkey(), &recipient.pubkey());
 
     let amount = 100u64;
     mint_tokens(
-        &mut banks,
+        &mut svm,
         &admin,
         &mint_kp.pubkey(),
         &sender_ata,
         &admin,
         amount,
-    )
-    .await;
+    );
 
     let salt = 1u64;
     let operation_id = compute_operation_id(&sender.pubkey(), &mint_kp.pubkey(), amount, salt);
@@ -872,7 +969,7 @@ async fn test_custodial_withdraw_unauthorized_sender() {
     let (sender_perms, _) = user_permissions_pda(&sender.pubkey(), &pm_config);
     let (recipient_perms, _) = user_permissions_pda(&recipient.pubkey(), &pm_config);
 
-    let blockhash = banks.get_latest_blockhash().await.unwrap();
+    let blockhash = svm.latest_blockhash();
     let ix = Instruction {
         program_id: custodial_gatekeeper::ID,
         accounts: custodial_gatekeeper::accounts::CustodialWithdraw {
@@ -893,8 +990,15 @@ async fn test_custodial_withdraw_unauthorized_sender() {
             extra_account_metas_list: extra_account_metas_list_pda(&mint_kp.pubkey()),
             hook_config: hook_config_pda(&mint_kp.pubkey()),
             transfer_hook_program: transfer_hook_program_id(),
+            transfer_hook_event_authority: find_transfer_hook_event_authority(),
             token_program: TOKEN_2022_PROGRAM_ID,
-            system_program: solana_sdk::system_program::ID,
+            system_program: system_program::ID,
+            event_authority: Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &custodial_gatekeeper::ID,
+            )
+            .0,
+            program: custodial_gatekeeper::ID,
         }
         .to_account_metas(None),
         data: custodial_gatekeeper::instruction::CustodialWithdraw {
@@ -907,9 +1011,6 @@ async fn test_custodial_withdraw_unauthorized_sender() {
     };
     let tx =
         Transaction::new_signed_with_payer(&[ix], Some(&sender.pubkey()), &[&sender], blockhash);
-    let err = banks.process_transaction(tx).await.unwrap_err();
-    assert!(matches!(
-        err,
-        BanksClientError::TransactionError(TransactionError::InstructionError(..))
-    ));
+    let err = svm.send_transaction(tx).unwrap_err();
+    assert!(matches!(err.err, TransactionError::InstructionError(..)));
 }

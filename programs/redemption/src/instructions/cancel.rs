@@ -8,6 +8,7 @@ use crate::utils::invoke_transfer_checked_with_hook;
 
 #[derive(Accounts)]
 #[instruction(operation_id: [u8; 32])]
+#[event_cpi]
 pub struct Cancel<'info> {
     pub caller: Signer<'info>,
 
@@ -16,14 +17,14 @@ pub struct Cancel<'info> {
 
     #[account(
         seeds = [REDEMPTION_CONFIG_SEED],
-        bump,
+        bump = redemption_config.bump,
     )]
     pub redemption_config: Account<'info, RedemptionConfig>,
 
     #[account(
         mut,
         seeds = [REDEMPTION_OPERATION_SEED, operation_id.as_ref()],
-        bump,
+        bump = redemption_operation.bump,
     )]
     pub redemption_operation: Account<'info, RedemptionOperation>,
 
@@ -52,7 +53,7 @@ pub struct Cancel<'info> {
 }
 
 pub(crate) fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, Cancel<'info>>,
+    ctx: Context<'info, Cancel<'info>>,
     operation_id: [u8; 32],
     amount: u64,
     salt: u64,
@@ -85,7 +86,7 @@ pub(crate) fn handler<'info>(
     let op = &mut ctx.accounts.redemption_operation;
     op.status = STATUS_CANCELED;
 
-    emit!(RedemptionCanceled {
+    emit_cpi!(RedemptionCanceled {
         caller: ctx.accounts.caller.key(),
         user: op.user,
         mint: mint_key,

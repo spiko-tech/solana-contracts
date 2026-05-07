@@ -56,11 +56,13 @@ export type InitializeInstruction<
   TAccountMint extends string | AccountMeta<string> = string,
   TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
   TAccountPermissionManagerProgram extends string | AccountMeta<string> =
-    string,
+    "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD",
   TAccountHookConfig extends string | AccountMeta<string> = string,
   TAccountExtraAccountMetas extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -88,6 +90,12 @@ export type InitializeInstruction<
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -127,15 +135,18 @@ export type InitializeAsyncInput<
   TAccountHookConfig extends string = string,
   TAccountExtraAccountMetas extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   mint: Address<TAccountMint>;
-  /** Permission manager config PDA — used to verify admin authorization. */
   permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
-  permissionManagerProgram: Address<TAccountPermissionManagerProgram>;
+  permissionManagerProgram?: Address<TAccountPermissionManagerProgram>;
   hookConfig?: Address<TAccountHookConfig>;
   extraAccountMetas?: Address<TAccountExtraAccountMetas>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
 };
 
 export async function getInitializeInstructionAsync<
@@ -146,6 +157,8 @@ export async function getInitializeInstructionAsync<
   TAccountHookConfig extends string,
   TAccountExtraAccountMetas extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS,
 >(
   input: InitializeAsyncInput<
@@ -155,7 +168,9 @@ export async function getInitializeInstructionAsync<
     TAccountPermissionManagerProgram,
     TAccountHookConfig,
     TAccountExtraAccountMetas,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -167,7 +182,9 @@ export async function getInitializeInstructionAsync<
     TAccountPermissionManagerProgram,
     TAccountHookConfig,
     TAccountExtraAccountMetas,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -192,6 +209,8 @@ export async function getInitializeInstructionAsync<
       isWritable: true,
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -202,6 +221,10 @@ export async function getInitializeInstructionAsync<
   if (!accounts.permissionManagerConfig.value) {
     accounts.permissionManagerConfig.value =
       await findPermissionManagerConfigPda();
+  }
+  if (!accounts.permissionManagerProgram.value) {
+    accounts.permissionManagerProgram.value =
+      "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">;
   }
   if (!accounts.hookConfig.value) {
     accounts.hookConfig.value = await findHookConfigPda({
@@ -228,6 +251,8 @@ export async function getInitializeInstructionAsync<
       getAccountMeta(accounts.hookConfig),
       getAccountMeta(accounts.extraAccountMetas),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode({}),
     programAddress,
@@ -239,7 +264,9 @@ export async function getInitializeInstructionAsync<
     TAccountPermissionManagerProgram,
     TAccountHookConfig,
     TAccountExtraAccountMetas,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -251,15 +278,18 @@ export type InitializeInput<
   TAccountHookConfig extends string = string,
   TAccountExtraAccountMetas extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   mint: Address<TAccountMint>;
-  /** Permission manager config PDA — used to verify admin authorization. */
   permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
-  permissionManagerProgram: Address<TAccountPermissionManagerProgram>;
+  permissionManagerProgram?: Address<TAccountPermissionManagerProgram>;
   hookConfig: Address<TAccountHookConfig>;
   extraAccountMetas: Address<TAccountExtraAccountMetas>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
 };
 
 export function getInitializeInstruction<
@@ -270,6 +300,8 @@ export function getInitializeInstruction<
   TAccountHookConfig extends string,
   TAccountExtraAccountMetas extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS,
 >(
   input: InitializeInput<
@@ -279,7 +311,9 @@ export function getInitializeInstruction<
     TAccountPermissionManagerProgram,
     TAccountHookConfig,
     TAccountExtraAccountMetas,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): InitializeInstruction<
@@ -290,7 +324,9 @@ export function getInitializeInstruction<
   TAccountPermissionManagerProgram,
   TAccountHookConfig,
   TAccountExtraAccountMetas,
-  TAccountSystemProgram
+  TAccountSystemProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress =
@@ -314,6 +350,8 @@ export function getInitializeInstruction<
       isWritable: true,
     },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -321,6 +359,10 @@ export function getInitializeInstruction<
   >;
 
   // Resolve default values.
+  if (!accounts.permissionManagerProgram.value) {
+    accounts.permissionManagerProgram.value =
+      "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">;
+  }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
@@ -336,6 +378,8 @@ export function getInitializeInstruction<
       getAccountMeta(accounts.hookConfig),
       getAccountMeta(accounts.extraAccountMetas),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode({}),
     programAddress,
@@ -347,7 +391,9 @@ export function getInitializeInstruction<
     TAccountPermissionManagerProgram,
     TAccountHookConfig,
     TAccountExtraAccountMetas,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -359,12 +405,13 @@ export type ParsedInitializeInstruction<
   accounts: {
     admin: TAccountMetas[0];
     mint: TAccountMetas[1];
-    /** Permission manager config PDA — used to verify admin authorization. */
     permissionManagerConfig: TAccountMetas[2];
     permissionManagerProgram: TAccountMetas[3];
     hookConfig: TAccountMetas[4];
     extraAccountMetas: TAccountMetas[5];
     systemProgram: TAccountMetas[6];
+    eventAuthority: TAccountMetas[7];
+    program: TAccountMetas[8];
   };
   data: InitializeInstructionData;
 };
@@ -377,7 +424,7 @@ export function parseInitializeInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 7) {
+  if (instruction.accounts.length < 9) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -397,6 +444,8 @@ export function parseInitializeInstruction<
       hookConfig: getNextAccount(),
       extraAccountMetas: getNextAccount(),
       systemProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getInitializeInstructionDataDecoder().decode(instruction.data),
   };

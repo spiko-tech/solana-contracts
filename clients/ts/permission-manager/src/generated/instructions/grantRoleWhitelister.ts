@@ -63,6 +63,8 @@ export type GrantRoleWhitelisterInstruction<
   TAccountUser extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
+  TAccountEventAuthority extends string | AccountMeta<string> = string,
+  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -87,6 +89,12 @@ export type GrantRoleWhitelisterInstruction<
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
+      TAccountEventAuthority extends string
+        ? ReadonlyAccount<TAccountEventAuthority>
+        : TAccountEventAuthority,
+      TAccountProgram extends string
+        ? ReadonlyAccount<TAccountProgram>
+        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
@@ -135,6 +143,8 @@ export type GrantRoleWhitelisterAsyncInput<
   TAccountUserPermissions extends string = string,
   TAccountUser extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   caller: TransactionSigner<TAccountCaller>;
   config?: Address<TAccountConfig>;
@@ -142,6 +152,8 @@ export type GrantRoleWhitelisterAsyncInput<
   userPermissions?: Address<TAccountUserPermissions>;
   user: Address<TAccountUser>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   role: GrantRoleWhitelisterInstructionDataArgs["role"];
 };
 
@@ -152,6 +164,8 @@ export async function getGrantRoleWhitelisterInstructionAsync<
   TAccountUserPermissions extends string,
   TAccountUser extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
   input: GrantRoleWhitelisterAsyncInput<
@@ -160,7 +174,9 @@ export async function getGrantRoleWhitelisterInstructionAsync<
     TAccountCallerPermissions,
     TAccountUserPermissions,
     TAccountUser,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -171,7 +187,9 @@ export async function getGrantRoleWhitelisterInstructionAsync<
     TAccountCallerPermissions,
     TAccountUserPermissions,
     TAccountUser,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >
 > {
   // Program address.
@@ -189,6 +207,8 @@ export async function getGrantRoleWhitelisterInstructionAsync<
     userPermissions: { value: input.userPermissions ?? null, isWritable: true },
     user: { value: input.user ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -228,6 +248,8 @@ export async function getGrantRoleWhitelisterInstructionAsync<
       getAccountMeta(accounts.userPermissions),
       getAccountMeta(accounts.user),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getGrantRoleWhitelisterInstructionDataEncoder().encode(
       args as GrantRoleWhitelisterInstructionDataArgs,
@@ -240,7 +262,9 @@ export async function getGrantRoleWhitelisterInstructionAsync<
     TAccountCallerPermissions,
     TAccountUserPermissions,
     TAccountUser,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -251,6 +275,8 @@ export type GrantRoleWhitelisterInput<
   TAccountUserPermissions extends string = string,
   TAccountUser extends string = string,
   TAccountSystemProgram extends string = string,
+  TAccountEventAuthority extends string = string,
+  TAccountProgram extends string = string,
 > = {
   caller: TransactionSigner<TAccountCaller>;
   config: Address<TAccountConfig>;
@@ -258,6 +284,8 @@ export type GrantRoleWhitelisterInput<
   userPermissions: Address<TAccountUserPermissions>;
   user: Address<TAccountUser>;
   systemProgram?: Address<TAccountSystemProgram>;
+  eventAuthority: Address<TAccountEventAuthority>;
+  program: Address<TAccountProgram>;
   role: GrantRoleWhitelisterInstructionDataArgs["role"];
 };
 
@@ -268,6 +296,8 @@ export function getGrantRoleWhitelisterInstruction<
   TAccountUserPermissions extends string,
   TAccountUser extends string,
   TAccountSystemProgram extends string,
+  TAccountEventAuthority extends string,
+  TAccountProgram extends string,
   TProgramAddress extends Address = typeof PERMISSION_MANAGER_PROGRAM_ADDRESS,
 >(
   input: GrantRoleWhitelisterInput<
@@ -276,7 +306,9 @@ export function getGrantRoleWhitelisterInstruction<
     TAccountCallerPermissions,
     TAccountUserPermissions,
     TAccountUser,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): GrantRoleWhitelisterInstruction<
@@ -286,7 +318,9 @@ export function getGrantRoleWhitelisterInstruction<
   TAccountCallerPermissions,
   TAccountUserPermissions,
   TAccountUser,
-  TAccountSystemProgram
+  TAccountSystemProgram,
+  TAccountEventAuthority,
+  TAccountProgram
 > {
   // Program address.
   const programAddress =
@@ -303,6 +337,8 @@ export function getGrantRoleWhitelisterInstruction<
     userPermissions: { value: input.userPermissions ?? null, isWritable: true },
     user: { value: input.user ?? null, isWritable: false },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
+    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
+    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -327,6 +363,8 @@ export function getGrantRoleWhitelisterInstruction<
       getAccountMeta(accounts.userPermissions),
       getAccountMeta(accounts.user),
       getAccountMeta(accounts.systemProgram),
+      getAccountMeta(accounts.eventAuthority),
+      getAccountMeta(accounts.program),
     ],
     data: getGrantRoleWhitelisterInstructionDataEncoder().encode(
       args as GrantRoleWhitelisterInstructionDataArgs,
@@ -339,7 +377,9 @@ export function getGrantRoleWhitelisterInstruction<
     TAccountCallerPermissions,
     TAccountUserPermissions,
     TAccountUser,
-    TAccountSystemProgram
+    TAccountSystemProgram,
+    TAccountEventAuthority,
+    TAccountProgram
   >);
 }
 
@@ -355,6 +395,8 @@ export type ParsedGrantRoleWhitelisterInstruction<
     userPermissions: TAccountMetas[3];
     user: TAccountMetas[4];
     systemProgram: TAccountMetas[5];
+    eventAuthority: TAccountMetas[6];
+    program: TAccountMetas[7];
   };
   data: GrantRoleWhitelisterInstructionData;
 };
@@ -367,7 +409,7 @@ export function parseGrantRoleWhitelisterInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedGrantRoleWhitelisterInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 6) {
+  if (instruction.accounts.length < 8) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -386,6 +428,8 @@ export function parseGrantRoleWhitelisterInstruction<
       userPermissions: getNextAccount(),
       user: getNextAccount(),
       systemProgram: getNextAccount(),
+      eventAuthority: getNextAccount(),
+      program: getNextAccount(),
     },
     data: getGrantRoleWhitelisterInstructionDataDecoder().decode(
       instruction.data,

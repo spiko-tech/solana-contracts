@@ -23,6 +23,8 @@ import {
   getI64Encoder,
   getStructDecoder,
   getStructEncoder,
+  getU8Decoder,
+  getU8Encoder,
   transformEncoder,
   type Account,
   type Address,
@@ -51,11 +53,13 @@ export type GatekeeperConfig = {
   discriminator: ReadonlyUint8Array;
   maxDelay: bigint;
   permissionManager: Address;
+  bump: number;
 };
 
 export type GatekeeperConfigArgs = {
   maxDelay: number | bigint;
   permissionManager: Address;
+  bump: number;
 };
 
 /** Gets the encoder for {@link GatekeeperConfigArgs} account data. */
@@ -65,6 +69,7 @@ export function getGatekeeperConfigEncoder(): FixedSizeEncoder<GatekeeperConfigA
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["maxDelay", getI64Encoder()],
       ["permissionManager", getAddressEncoder()],
+      ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: GATEKEEPER_CONFIG_DISCRIMINATOR }),
   );
@@ -76,6 +81,7 @@ export function getGatekeeperConfigDecoder(): FixedSizeDecoder<GatekeeperConfig>
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["maxDelay", getI64Decoder()],
     ["permissionManager", getAddressDecoder()],
+    ["bump", getU8Decoder()],
   ]);
 }
 
@@ -154,5 +160,5 @@ export async function fetchAllMaybeGatekeeperConfig(
 }
 
 export function getGatekeeperConfigSize(): number {
-  return 48;
+  return 49;
 }

@@ -6,8 +6,6 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./permissionConfig";
 export * from "./redemptionConfig";
 export * from "./redemptionOperation";
-export * from "./userPermissions";
 export * from "./vaultAuthority";

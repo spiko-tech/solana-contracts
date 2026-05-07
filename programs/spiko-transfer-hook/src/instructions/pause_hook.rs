@@ -12,12 +12,12 @@ pub struct PauseHook<'info> {
     pub mint_authority: Signer<'info>,
 
     /// CHECK: The mint for which this hook is configured.
-    pub mint: AccountInfo<'info>,
+    pub mint: UncheckedAccount<'info>,
 
     #[account(
         mut,
         seeds = [HOOK_CONFIG_SEED, mint.key().as_ref()],
-        bump,
+        bump = hook_config.bump,
     )]
     pub hook_config: Account<'info, HookConfig>,
 }

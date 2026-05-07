@@ -1,4 +1,5 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token_interface::Mint;
 
 use crate::constants::*;
 use crate::errors::SpTokenError;
@@ -6,22 +7,22 @@ use crate::events::Unpaused;
 use crate::state::*;
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct Unpause<'info> {
     pub admin: Signer<'info>,
 
     #[account(
         mut,
         seeds = [TOKEN_CONFIG_SEED, token_config.mint.as_ref()],
-        bump,
+        bump = token_config.bump,
         constraint = token_config.paused @ SpTokenError::NotPaused,
     )]
     pub token_config: Account<'info, TokenConfig>,
 
-    /// CHECK: Mint address, validated by token_config constraint.
     #[account(
         address = token_config.mint,
     )]
-    pub mint: AccountInfo<'info>,
+    pub mint: InterfaceAccount<'info, Mint>,
 
     #[account(
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
@@ -38,9 +39,20 @@ pub struct Unpause<'info> {
 
     #[account(
         owner = permission_manager_program_id(),
+        seeds = [USER_PERMISSION_SEED, admin.key().as_ref(), permission_manager_config.key().as_ref()],
+        seeds::program = permission_manager_program_id(),
+        bump = admin_permissions.bump,
         constraint = has_role(&admin_permissions, ROLE_PAUSER) @ SpTokenError::Unauthorized,
     )]
     pub admin_permissions: Account<'info, UserPermissions>,
+
+    #[account(
+        owner = permission_manager_program_id(),
+        seeds = [PERMISSION_MANAGER_CONFIG_SEED],
+        seeds::program = permission_manager_program_id(),
+        bump = permission_manager_config.bump,
+    )]
+    pub permission_manager_config: Account<'info, PermissionConfig>,
 }
 
 pub(crate) fn handler(ctx: Context<Unpause>) -> Result<()> {
@@ -61,13 +73,13 @@ pub(crate) fn handler(ctx: Context<Unpause>) -> Result<()> {
         hook_config: ctx.accounts.hook_config.to_account_info(),
     };
     let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.spiko_transfer_hook_program.to_account_info(),
+        ctx.accounts.spiko_transfer_hook_program.key(),
         cpi_accounts,
         signer_seeds,
     );
     spiko_transfer_hook::cpi::unpause_hook(cpi_ctx)?;
 
-    emit!(Unpaused {
+    emit_cpi!(Unpaused {
         caller: ctx.accounts.admin.key(),
     });
 

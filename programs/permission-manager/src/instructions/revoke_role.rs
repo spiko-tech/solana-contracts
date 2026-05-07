@@ -6,18 +6,19 @@ use crate::events::RoleRevoked;
 use crate::state::{PermissionConfig, UserPermissions};
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct RevokeRole<'info> {
     pub admin: Signer<'info>,
     #[account(
         seeds = [CONFIG_SEED],
-        bump,
+        bump = config.bump,
         constraint = config.admin == admin.key() @ PermissionError::Unauthorized,
     )]
     pub config: Account<'info, PermissionConfig>,
     #[account(
         mut,
         seeds = [USER_PERMISSION_SEED, user.key().as_ref(), config.key().as_ref()],
-        bump,
+        bump = user_permissions.bump,
     )]
     pub user_permissions: Account<'info, UserPermissions>,
     /// CHECK: Target user whose permissions are being modified
@@ -27,7 +28,7 @@ pub struct RevokeRole<'info> {
 pub(crate) fn handler(ctx: Context<RevokeRole>, role: u16) -> Result<()> {
     ctx.accounts.user_permissions.roles &= !role;
 
-    emit!(RoleRevoked {
+    emit_cpi!(RoleRevoked {
         admin: ctx.accounts.admin.key(),
         user: ctx.accounts.user.key(),
         role,

@@ -6,12 +6,13 @@ use crate::events::RoleGranted;
 use crate::state::{PermissionConfig, UserPermissions};
 
 #[derive(Accounts)]
+#[event_cpi]
 pub struct GrantRole<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
     #[account(
         seeds = [CONFIG_SEED],
-        bump,
+        bump = config.bump,
         constraint = config.admin == admin.key() @ PermissionError::Unauthorized,
     )]
     pub config: Account<'info, PermissionConfig>,
@@ -35,8 +36,9 @@ pub(crate) fn handler(ctx: Context<GrantRole>, role: u16) -> Result<()> {
     );
 
     ctx.accounts.user_permissions.roles |= role;
+    ctx.accounts.user_permissions.bump = ctx.bumps.user_permissions;
 
-    emit!(RoleGranted {
+    emit_cpi!(RoleGranted {
         caller: ctx.accounts.admin.key(),
         user: ctx.accounts.user.key(),
         role,

@@ -9,5 +9,7 @@
 export * from "./burned";
 export * from "./minted";
 export * from "./paused";
+export * from "./permissionConfig";
 export * from "./tokenInitialized";
 export * from "./unpaused";
+export * from "./userPermissions";

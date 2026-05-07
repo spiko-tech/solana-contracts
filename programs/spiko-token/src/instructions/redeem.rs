@@ -13,7 +13,7 @@ pub struct Redeem<'info> {
 
     #[account(
         seeds = [TOKEN_CONFIG_SEED, token_config.mint.as_ref()],
-        bump,
+        bump = token_config.bump,
         constraint = !token_config.paused @ SpTokenError::TokenPaused,
     )]
     pub token_config: Account<'info, TokenConfig>,
@@ -40,12 +40,20 @@ pub struct Redeem<'info> {
 
     #[account(
         owner = permission_manager_program_id(),
+        seeds = [USER_PERMISSION_SEED, redeemer.key().as_ref(), permission_manager_config.key().as_ref()],
+        seeds::program = permission_manager_program_id(),
+        bump = redeemer_permissions.bump,
         constraint = has_role(&redeemer_permissions, ROLE_WHITELISTED) @ SpTokenError::Unauthorized,
     )]
     pub redeemer_permissions: Account<'info, UserPermissions>,
 
-    /// CHECK: Permission manager config
-    pub permission_manager_config: UncheckedAccount<'info>,
+    #[account(
+        owner = permission_manager_program_id(),
+        seeds = [PERMISSION_MANAGER_CONFIG_SEED],
+        seeds::program = permission_manager_program_id(),
+        bump = permission_manager_config.bump,
+    )]
+    pub permission_manager_config: Account<'info, PermissionConfig>,
 
     #[account(
         seeds = [MINT_AUTHORITY_SEED, mint.key().as_ref()],
@@ -68,11 +76,14 @@ pub struct Redeem<'info> {
     #[account(mut)]
     pub redemption_operation: UncheckedAccount<'info>,
 
+    /// CHECK: Event authority PDA for the redemption program (seeds = [b"__event_authority"]).
+    pub redemption_event_authority: UncheckedAccount<'info>,
+
     pub system_program: Program<'info, System>,
 }
 
 pub(crate) fn handler<'info>(
-    ctx: Context<'_, '_, 'info, 'info, Redeem<'info>>,
+    ctx: Context<'info, Redeem<'info>>,
     amount: u64,
     salt: u64,
 ) -> Result<()> {
@@ -108,9 +119,11 @@ pub(crate) fn handler<'info>(
         redemption_operation: ctx.accounts.redemption_operation.to_account_info(),
         payer: ctx.accounts.redeemer.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
+        event_authority: ctx.accounts.redemption_event_authority.to_account_info(),
+        program: ctx.accounts.redemption_program.to_account_info(),
     };
     let cpi_ctx = CpiContext::new_with_signer(
-        ctx.accounts.redemption_program.to_account_info(),
+        ctx.accounts.redemption_program.key(),
         cpi_accounts,
         signer_seeds,
     );
