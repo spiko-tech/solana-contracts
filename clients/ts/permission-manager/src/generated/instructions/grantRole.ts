@@ -27,6 +27,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
+  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
@@ -54,6 +55,7 @@ export type GrantRoleInstruction<
   TAccountConfig extends string | AccountMeta<string> = string,
   TAccountUserPermissions extends string | AccountMeta<string> = string,
   TAccountUser extends string | AccountMeta<string> = string,
+  TAccountPayer extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TAccountEventAuthority extends string | AccountMeta<string> = string,
@@ -64,7 +66,7 @@ export type GrantRoleInstruction<
   InstructionWithAccounts<
     [
       TAccountAdmin extends string
-        ? WritableSignerAccount<TAccountAdmin> &
+        ? ReadonlySignerAccount<TAccountAdmin> &
             AccountSignerMeta<TAccountAdmin>
         : TAccountAdmin,
       TAccountConfig extends string
@@ -76,6 +78,10 @@ export type GrantRoleInstruction<
       TAccountUser extends string
         ? ReadonlyAccount<TAccountUser>
         : TAccountUser,
+      TAccountPayer extends string
+        ? WritableSignerAccount<TAccountPayer> &
+            AccountSignerMeta<TAccountPayer>
+        : TAccountPayer,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -128,6 +134,7 @@ export type GrantRoleAsyncInput<
   TAccountConfig extends string = string,
   TAccountUserPermissions extends string = string,
   TAccountUser extends string = string,
+  TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
@@ -136,6 +143,7 @@ export type GrantRoleAsyncInput<
   config?: Address<TAccountConfig>;
   userPermissions?: Address<TAccountUserPermissions>;
   user: Address<TAccountUser>;
+  payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
   eventAuthority: Address<TAccountEventAuthority>;
   program: Address<TAccountProgram>;
@@ -147,6 +155,7 @@ export async function getGrantRoleInstructionAsync<
   TAccountConfig extends string,
   TAccountUserPermissions extends string,
   TAccountUser extends string,
+  TAccountPayer extends string,
   TAccountSystemProgram extends string,
   TAccountEventAuthority extends string,
   TAccountProgram extends string,
@@ -157,6 +166,7 @@ export async function getGrantRoleInstructionAsync<
     TAccountConfig,
     TAccountUserPermissions,
     TAccountUser,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -169,6 +179,7 @@ export async function getGrantRoleInstructionAsync<
     TAccountConfig,
     TAccountUserPermissions,
     TAccountUser,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -180,10 +191,11 @@ export async function getGrantRoleInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    admin: { value: input.admin ?? null, isWritable: true },
+    admin: { value: input.admin ?? null, isWritable: false },
     config: { value: input.config ?? null, isWritable: false },
     userPermissions: { value: input.userPermissions ?? null, isWritable: true },
     user: { value: input.user ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
@@ -218,6 +230,7 @@ export async function getGrantRoleInstructionAsync<
       getAccountMeta(accounts.config),
       getAccountMeta(accounts.userPermissions),
       getAccountMeta(accounts.user),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.eventAuthority),
       getAccountMeta(accounts.program),
@@ -232,6 +245,7 @@ export async function getGrantRoleInstructionAsync<
     TAccountConfig,
     TAccountUserPermissions,
     TAccountUser,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -243,6 +257,7 @@ export type GrantRoleInput<
   TAccountConfig extends string = string,
   TAccountUserPermissions extends string = string,
   TAccountUser extends string = string,
+  TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
@@ -251,6 +266,7 @@ export type GrantRoleInput<
   config: Address<TAccountConfig>;
   userPermissions: Address<TAccountUserPermissions>;
   user: Address<TAccountUser>;
+  payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
   eventAuthority: Address<TAccountEventAuthority>;
   program: Address<TAccountProgram>;
@@ -262,6 +278,7 @@ export function getGrantRoleInstruction<
   TAccountConfig extends string,
   TAccountUserPermissions extends string,
   TAccountUser extends string,
+  TAccountPayer extends string,
   TAccountSystemProgram extends string,
   TAccountEventAuthority extends string,
   TAccountProgram extends string,
@@ -272,6 +289,7 @@ export function getGrantRoleInstruction<
     TAccountConfig,
     TAccountUserPermissions,
     TAccountUser,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -283,6 +301,7 @@ export function getGrantRoleInstruction<
   TAccountConfig,
   TAccountUserPermissions,
   TAccountUser,
+  TAccountPayer,
   TAccountSystemProgram,
   TAccountEventAuthority,
   TAccountProgram
@@ -293,10 +312,11 @@ export function getGrantRoleInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    admin: { value: input.admin ?? null, isWritable: true },
+    admin: { value: input.admin ?? null, isWritable: false },
     config: { value: input.config ?? null, isWritable: false },
     userPermissions: { value: input.userPermissions ?? null, isWritable: true },
     user: { value: input.user ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
@@ -322,6 +342,7 @@ export function getGrantRoleInstruction<
       getAccountMeta(accounts.config),
       getAccountMeta(accounts.userPermissions),
       getAccountMeta(accounts.user),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.eventAuthority),
       getAccountMeta(accounts.program),
@@ -336,6 +357,7 @@ export function getGrantRoleInstruction<
     TAccountConfig,
     TAccountUserPermissions,
     TAccountUser,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -352,9 +374,10 @@ export type ParsedGrantRoleInstruction<
     config: TAccountMetas[1];
     userPermissions: TAccountMetas[2];
     user: TAccountMetas[3];
-    systemProgram: TAccountMetas[4];
-    eventAuthority: TAccountMetas[5];
-    program: TAccountMetas[6];
+    payer: TAccountMetas[4];
+    systemProgram: TAccountMetas[5];
+    eventAuthority: TAccountMetas[6];
+    program: TAccountMetas[7];
   };
   data: GrantRoleInstructionData;
 };
@@ -367,7 +390,7 @@ export function parseGrantRoleInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedGrantRoleInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 7) {
+  if (instruction.accounts.length < 8) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -384,6 +407,7 @@ export function parseGrantRoleInstruction<
       config: getNextAccount(),
       userPermissions: getNextAccount(),
       user: getNextAccount(),
+      payer: getNextAccount(),
       systemProgram: getNextAccount(),
       eventAuthority: getNextAccount(),
       program: getNextAccount(),

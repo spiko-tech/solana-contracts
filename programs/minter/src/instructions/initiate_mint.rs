@@ -10,7 +10,6 @@ use crate::utils::verify_operation_id;
 #[instruction(operation_id: [u8; 32])]
 #[event_cpi]
 pub struct InitiateMint<'info> {
-    #[account(mut)]
     pub minter: Signer<'info>,
 
     #[account(
@@ -28,7 +27,7 @@ pub struct InitiateMint<'info> {
 
     #[account(
         init,
-        payer = minter,
+        payer = payer,
         space = 8 + MintOperation::INIT_SPACE,
         seeds = [MINT_OPERATION_SEED, operation_id.as_ref()],
         bump,
@@ -78,6 +77,8 @@ pub struct InitiateMint<'info> {
     /// CHECK: spiko-token MintAuthority PDA, validated by spiko-token program
     pub mint_authority: UncheckedAccount<'info>,
 
+    #[account(mut)]
+    pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 

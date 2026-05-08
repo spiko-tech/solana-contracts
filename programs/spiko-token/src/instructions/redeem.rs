@@ -8,8 +8,10 @@ use crate::utils::{compute_operation_id, invoke_transfer_checked_with_remaining}
 
 #[derive(Accounts)]
 pub struct Redeem<'info> {
-    #[account(mut)]
     pub redeemer: Signer<'info>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
 
     #[account(
         seeds = [TOKEN_CONFIG_SEED, token_config.mint.as_ref()],
@@ -117,7 +119,7 @@ pub(crate) fn handler<'info>(
         vault_authority: ctx.accounts.redemption_vault_authority.to_account_info(),
         redemption_config: ctx.accounts.redemption_config.to_account_info(),
         redemption_operation: ctx.accounts.redemption_operation.to_account_info(),
-        payer: ctx.accounts.redeemer.to_account_info(),
+        payer: ctx.accounts.payer.to_account_info(),
         system_program: ctx.accounts.system_program.to_account_info(),
         event_authority: ctx.accounts.redemption_event_authority.to_account_info(),
         program: ctx.accounts.redemption_program.to_account_info(),

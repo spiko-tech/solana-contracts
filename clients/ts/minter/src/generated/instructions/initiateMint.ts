@@ -30,6 +30,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
+  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
@@ -77,6 +78,7 @@ export type InitiateMintInstruction<
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
   TAccountTokenConfig extends string | AccountMeta<string> = string,
   TAccountMintAuthority extends string | AccountMeta<string> = string,
+  TAccountPayer extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TAccountEventAuthority extends string | AccountMeta<string> = string,
@@ -87,7 +89,7 @@ export type InitiateMintInstruction<
   InstructionWithAccounts<
     [
       TAccountMinter extends string
-        ? WritableSignerAccount<TAccountMinter> &
+        ? ReadonlySignerAccount<TAccountMinter> &
             AccountSignerMeta<TAccountMinter>
         : TAccountMinter,
       TAccountMinterConfig extends string
@@ -129,6 +131,10 @@ export type InitiateMintInstruction<
       TAccountMintAuthority extends string
         ? ReadonlyAccount<TAccountMintAuthority>
         : TAccountMintAuthority,
+      TAccountPayer extends string
+        ? WritableSignerAccount<TAccountPayer> &
+            AccountSignerMeta<TAccountPayer>
+        : TAccountPayer,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -205,6 +211,7 @@ export type InitiateMintAsyncInput<
   TAccountTokenProgram extends string = string,
   TAccountTokenConfig extends string = string,
   TAccountMintAuthority extends string = string,
+  TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
@@ -224,6 +231,7 @@ export type InitiateMintAsyncInput<
   tokenProgram?: Address<TAccountTokenProgram>;
   tokenConfig: Address<TAccountTokenConfig>;
   mintAuthority: Address<TAccountMintAuthority>;
+  payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
   eventAuthority: Address<TAccountEventAuthority>;
   program: Address<TAccountProgram>;
@@ -248,6 +256,7 @@ export async function getInitiateMintInstructionAsync<
   TAccountTokenProgram extends string,
   TAccountTokenConfig extends string,
   TAccountMintAuthority extends string,
+  TAccountPayer extends string,
   TAccountSystemProgram extends string,
   TAccountEventAuthority extends string,
   TAccountProgram extends string,
@@ -268,6 +277,7 @@ export async function getInitiateMintInstructionAsync<
     TAccountTokenProgram,
     TAccountTokenConfig,
     TAccountMintAuthority,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -290,6 +300,7 @@ export async function getInitiateMintInstructionAsync<
     TAccountTokenProgram,
     TAccountTokenConfig,
     TAccountMintAuthority,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -300,7 +311,7 @@ export async function getInitiateMintInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    minter: { value: input.minter ?? null, isWritable: true },
+    minter: { value: input.minter ?? null, isWritable: false },
     minterConfig: { value: input.minterConfig ?? null, isWritable: false },
     mintDailyLimit: { value: input.mintDailyLimit ?? null, isWritable: true },
     mintOperation: { value: input.mintOperation ?? null, isWritable: true },
@@ -329,6 +340,7 @@ export async function getInitiateMintInstructionAsync<
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
     mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
@@ -412,6 +424,7 @@ export async function getInitiateMintInstructionAsync<
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.tokenConfig),
       getAccountMeta(accounts.mintAuthority),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.eventAuthority),
       getAccountMeta(accounts.program),
@@ -436,6 +449,7 @@ export async function getInitiateMintInstructionAsync<
     TAccountTokenProgram,
     TAccountTokenConfig,
     TAccountMintAuthority,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -457,6 +471,7 @@ export type InitiateMintInput<
   TAccountTokenProgram extends string = string,
   TAccountTokenConfig extends string = string,
   TAccountMintAuthority extends string = string,
+  TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
@@ -476,6 +491,7 @@ export type InitiateMintInput<
   tokenProgram?: Address<TAccountTokenProgram>;
   tokenConfig: Address<TAccountTokenConfig>;
   mintAuthority: Address<TAccountMintAuthority>;
+  payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
   eventAuthority: Address<TAccountEventAuthority>;
   program: Address<TAccountProgram>;
@@ -500,6 +516,7 @@ export function getInitiateMintInstruction<
   TAccountTokenProgram extends string,
   TAccountTokenConfig extends string,
   TAccountMintAuthority extends string,
+  TAccountPayer extends string,
   TAccountSystemProgram extends string,
   TAccountEventAuthority extends string,
   TAccountProgram extends string,
@@ -520,6 +537,7 @@ export function getInitiateMintInstruction<
     TAccountTokenProgram,
     TAccountTokenConfig,
     TAccountMintAuthority,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -541,6 +559,7 @@ export function getInitiateMintInstruction<
   TAccountTokenProgram,
   TAccountTokenConfig,
   TAccountMintAuthority,
+  TAccountPayer,
   TAccountSystemProgram,
   TAccountEventAuthority,
   TAccountProgram
@@ -550,7 +569,7 @@ export function getInitiateMintInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    minter: { value: input.minter ?? null, isWritable: true },
+    minter: { value: input.minter ?? null, isWritable: false },
     minterConfig: { value: input.minterConfig ?? null, isWritable: false },
     mintDailyLimit: { value: input.mintDailyLimit ?? null, isWritable: true },
     mintOperation: { value: input.mintOperation ?? null, isWritable: true },
@@ -579,6 +598,7 @@ export function getInitiateMintInstruction<
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
     tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
     mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
@@ -622,6 +642,7 @@ export function getInitiateMintInstruction<
       getAccountMeta(accounts.tokenProgram),
       getAccountMeta(accounts.tokenConfig),
       getAccountMeta(accounts.mintAuthority),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.eventAuthority),
       getAccountMeta(accounts.program),
@@ -646,6 +667,7 @@ export function getInitiateMintInstruction<
     TAccountTokenProgram,
     TAccountTokenConfig,
     TAccountMintAuthority,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -673,9 +695,10 @@ export type ParsedInitiateMintInstruction<
     tokenProgram: TAccountMetas[11];
     tokenConfig: TAccountMetas[12];
     mintAuthority: TAccountMetas[13];
-    systemProgram: TAccountMetas[14];
-    eventAuthority: TAccountMetas[15];
-    program: TAccountMetas[16];
+    payer: TAccountMetas[14];
+    systemProgram: TAccountMetas[15];
+    eventAuthority: TAccountMetas[16];
+    program: TAccountMetas[17];
   };
   data: InitiateMintInstructionData;
 };
@@ -688,7 +711,7 @@ export function parseInitiateMintInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitiateMintInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 17) {
+  if (instruction.accounts.length < 18) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -715,6 +738,7 @@ export function parseInitiateMintInstruction<
       tokenProgram: getNextAccount(),
       tokenConfig: getNextAccount(),
       mintAuthority: getNextAccount(),
+      payer: getNextAccount(),
       systemProgram: getNextAccount(),
       eventAuthority: getNextAccount(),
       program: getNextAccount(),

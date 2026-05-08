@@ -29,6 +29,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
+  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
@@ -53,6 +54,7 @@ export function getRedeemDiscriminatorBytes() {
 export type RedeemInstruction<
   TProgram extends string = typeof SPIKO_TOKEN_PROGRAM_ADDRESS,
   TAccountRedeemer extends string | AccountMeta<string> = string,
+  TAccountPayer extends string | AccountMeta<string> = string,
   TAccountTokenConfig extends string | AccountMeta<string> = string,
   TAccountMint extends string | AccountMeta<string> = string,
   TAccountSource extends string | AccountMeta<string> = string,
@@ -78,9 +80,13 @@ export type RedeemInstruction<
   InstructionWithAccounts<
     [
       TAccountRedeemer extends string
-        ? WritableSignerAccount<TAccountRedeemer> &
+        ? ReadonlySignerAccount<TAccountRedeemer> &
             AccountSignerMeta<TAccountRedeemer>
         : TAccountRedeemer,
+      TAccountPayer extends string
+        ? WritableSignerAccount<TAccountPayer> &
+            AccountSignerMeta<TAccountPayer>
+        : TAccountPayer,
       TAccountTokenConfig extends string
         ? ReadonlyAccount<TAccountTokenConfig>
         : TAccountTokenConfig,
@@ -169,6 +175,7 @@ export function getRedeemInstructionDataCodec(): FixedSizeCodec<
 
 export type RedeemAsyncInput<
   TAccountRedeemer extends string = string,
+  TAccountPayer extends string = string,
   TAccountTokenConfig extends string = string,
   TAccountMint extends string = string,
   TAccountSource extends string = string,
@@ -185,6 +192,7 @@ export type RedeemAsyncInput<
   TAccountSystemProgram extends string = string,
 > = {
   redeemer: TransactionSigner<TAccountRedeemer>;
+  payer: TransactionSigner<TAccountPayer>;
   tokenConfig: Address<TAccountTokenConfig>;
   mint: Address<TAccountMint>;
   source: Address<TAccountSource>;
@@ -205,6 +213,7 @@ export type RedeemAsyncInput<
 
 export async function getRedeemInstructionAsync<
   TAccountRedeemer extends string,
+  TAccountPayer extends string,
   TAccountTokenConfig extends string,
   TAccountMint extends string,
   TAccountSource extends string,
@@ -223,6 +232,7 @@ export async function getRedeemInstructionAsync<
 >(
   input: RedeemAsyncInput<
     TAccountRedeemer,
+    TAccountPayer,
     TAccountTokenConfig,
     TAccountMint,
     TAccountSource,
@@ -243,6 +253,7 @@ export async function getRedeemInstructionAsync<
   RedeemInstruction<
     TProgramAddress,
     TAccountRedeemer,
+    TAccountPayer,
     TAccountTokenConfig,
     TAccountMint,
     TAccountSource,
@@ -264,7 +275,8 @@ export async function getRedeemInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    redeemer: { value: input.redeemer ?? null, isWritable: true },
+    redeemer: { value: input.redeemer ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
     tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
     mint: { value: input.mint ?? null, isWritable: true },
     source: { value: input.source ?? null, isWritable: true },
@@ -359,6 +371,7 @@ export async function getRedeemInstructionAsync<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.redeemer),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.tokenConfig),
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.source),
@@ -381,6 +394,7 @@ export async function getRedeemInstructionAsync<
   } as RedeemInstruction<
     TProgramAddress,
     TAccountRedeemer,
+    TAccountPayer,
     TAccountTokenConfig,
     TAccountMint,
     TAccountSource,
@@ -400,6 +414,7 @@ export async function getRedeemInstructionAsync<
 
 export type RedeemInput<
   TAccountRedeemer extends string = string,
+  TAccountPayer extends string = string,
   TAccountTokenConfig extends string = string,
   TAccountMint extends string = string,
   TAccountSource extends string = string,
@@ -416,6 +431,7 @@ export type RedeemInput<
   TAccountSystemProgram extends string = string,
 > = {
   redeemer: TransactionSigner<TAccountRedeemer>;
+  payer: TransactionSigner<TAccountPayer>;
   tokenConfig: Address<TAccountTokenConfig>;
   mint: Address<TAccountMint>;
   source: Address<TAccountSource>;
@@ -436,6 +452,7 @@ export type RedeemInput<
 
 export function getRedeemInstruction<
   TAccountRedeemer extends string,
+  TAccountPayer extends string,
   TAccountTokenConfig extends string,
   TAccountMint extends string,
   TAccountSource extends string,
@@ -454,6 +471,7 @@ export function getRedeemInstruction<
 >(
   input: RedeemInput<
     TAccountRedeemer,
+    TAccountPayer,
     TAccountTokenConfig,
     TAccountMint,
     TAccountSource,
@@ -473,6 +491,7 @@ export function getRedeemInstruction<
 ): RedeemInstruction<
   TProgramAddress,
   TAccountRedeemer,
+  TAccountPayer,
   TAccountTokenConfig,
   TAccountMint,
   TAccountSource,
@@ -493,7 +512,8 @@ export function getRedeemInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    redeemer: { value: input.redeemer ?? null, isWritable: true },
+    redeemer: { value: input.redeemer ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
     tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
     mint: { value: input.mint ?? null, isWritable: true },
     source: { value: input.source ?? null, isWritable: true },
@@ -556,6 +576,7 @@ export function getRedeemInstruction<
   return Object.freeze({
     accounts: [
       getAccountMeta(accounts.redeemer),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.tokenConfig),
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.source),
@@ -578,6 +599,7 @@ export function getRedeemInstruction<
   } as RedeemInstruction<
     TProgramAddress,
     TAccountRedeemer,
+    TAccountPayer,
     TAccountTokenConfig,
     TAccountMint,
     TAccountSource,
@@ -602,20 +624,21 @@ export type ParsedRedeemInstruction<
   programAddress: Address<TProgram>;
   accounts: {
     redeemer: TAccountMetas[0];
-    tokenConfig: TAccountMetas[1];
-    mint: TAccountMetas[2];
-    source: TAccountMetas[3];
-    vault: TAccountMetas[4];
-    redeemerPermissions: TAccountMetas[5];
-    permissionManagerConfig: TAccountMetas[6];
-    mintAuthority: TAccountMetas[7];
-    tokenProgram: TAccountMetas[8];
-    redemptionProgram: TAccountMetas[9];
-    redemptionVaultAuthority: TAccountMetas[10];
-    redemptionConfig: TAccountMetas[11];
-    redemptionOperation: TAccountMetas[12];
-    redemptionEventAuthority: TAccountMetas[13];
-    systemProgram: TAccountMetas[14];
+    payer: TAccountMetas[1];
+    tokenConfig: TAccountMetas[2];
+    mint: TAccountMetas[3];
+    source: TAccountMetas[4];
+    vault: TAccountMetas[5];
+    redeemerPermissions: TAccountMetas[6];
+    permissionManagerConfig: TAccountMetas[7];
+    mintAuthority: TAccountMetas[8];
+    tokenProgram: TAccountMetas[9];
+    redemptionProgram: TAccountMetas[10];
+    redemptionVaultAuthority: TAccountMetas[11];
+    redemptionConfig: TAccountMetas[12];
+    redemptionOperation: TAccountMetas[13];
+    redemptionEventAuthority: TAccountMetas[14];
+    systemProgram: TAccountMetas[15];
   };
   data: RedeemInstructionData;
 };
@@ -628,7 +651,7 @@ export function parseRedeemInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedRedeemInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 15) {
+  if (instruction.accounts.length < 16) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -642,6 +665,7 @@ export function parseRedeemInstruction<
     programAddress: instruction.programAddress,
     accounts: {
       redeemer: getNextAccount(),
+      payer: getNextAccount(),
       tokenConfig: getNextAccount(),
       mint: getNextAccount(),
       source: getNextAccount(),

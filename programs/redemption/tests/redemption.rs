@@ -180,6 +180,7 @@ fn grant_role(svm: &mut LiteSVM, admin: &Keypair, pm_config: Pubkey, user: &Pubk
             config: pm_config,
             user_permissions: user_perms_pda,
             user: *user,
+            payer: admin.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],
