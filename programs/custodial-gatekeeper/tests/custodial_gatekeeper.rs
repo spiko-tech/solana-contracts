@@ -250,6 +250,7 @@ fn grant_role(svm: &mut LiteSVM, admin: &Keypair, pm_config: Pubkey, user: &Pubk
             config: pm_config,
             user_permissions: user_perms_pda,
             user: *user,
+            payer: admin.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],
@@ -397,6 +398,7 @@ fn test_set_daily_limit() {
             withdrawal_daily_limit: daily_limit_pda,
             mint: mint_kp.pubkey(),
             permission_manager_config: pm_config,
+            payer: admin.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],
@@ -439,6 +441,7 @@ fn test_custodial_withdraw_within_limit() {
             withdrawal_daily_limit: daily_limit_pda,
             mint: mint_kp.pubkey(),
             permission_manager_config: pm_config,
+            payer: admin.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],
@@ -528,6 +531,7 @@ fn test_custodial_withdraw_within_limit() {
             transfer_hook_program: transfer_hook_program_id(),
             transfer_hook_event_authority: find_transfer_hook_event_authority(),
             token_program: TOKEN_2022_PROGRAM_ID,
+            payer: sender.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],
@@ -576,6 +580,7 @@ fn test_custodial_withdraw_over_limit_blocked() {
             withdrawal_daily_limit: daily_limit_pda,
             mint: mint_kp.pubkey(),
             permission_manager_config: pm_config,
+            payer: admin.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],
@@ -668,6 +673,7 @@ fn test_custodial_withdraw_over_limit_blocked() {
             transfer_hook_program: transfer_hook_program_id(),
             transfer_hook_event_authority: find_transfer_hook_event_authority(),
             token_program: TOKEN_2022_PROGRAM_ID,
+            payer: sender.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],
@@ -717,6 +723,7 @@ fn test_approve_withdrawal() {
             withdrawal_daily_limit: daily_limit_pda,
             mint: mint_kp.pubkey(),
             permission_manager_config: pm_config,
+            payer: admin.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],
@@ -803,6 +810,7 @@ fn test_approve_withdrawal() {
             transfer_hook_program: transfer_hook_program_id(),
             transfer_hook_event_authority: find_transfer_hook_event_authority(),
             token_program: TOKEN_2022_PROGRAM_ID,
+            payer: sender.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],
@@ -907,6 +915,7 @@ fn test_custodial_withdraw_unauthorized_sender() {
             withdrawal_daily_limit: daily_limit_pda,
             mint: mint_kp.pubkey(),
             permission_manager_config: pm_config,
+            payer: admin.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],
@@ -992,6 +1001,7 @@ fn test_custodial_withdraw_unauthorized_sender() {
             transfer_hook_program: transfer_hook_program_id(),
             transfer_hook_event_authority: find_transfer_hook_event_authority(),
             token_program: TOKEN_2022_PROGRAM_ID,
+            payer: sender.pubkey(),
             system_program: system_program::ID,
             event_authority: Pubkey::find_program_address(
                 &[b"__event_authority"],

@@ -104,6 +104,7 @@ fn test_grant_role() {
         config,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: admin.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -147,6 +148,7 @@ fn test_grant_role_accumulates() {
         config,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: admin.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -178,6 +180,7 @@ fn test_grant_role_accumulates() {
         config,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: admin.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -224,6 +227,7 @@ fn test_grant_role_unauthorized() {
         config,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: non_admin.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -266,6 +270,7 @@ fn test_revoke_role() {
         config,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: admin.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -474,6 +479,7 @@ fn admin_grant_role(svm: &mut LiteSVM, admin: &Keypair, config: Pubkey, user: &P
         config,
         user_permissions: user_perms_pda,
         user: *user,
+        payer: admin.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -524,6 +530,7 @@ fn test_whitelister_grants_whitelisted() {
         caller_permissions: caller_perms_pda,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: whitelister.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -583,6 +590,7 @@ fn test_whitelister_grants_whitelisted_ext() {
         caller_permissions: caller_perms_pda,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: whitelister.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -642,6 +650,7 @@ fn test_whitelister_cannot_grant_non_whitelist_role() {
         caller_permissions: caller_perms_pda,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: whitelister.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -705,6 +714,7 @@ fn test_whitelister_mutual_exclusion_whitelisted_blocks_whitelisted_ext() {
         caller_permissions: caller_perms_pda,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: whitelister.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -759,6 +769,7 @@ fn test_whitelister_mutual_exclusion_whitelisted_ext_blocks_whitelisted() {
         caller_permissions: caller_perms_pda,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: whitelister.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -791,6 +802,7 @@ fn test_whitelister_mutual_exclusion_whitelisted_ext_blocks_whitelisted() {
         caller_permissions: caller_perms_pda,
         user_permissions: user_perms_pda,
         user: user.pubkey(),
+        payer: whitelister.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],
@@ -877,6 +889,7 @@ fn test_non_whitelister_cannot_use_grant_role_whitelister() {
         caller_permissions: caller_perms_pda,
         user_permissions: target_perms_pda,
         user: target.pubkey(),
+        payer: random_user.pubkey(),
         system_program: system_program::ID,
         event_authority: Pubkey::find_program_address(
             &[b"__event_authority"],

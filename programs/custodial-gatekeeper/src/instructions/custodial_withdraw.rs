@@ -11,7 +11,6 @@ use crate::utils::{invoke_transfer_checked_with_hook, verify_operation_id};
 #[instruction(operation_id: [u8; 32], recipient: Pubkey, amount: u64, salt: u64)]
 #[event_cpi]
 pub struct CustodialWithdraw<'info> {
-    #[account(mut)]
     pub sender: Signer<'info>,
 
     #[account(
@@ -29,7 +28,7 @@ pub struct CustodialWithdraw<'info> {
 
     #[account(
         init,
-        payer = sender,
+        payer = payer,
         space = 8 + WithdrawalOperation::INIT_SPACE,
         seeds = [WITHDRAWAL_OPERATION_SEED, operation_id.as_ref()],
         bump,
@@ -119,6 +118,8 @@ pub struct CustodialWithdraw<'info> {
 
     // --- Standard programs ---
     pub token_program: Interface<'info, TokenInterface>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 

@@ -30,6 +30,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
+  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
@@ -85,6 +86,7 @@ export type CustodialWithdrawInstruction<
     string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+  TAccountPayer extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TAccountEventAuthority extends string | AccountMeta<string> = string,
@@ -95,7 +97,7 @@ export type CustodialWithdrawInstruction<
   InstructionWithAccounts<
     [
       TAccountSender extends string
-        ? WritableSignerAccount<TAccountSender> &
+        ? ReadonlySignerAccount<TAccountSender> &
             AccountSignerMeta<TAccountSender>
         : TAccountSender,
       TAccountGatekeeperConfig extends string
@@ -152,6 +154,10 @@ export type CustodialWithdrawInstruction<
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
+      TAccountPayer extends string
+        ? WritableSignerAccount<TAccountPayer> &
+            AccountSignerMeta<TAccountPayer>
+        : TAccountPayer,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -233,6 +239,7 @@ export type CustodialWithdrawAsyncInput<
   TAccountTransferHookProgram extends string = string,
   TAccountTransferHookEventAuthority extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
@@ -256,6 +263,7 @@ export type CustodialWithdrawAsyncInput<
   transferHookProgram?: Address<TAccountTransferHookProgram>;
   transferHookEventAuthority: Address<TAccountTransferHookEventAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
   eventAuthority: Address<TAccountEventAuthority>;
   program: Address<TAccountProgram>;
@@ -285,6 +293,7 @@ export async function getCustodialWithdrawInstructionAsync<
   TAccountTransferHookProgram extends string,
   TAccountTransferHookEventAuthority extends string,
   TAccountTokenProgram extends string,
+  TAccountPayer extends string,
   TAccountSystemProgram extends string,
   TAccountEventAuthority extends string,
   TAccountProgram extends string,
@@ -310,6 +319,7 @@ export async function getCustodialWithdrawInstructionAsync<
     TAccountTransferHookProgram,
     TAccountTransferHookEventAuthority,
     TAccountTokenProgram,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -337,6 +347,7 @@ export async function getCustodialWithdrawInstructionAsync<
     TAccountTransferHookProgram,
     TAccountTransferHookEventAuthority,
     TAccountTokenProgram,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -348,7 +359,7 @@ export async function getCustodialWithdrawInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    sender: { value: input.sender ?? null, isWritable: true },
+    sender: { value: input.sender ?? null, isWritable: false },
     gatekeeperConfig: {
       value: input.gatekeeperConfig ?? null,
       isWritable: false,
@@ -409,6 +420,7 @@ export async function getCustodialWithdrawInstructionAsync<
       isWritable: false,
     },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
@@ -542,6 +554,7 @@ export async function getCustodialWithdrawInstructionAsync<
       getAccountMeta(accounts.transferHookProgram),
       getAccountMeta(accounts.transferHookEventAuthority),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.eventAuthority),
       getAccountMeta(accounts.program),
@@ -571,6 +584,7 @@ export async function getCustodialWithdrawInstructionAsync<
     TAccountTransferHookProgram,
     TAccountTransferHookEventAuthority,
     TAccountTokenProgram,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -597,6 +611,7 @@ export type CustodialWithdrawInput<
   TAccountTransferHookProgram extends string = string,
   TAccountTransferHookEventAuthority extends string = string,
   TAccountTokenProgram extends string = string,
+  TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
@@ -620,6 +635,7 @@ export type CustodialWithdrawInput<
   transferHookProgram?: Address<TAccountTransferHookProgram>;
   transferHookEventAuthority: Address<TAccountTransferHookEventAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
+  payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
   eventAuthority: Address<TAccountEventAuthority>;
   program: Address<TAccountProgram>;
@@ -649,6 +665,7 @@ export function getCustodialWithdrawInstruction<
   TAccountTransferHookProgram extends string,
   TAccountTransferHookEventAuthority extends string,
   TAccountTokenProgram extends string,
+  TAccountPayer extends string,
   TAccountSystemProgram extends string,
   TAccountEventAuthority extends string,
   TAccountProgram extends string,
@@ -674,6 +691,7 @@ export function getCustodialWithdrawInstruction<
     TAccountTransferHookProgram,
     TAccountTransferHookEventAuthority,
     TAccountTokenProgram,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -700,6 +718,7 @@ export function getCustodialWithdrawInstruction<
   TAccountTransferHookProgram,
   TAccountTransferHookEventAuthority,
   TAccountTokenProgram,
+  TAccountPayer,
   TAccountSystemProgram,
   TAccountEventAuthority,
   TAccountProgram
@@ -710,7 +729,7 @@ export function getCustodialWithdrawInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    sender: { value: input.sender ?? null, isWritable: true },
+    sender: { value: input.sender ?? null, isWritable: false },
     gatekeeperConfig: {
       value: input.gatekeeperConfig ?? null,
       isWritable: false,
@@ -771,6 +790,7 @@ export function getCustodialWithdrawInstruction<
       isWritable: false,
     },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
@@ -823,6 +843,7 @@ export function getCustodialWithdrawInstruction<
       getAccountMeta(accounts.transferHookProgram),
       getAccountMeta(accounts.transferHookEventAuthority),
       getAccountMeta(accounts.tokenProgram),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.eventAuthority),
       getAccountMeta(accounts.program),
@@ -852,6 +873,7 @@ export function getCustodialWithdrawInstruction<
     TAccountTransferHookProgram,
     TAccountTransferHookEventAuthority,
     TAccountTokenProgram,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -883,9 +905,10 @@ export type ParsedCustodialWithdrawInstruction<
     transferHookProgram: TAccountMetas[16];
     transferHookEventAuthority: TAccountMetas[17];
     tokenProgram: TAccountMetas[18];
-    systemProgram: TAccountMetas[19];
-    eventAuthority: TAccountMetas[20];
-    program: TAccountMetas[21];
+    payer: TAccountMetas[19];
+    systemProgram: TAccountMetas[20];
+    eventAuthority: TAccountMetas[21];
+    program: TAccountMetas[22];
   };
   data: CustodialWithdrawInstructionData;
 };
@@ -898,7 +921,7 @@ export function parseCustodialWithdrawInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedCustodialWithdrawInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 22) {
+  if (instruction.accounts.length < 23) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -930,6 +953,7 @@ export function parseCustodialWithdrawInstruction<
       transferHookProgram: getNextAccount(),
       transferHookEventAuthority: getNextAccount(),
       tokenProgram: getNextAccount(),
+      payer: getNextAccount(),
       systemProgram: getNextAccount(),
       eventAuthority: getNextAccount(),
       program: getNextAccount(),

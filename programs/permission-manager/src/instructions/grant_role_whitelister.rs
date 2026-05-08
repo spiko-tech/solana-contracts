@@ -10,7 +10,6 @@ use crate::state::{PermissionConfig, UserPermissions};
 #[derive(Accounts)]
 #[event_cpi]
 pub struct GrantRoleWhitelister<'info> {
-    #[account(mut)]
     pub caller: Signer<'info>,
 
     #[account(
@@ -28,7 +27,7 @@ pub struct GrantRoleWhitelister<'info> {
 
     #[account(
         init_if_needed,
-        payer = caller,
+        payer = payer,
         space = 8 + UserPermissions::INIT_SPACE,
         seeds = [USER_PERMISSION_SEED, user.key().as_ref(), config.key().as_ref()],
         bump,
@@ -38,6 +37,8 @@ pub struct GrantRoleWhitelister<'info> {
     /// CHECK: Target user whose permissions are being modified
     pub user: UncheckedAccount<'info>,
 
+    #[account(mut)]
+    pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 

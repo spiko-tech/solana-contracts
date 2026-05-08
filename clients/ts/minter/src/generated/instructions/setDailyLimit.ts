@@ -28,6 +28,7 @@ import {
   type InstructionWithAccounts,
   type InstructionWithData,
   type ReadonlyAccount,
+  type ReadonlySignerAccount,
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
@@ -58,6 +59,7 @@ export type SetDailyLimitInstruction<
   TAccountMintDailyLimit extends string | AccountMeta<string> = string,
   TAccountMint extends string | AccountMeta<string> = string,
   TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
+  TAccountPayer extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
   TAccountEventAuthority extends string | AccountMeta<string> = string,
@@ -68,7 +70,7 @@ export type SetDailyLimitInstruction<
   InstructionWithAccounts<
     [
       TAccountAdmin extends string
-        ? WritableSignerAccount<TAccountAdmin> &
+        ? ReadonlySignerAccount<TAccountAdmin> &
             AccountSignerMeta<TAccountAdmin>
         : TAccountAdmin,
       TAccountMinterConfig extends string
@@ -83,6 +85,10 @@ export type SetDailyLimitInstruction<
       TAccountPermissionManagerConfig extends string
         ? ReadonlyAccount<TAccountPermissionManagerConfig>
         : TAccountPermissionManagerConfig,
+      TAccountPayer extends string
+        ? WritableSignerAccount<TAccountPayer> &
+            AccountSignerMeta<TAccountPayer>
+        : TAccountPayer,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
@@ -136,6 +142,7 @@ export type SetDailyLimitAsyncInput<
   TAccountMintDailyLimit extends string = string,
   TAccountMint extends string = string,
   TAccountPermissionManagerConfig extends string = string,
+  TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
@@ -145,6 +152,7 @@ export type SetDailyLimitAsyncInput<
   mintDailyLimit?: Address<TAccountMintDailyLimit>;
   mint: Address<TAccountMint>;
   permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
+  payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
   eventAuthority: Address<TAccountEventAuthority>;
   program: Address<TAccountProgram>;
@@ -157,6 +165,7 @@ export async function getSetDailyLimitInstructionAsync<
   TAccountMintDailyLimit extends string,
   TAccountMint extends string,
   TAccountPermissionManagerConfig extends string,
+  TAccountPayer extends string,
   TAccountSystemProgram extends string,
   TAccountEventAuthority extends string,
   TAccountProgram extends string,
@@ -168,6 +177,7 @@ export async function getSetDailyLimitInstructionAsync<
     TAccountMintDailyLimit,
     TAccountMint,
     TAccountPermissionManagerConfig,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -181,6 +191,7 @@ export async function getSetDailyLimitInstructionAsync<
     TAccountMintDailyLimit,
     TAccountMint,
     TAccountPermissionManagerConfig,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -191,7 +202,7 @@ export async function getSetDailyLimitInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    admin: { value: input.admin ?? null, isWritable: true },
+    admin: { value: input.admin ?? null, isWritable: false },
     minterConfig: { value: input.minterConfig ?? null, isWritable: false },
     mintDailyLimit: { value: input.mintDailyLimit ?? null, isWritable: true },
     mint: { value: input.mint ?? null, isWritable: false },
@@ -199,6 +210,7 @@ export async function getSetDailyLimitInstructionAsync<
       value: input.permissionManagerConfig ?? null,
       isWritable: false,
     },
+    payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
@@ -242,6 +254,7 @@ export async function getSetDailyLimitInstructionAsync<
       getAccountMeta(accounts.mintDailyLimit),
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.permissionManagerConfig),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.eventAuthority),
       getAccountMeta(accounts.program),
@@ -257,6 +270,7 @@ export async function getSetDailyLimitInstructionAsync<
     TAccountMintDailyLimit,
     TAccountMint,
     TAccountPermissionManagerConfig,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -269,6 +283,7 @@ export type SetDailyLimitInput<
   TAccountMintDailyLimit extends string = string,
   TAccountMint extends string = string,
   TAccountPermissionManagerConfig extends string = string,
+  TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
   TAccountEventAuthority extends string = string,
   TAccountProgram extends string = string,
@@ -278,6 +293,7 @@ export type SetDailyLimitInput<
   mintDailyLimit: Address<TAccountMintDailyLimit>;
   mint: Address<TAccountMint>;
   permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
+  payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
   eventAuthority: Address<TAccountEventAuthority>;
   program: Address<TAccountProgram>;
@@ -290,6 +306,7 @@ export function getSetDailyLimitInstruction<
   TAccountMintDailyLimit extends string,
   TAccountMint extends string,
   TAccountPermissionManagerConfig extends string,
+  TAccountPayer extends string,
   TAccountSystemProgram extends string,
   TAccountEventAuthority extends string,
   TAccountProgram extends string,
@@ -301,6 +318,7 @@ export function getSetDailyLimitInstruction<
     TAccountMintDailyLimit,
     TAccountMint,
     TAccountPermissionManagerConfig,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -313,6 +331,7 @@ export function getSetDailyLimitInstruction<
   TAccountMintDailyLimit,
   TAccountMint,
   TAccountPermissionManagerConfig,
+  TAccountPayer,
   TAccountSystemProgram,
   TAccountEventAuthority,
   TAccountProgram
@@ -322,7 +341,7 @@ export function getSetDailyLimitInstruction<
 
   // Original accounts.
   const originalAccounts = {
-    admin: { value: input.admin ?? null, isWritable: true },
+    admin: { value: input.admin ?? null, isWritable: false },
     minterConfig: { value: input.minterConfig ?? null, isWritable: false },
     mintDailyLimit: { value: input.mintDailyLimit ?? null, isWritable: true },
     mint: { value: input.mint ?? null, isWritable: false },
@@ -330,6 +349,7 @@ export function getSetDailyLimitInstruction<
       value: input.permissionManagerConfig ?? null,
       isWritable: false,
     },
+    payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
     eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
     program: { value: input.program ?? null, isWritable: false },
@@ -356,6 +376,7 @@ export function getSetDailyLimitInstruction<
       getAccountMeta(accounts.mintDailyLimit),
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.permissionManagerConfig),
+      getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
       getAccountMeta(accounts.eventAuthority),
       getAccountMeta(accounts.program),
@@ -371,6 +392,7 @@ export function getSetDailyLimitInstruction<
     TAccountMintDailyLimit,
     TAccountMint,
     TAccountPermissionManagerConfig,
+    TAccountPayer,
     TAccountSystemProgram,
     TAccountEventAuthority,
     TAccountProgram
@@ -388,9 +410,10 @@ export type ParsedSetDailyLimitInstruction<
     mintDailyLimit: TAccountMetas[2];
     mint: TAccountMetas[3];
     permissionManagerConfig: TAccountMetas[4];
-    systemProgram: TAccountMetas[5];
-    eventAuthority: TAccountMetas[6];
-    program: TAccountMetas[7];
+    payer: TAccountMetas[5];
+    systemProgram: TAccountMetas[6];
+    eventAuthority: TAccountMetas[7];
+    program: TAccountMetas[8];
   };
   data: SetDailyLimitInstructionData;
 };
@@ -403,7 +426,7 @@ export function parseSetDailyLimitInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedSetDailyLimitInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 8) {
+  if (instruction.accounts.length < 9) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -421,6 +444,7 @@ export function parseSetDailyLimitInstruction<
       mintDailyLimit: getNextAccount(),
       mint: getNextAccount(),
       permissionManagerConfig: getNextAccount(),
+      payer: getNextAccount(),
       systemProgram: getNextAccount(),
       eventAuthority: getNextAccount(),
       program: getNextAccount(),

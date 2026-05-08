@@ -30,7 +30,6 @@ import {
   sendAndConfirmTransactionFactory,
   getSignatureFromTransaction,
   generateKeyPairSigner,
-  lamports,
 } from "@solana/kit";
 
 // ── Instruction imports ──────────────────────────────────────
@@ -145,41 +144,6 @@ async function sendAndCapture(
   const sig = getSignatureFromTransaction(signedTx);
   console.log(`  ${label}: ${sig}`);
   return sig;
-}
-
-/**
- * Airdrop SOL to an address. Falls back to a transfer from admin
- * if the devnet faucet is rate-limited.
- */
-async function fundAccount(
-  rpc: Rpc<SolanaRpcApi>,
-  rpcSub: RpcSubscriptions<SolanaRpcSubscriptionsApi>,
-  admin: KeyPairSigner,
-  target: Address,
-  amount: bigint = 50_000_000n, // 0.05 SOL
-): Promise<void> {
-  try {
-    const sig = await rpc.requestAirdrop(target, lamports(amount)).send();
-    await new Promise((r) => setTimeout(r, 2000));
-    console.log(
-      `  Airdropped ${Number(amount) / 1e9} SOL to ${target.slice(0, 8)}...`,
-    );
-  } catch {
-    const { getTransferSolInstruction } =
-      await import("@solana-program/system");
-    const ix = getTransferSolInstruction({
-      source: admin,
-      destination: target,
-      amount: amount,
-    });
-    await sendAndCapture(
-      rpc,
-      rpcSub,
-      admin,
-      [ix],
-      `Fund ${target.slice(0, 8)}...`,
-    );
-  }
 }
 
 /**
@@ -495,6 +459,7 @@ async function main() {
     if (!(await accountExists(rpc, minterConfigPermsAddr))) {
       roleIxs.push(
         await getGrantRoleInstructionAsync({
+          payer: admin,
           admin,
           user: minterConfigAddr,
           role: ROLE_MINTER,
@@ -510,6 +475,7 @@ async function main() {
     if (!(await accountExists(rpc, vaultAuthPermsAddr))) {
       roleIxs.push(
         await getGrantRoleInstructionAsync({
+          payer: admin,
           admin,
           user: redemptionVaultAuthAddr,
           role: ROLE_BURNER,
@@ -519,6 +485,7 @@ async function main() {
       );
       roleIxs.push(
         await getGrantRoleInstructionAsync({
+          payer: admin,
           admin,
           user: redemptionVaultAuthAddr,
           role: ROLE_WHITELISTED,
@@ -546,6 +513,7 @@ async function main() {
   console.log("\n--- S10: SetDailyLimit (Minter) ---\n");
   {
     const ix = await getMtSetDailyLimitInstructionAsync({
+      payer: admin,
       admin,
       mint: mintAddr,
       limit: DAILY_LIMIT,
@@ -585,6 +553,7 @@ async function main() {
   {
     if (!(await accountExists(rpc, cgVaultAuthPermsAddr))) {
       const ix1 = await getGrantRoleInstructionAsync({
+        payer: admin,
         admin,
         user: cgVaultAuthAddr,
         role: ROLE_WHITELISTED_EXT,
@@ -592,6 +561,7 @@ async function main() {
         program: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address,
       });
       const ix2 = await getGrantRoleInstructionAsync({
+        payer: admin,
         admin,
         user: cgVaultAuthAddr,
         role: ROLE_WHITELISTED,
@@ -614,6 +584,7 @@ async function main() {
   console.log("\n--- S13: Set CustodialGatekeeper DailyLimit ---\n");
   {
     const ix = await getCgSetDailyLimitInstructionAsync({
+      payer: admin,
       admin,
       mint: mintAddr,
       limit: DAILY_LIMIT,
@@ -641,16 +612,6 @@ async function main() {
   console.log(`User3 ATA:      ${user3Ata}`);
   console.log(`Vault ATA:      ${vaultAta}`);
   console.log(`CG Vault ATA:   ${cgVaultAta}\n`);
-
-  // -- Fund accounts that need to sign ----------------------------
-  console.log("--- Funding accounts ---\n");
-  await fundAccount(rpc, rpcSub, admin, minter.address);
-  await fundAccount(rpc, rpcSub, admin, executor.address);
-  await fundAccount(rpc, rpcSub, admin, whitelister.address);
-  await fundAccount(rpc, rpcSub, admin, user1.address);
-  await fundAccount(rpc, rpcSub, admin, user2.address);
-  await fundAccount(rpc, rpcSub, admin, user3.address);
-  console.log();
 
   // ===================================================================
   //  TEST FLOW
@@ -694,6 +655,7 @@ async function main() {
     ["RoleGranted"],
     async () => {
       const ix = await getGrantRoleInstructionAsync({
+        payer: admin,
         admin,
         user: minter.address,
         role: ROLE_MINT_INITIATOR,
@@ -715,6 +677,7 @@ async function main() {
     ["RoleGranted"],
     async () => {
       const ix = await getGrantRoleInstructionAsync({
+        payer: admin,
         admin,
         user: executor.address,
         role: ROLE_REDEMPTION_EXECUTOR,
@@ -736,6 +699,7 @@ async function main() {
     ["RoleGranted"],
     async () => {
       const ix = await getGrantRoleInstructionAsync({
+        payer: admin,
         admin,
         user: whitelister.address,
         role: ROLE_WHITELISTER,
@@ -758,6 +722,7 @@ async function main() {
     ["RoleGranted"],
     async () => {
       const ix = await getGrantRoleWhitelisterInstructionAsync({
+        payer: admin,
         caller: whitelister,
         user: user1.address,
         role: ROLE_WHITELISTED,
@@ -767,7 +732,7 @@ async function main() {
       return sendAndCapture(
         rpc,
         rpcSub,
-        whitelister,
+        admin,
         [ix],
         "GrantRoleWhitelister(WHITELISTED -> User1)",
       );
@@ -779,6 +744,7 @@ async function main() {
     ["RoleGranted"],
     async () => {
       const ix = await getGrantRoleWhitelisterInstructionAsync({
+        payer: admin,
         caller: whitelister,
         user: user2.address,
         role: ROLE_WHITELISTED,
@@ -788,7 +754,7 @@ async function main() {
       return sendAndCapture(
         rpc,
         rpcSub,
-        whitelister,
+        admin,
         [ix],
         "GrantRoleWhitelister(WHITELISTED -> User2)",
       );
@@ -800,6 +766,7 @@ async function main() {
     ["RoleGranted"],
     async () => {
       const ix = await getGrantRoleWhitelisterInstructionAsync({
+        payer: admin,
         caller: whitelister,
         user: user3.address,
         role: ROLE_WHITELISTED_EXT,
@@ -809,7 +776,7 @@ async function main() {
       return sendAndCapture(
         rpc,
         rpcSub,
-        whitelister,
+        admin,
         [ix],
         "GrantRoleWhitelister(WHITELISTED_EXT -> User3)",
       );
@@ -847,6 +814,7 @@ async function main() {
 
       instructions.push(
         await getInitiateMintInstructionAsync({
+          payer: admin,
           minter,
           mint: mintAddr,
           destination: user1Ata,
@@ -1058,6 +1026,7 @@ async function main() {
 
       // Build the CG instruction - CG async resolver handles permission PDAs automatically
       const ix = await getCustodialWithdrawInstructionAsync({
+        payer: admin,
         sender: user1,
         mint: mintAddr,
         senderTokenAccount: user1Ata,
@@ -1108,8 +1077,9 @@ async function main() {
       // for the source->vault transfer
       const redeemerPerms = (await findUserPermissionsPda({ user: user2.address, config: permConfigAddr }))[0];
 
-      const ix = await getRedeemInstructionAsync({
+       const ix = await getRedeemInstructionAsync({
         redeemer: user2,
+        payer: admin,
         tokenConfig: tokenConfigAddr,
         mint: mintAddr,
         source: user2Ata,

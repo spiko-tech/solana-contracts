@@ -9,7 +9,6 @@ use crate::state::*;
 #[derive(Accounts)]
 #[event_cpi]
 pub struct SetDailyLimit<'info> {
-    #[account(mut)]
     pub admin: Signer<'info>,
 
     #[account(
@@ -20,7 +19,7 @@ pub struct SetDailyLimit<'info> {
 
     #[account(
         init_if_needed,
-        payer = admin,
+        payer = payer,
         space = 8 + WithdrawalDailyLimit::INIT_SPACE,
         seeds = [WITHDRAWAL_DAILY_LIMIT_SEED, mint.key().as_ref()],
         bump,
@@ -38,6 +37,8 @@ pub struct SetDailyLimit<'info> {
     )]
     pub permission_manager_config: Account<'info, PermissionConfig>,
 
+    #[account(mut)]
+    pub payer: Signer<'info>,
     pub system_program: Program<'info, System>,
 }
 
