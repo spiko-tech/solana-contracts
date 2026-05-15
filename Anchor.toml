@@ -7,12 +7,10 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-custodial_gatekeeper = "9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5"
-minter = "9SwnGKZtV54CRsFd8eocmBNH5WzxCiG7bBb1B3romQSj"
-permission_manager = "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD"
-redemption = "2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D"
-spiko_token = "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN"
-spiko_transfer_hook = "7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU"
+custodial_gatekeeper = "5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6"
+minter = "Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX"
+redemption = "B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr"
+transfer_hook = "Fzyd28cVXwzaqoU9bqU8hLpcYqhQQtSyJVaGCgcGFEjq"
 
 [provider]
 cluster = "localnet"

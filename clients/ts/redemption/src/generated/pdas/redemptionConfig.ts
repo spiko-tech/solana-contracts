@@ -17,7 +17,7 @@ export async function findRedemptionConfigPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D" as Address<"2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D">,
+    programAddress = "B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr" as Address<"B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,

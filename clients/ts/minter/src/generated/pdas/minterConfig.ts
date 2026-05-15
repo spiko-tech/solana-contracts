@@ -17,7 +17,7 @@ export async function findMinterConfigPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "9SwnGKZtV54CRsFd8eocmBNH5WzxCiG7bBb1B3romQSj" as Address<"9SwnGKZtV54CRsFd8eocmBNH5WzxCiG7bBb1B3romQSj">,
+    programAddress = "Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX" as Address<"Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,

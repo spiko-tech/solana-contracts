@@ -10,11 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
-  getAddressDecoder,
-  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -38,7 +35,6 @@ import {
 import { findMinterConfigPda, findMintOperationPda } from "../pdas";
 import { MINTER_PROGRAM_ADDRESS } from "../programs";
 import {
-  expectAddress,
   expectSome,
   getAccountMetaFactory,
   type ResolvedAccount,
@@ -61,19 +57,8 @@ export type ApproveMintInstruction<
   TAccountMintOperation extends string | AccountMeta<string> = string,
   TAccountMint extends string | AccountMeta<string> = string,
   TAccountDestination extends string | AccountMeta<string> = string,
-  TAccountAdminPermissions extends string | AccountMeta<string> = string,
-  TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
-  TAccountSpikoTokenProgram extends string | AccountMeta<string> =
-    "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN",
-  TAccountSpikoTokenEventAuthority extends string | AccountMeta<string> =
-    string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-  TAccountTokenConfig extends string | AccountMeta<string> = string,
-  TAccountMintAuthority extends string | AccountMeta<string> = string,
-  TAccountMinterConfigPermissions extends string | AccountMeta<string> = string,
-  TAccountEventAuthority extends string | AccountMeta<string> = string,
-  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -95,62 +80,24 @@ export type ApproveMintInstruction<
       TAccountDestination extends string
         ? WritableAccount<TAccountDestination>
         : TAccountDestination,
-      TAccountAdminPermissions extends string
-        ? ReadonlyAccount<TAccountAdminPermissions>
-        : TAccountAdminPermissions,
-      TAccountPermissionManagerConfig extends string
-        ? ReadonlyAccount<TAccountPermissionManagerConfig>
-        : TAccountPermissionManagerConfig,
-      TAccountSpikoTokenProgram extends string
-        ? ReadonlyAccount<TAccountSpikoTokenProgram>
-        : TAccountSpikoTokenProgram,
-      TAccountSpikoTokenEventAuthority extends string
-        ? ReadonlyAccount<TAccountSpikoTokenEventAuthority>
-        : TAccountSpikoTokenEventAuthority,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
-      TAccountTokenConfig extends string
-        ? ReadonlyAccount<TAccountTokenConfig>
-        : TAccountTokenConfig,
-      TAccountMintAuthority extends string
-        ? ReadonlyAccount<TAccountMintAuthority>
-        : TAccountMintAuthority,
-      TAccountMinterConfigPermissions extends string
-        ? ReadonlyAccount<TAccountMinterConfigPermissions>
-        : TAccountMinterConfigPermissions,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountProgram extends string
-        ? ReadonlyAccount<TAccountProgram>
-        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
 
 export type ApproveMintInstructionData = {
   discriminator: ReadonlyUint8Array;
-  operationId: ReadonlyUint8Array;
-  recipient: Address;
-  amount: bigint;
   salt: bigint;
 };
 
-export type ApproveMintInstructionDataArgs = {
-  operationId: ReadonlyUint8Array;
-  recipient: Address;
-  amount: number | bigint;
-  salt: number | bigint;
-};
+export type ApproveMintInstructionDataArgs = { salt: number | bigint };
 
 export function getApproveMintInstructionDataEncoder(): FixedSizeEncoder<ApproveMintInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["operationId", fixEncoderSize(getBytesEncoder(), 32)],
-      ["recipient", getAddressEncoder()],
-      ["amount", getU64Encoder()],
       ["salt", getU64Encoder()],
     ]),
     (value) => ({ ...value, discriminator: APPROVE_MINT_DISCRIMINATOR }),
@@ -160,9 +107,6 @@ export function getApproveMintInstructionDataEncoder(): FixedSizeEncoder<Approve
 export function getApproveMintInstructionDataDecoder(): FixedSizeDecoder<ApproveMintInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["operationId", fixDecoderSize(getBytesDecoder(), 32)],
-    ["recipient", getAddressDecoder()],
-    ["amount", getU64Decoder()],
     ["salt", getU64Decoder()],
   ]);
 }
@@ -183,35 +127,14 @@ export type ApproveMintAsyncInput<
   TAccountMintOperation extends string = string,
   TAccountMint extends string = string,
   TAccountDestination extends string = string,
-  TAccountAdminPermissions extends string = string,
-  TAccountPermissionManagerConfig extends string = string,
-  TAccountSpikoTokenProgram extends string = string,
-  TAccountSpikoTokenEventAuthority extends string = string,
   TAccountTokenProgram extends string = string,
-  TAccountTokenConfig extends string = string,
-  TAccountMintAuthority extends string = string,
-  TAccountMinterConfigPermissions extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   minterConfig?: Address<TAccountMinterConfig>;
   mintOperation?: Address<TAccountMintOperation>;
   mint: Address<TAccountMint>;
   destination: Address<TAccountDestination>;
-  adminPermissions?: Address<TAccountAdminPermissions>;
-  permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
-  spikoTokenProgram?: Address<TAccountSpikoTokenProgram>;
-  spikoTokenEventAuthority: Address<TAccountSpikoTokenEventAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
-  tokenConfig: Address<TAccountTokenConfig>;
-  mintAuthority: Address<TAccountMintAuthority>;
-  minterConfigPermissions: Address<TAccountMinterConfigPermissions>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  operationId: ApproveMintInstructionDataArgs["operationId"];
-  recipient: ApproveMintInstructionDataArgs["recipient"];
-  amount: ApproveMintInstructionDataArgs["amount"];
   salt: ApproveMintInstructionDataArgs["salt"];
 };
 
@@ -221,16 +144,7 @@ export async function getApproveMintInstructionAsync<
   TAccountMintOperation extends string,
   TAccountMint extends string,
   TAccountDestination extends string,
-  TAccountAdminPermissions extends string,
-  TAccountPermissionManagerConfig extends string,
-  TAccountSpikoTokenProgram extends string,
-  TAccountSpikoTokenEventAuthority extends string,
   TAccountTokenProgram extends string,
-  TAccountTokenConfig extends string,
-  TAccountMintAuthority extends string,
-  TAccountMinterConfigPermissions extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
   TProgramAddress extends Address = typeof MINTER_PROGRAM_ADDRESS,
 >(
   input: ApproveMintAsyncInput<
@@ -239,16 +153,7 @@ export async function getApproveMintInstructionAsync<
     TAccountMintOperation,
     TAccountMint,
     TAccountDestination,
-    TAccountAdminPermissions,
-    TAccountPermissionManagerConfig,
-    TAccountSpikoTokenProgram,
-    TAccountSpikoTokenEventAuthority,
-    TAccountTokenProgram,
-    TAccountTokenConfig,
-    TAccountMintAuthority,
-    TAccountMinterConfigPermissions,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountTokenProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -259,16 +164,7 @@ export async function getApproveMintInstructionAsync<
     TAccountMintOperation,
     TAccountMint,
     TAccountDestination,
-    TAccountAdminPermissions,
-    TAccountPermissionManagerConfig,
-    TAccountSpikoTokenProgram,
-    TAccountSpikoTokenEventAuthority,
-    TAccountTokenProgram,
-    TAccountTokenConfig,
-    TAccountMintAuthority,
-    TAccountMinterConfigPermissions,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountTokenProgram
   >
 > {
   // Program address.
@@ -281,31 +177,7 @@ export async function getApproveMintInstructionAsync<
     mintOperation: { value: input.mintOperation ?? null, isWritable: true },
     mint: { value: input.mint ?? null, isWritable: true },
     destination: { value: input.destination ?? null, isWritable: true },
-    adminPermissions: {
-      value: input.adminPermissions ?? null,
-      isWritable: false,
-    },
-    permissionManagerConfig: {
-      value: input.permissionManagerConfig ?? null,
-      isWritable: false,
-    },
-    spikoTokenProgram: {
-      value: input.spikoTokenProgram ?? null,
-      isWritable: false,
-    },
-    spikoTokenEventAuthority: {
-      value: input.spikoTokenEventAuthority ?? null,
-      isWritable: false,
-    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
-    tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
-    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
-    minterConfigPermissions: {
-      value: input.minterConfigPermissions ?? null,
-      isWritable: false,
-    },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -321,39 +193,8 @@ export async function getApproveMintInstructionAsync<
   }
   if (!accounts.mintOperation.value) {
     accounts.mintOperation.value = await findMintOperationPda({
-      operationId: expectSome(args.operationId),
+      salt: expectSome(args.salt),
     });
-  }
-  if (!accounts.permissionManagerConfig.value) {
-    accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
-      programAddress:
-        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
-      seeds: [
-        getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
-      ],
-    });
-  }
-  if (!accounts.adminPermissions.value) {
-    accounts.adminPermissions.value = await getProgramDerivedAddress({
-      programAddress:
-        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
-            110,
-          ]),
-        ),
-        getAddressEncoder().encode(expectAddress(accounts.admin.value)),
-        getAddressEncoder().encode(
-          expectAddress(accounts.permissionManagerConfig.value),
-        ),
-      ],
-    });
-  }
-  if (!accounts.spikoTokenProgram.value) {
-    accounts.spikoTokenProgram.value =
-      "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN" as Address<"F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN">;
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
@@ -368,16 +209,7 @@ export async function getApproveMintInstructionAsync<
       getAccountMeta(accounts.mintOperation),
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.destination),
-      getAccountMeta(accounts.adminPermissions),
-      getAccountMeta(accounts.permissionManagerConfig),
-      getAccountMeta(accounts.spikoTokenProgram),
-      getAccountMeta(accounts.spikoTokenEventAuthority),
       getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.tokenConfig),
-      getAccountMeta(accounts.mintAuthority),
-      getAccountMeta(accounts.minterConfigPermissions),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
     ],
     data: getApproveMintInstructionDataEncoder().encode(
       args as ApproveMintInstructionDataArgs,
@@ -390,16 +222,7 @@ export async function getApproveMintInstructionAsync<
     TAccountMintOperation,
     TAccountMint,
     TAccountDestination,
-    TAccountAdminPermissions,
-    TAccountPermissionManagerConfig,
-    TAccountSpikoTokenProgram,
-    TAccountSpikoTokenEventAuthority,
-    TAccountTokenProgram,
-    TAccountTokenConfig,
-    TAccountMintAuthority,
-    TAccountMinterConfigPermissions,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountTokenProgram
   >);
 }
 
@@ -409,35 +232,14 @@ export type ApproveMintInput<
   TAccountMintOperation extends string = string,
   TAccountMint extends string = string,
   TAccountDestination extends string = string,
-  TAccountAdminPermissions extends string = string,
-  TAccountPermissionManagerConfig extends string = string,
-  TAccountSpikoTokenProgram extends string = string,
-  TAccountSpikoTokenEventAuthority extends string = string,
   TAccountTokenProgram extends string = string,
-  TAccountTokenConfig extends string = string,
-  TAccountMintAuthority extends string = string,
-  TAccountMinterConfigPermissions extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   minterConfig: Address<TAccountMinterConfig>;
   mintOperation: Address<TAccountMintOperation>;
   mint: Address<TAccountMint>;
   destination: Address<TAccountDestination>;
-  adminPermissions: Address<TAccountAdminPermissions>;
-  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
-  spikoTokenProgram?: Address<TAccountSpikoTokenProgram>;
-  spikoTokenEventAuthority: Address<TAccountSpikoTokenEventAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
-  tokenConfig: Address<TAccountTokenConfig>;
-  mintAuthority: Address<TAccountMintAuthority>;
-  minterConfigPermissions: Address<TAccountMinterConfigPermissions>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  operationId: ApproveMintInstructionDataArgs["operationId"];
-  recipient: ApproveMintInstructionDataArgs["recipient"];
-  amount: ApproveMintInstructionDataArgs["amount"];
   salt: ApproveMintInstructionDataArgs["salt"];
 };
 
@@ -447,16 +249,7 @@ export function getApproveMintInstruction<
   TAccountMintOperation extends string,
   TAccountMint extends string,
   TAccountDestination extends string,
-  TAccountAdminPermissions extends string,
-  TAccountPermissionManagerConfig extends string,
-  TAccountSpikoTokenProgram extends string,
-  TAccountSpikoTokenEventAuthority extends string,
   TAccountTokenProgram extends string,
-  TAccountTokenConfig extends string,
-  TAccountMintAuthority extends string,
-  TAccountMinterConfigPermissions extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
   TProgramAddress extends Address = typeof MINTER_PROGRAM_ADDRESS,
 >(
   input: ApproveMintInput<
@@ -465,16 +258,7 @@ export function getApproveMintInstruction<
     TAccountMintOperation,
     TAccountMint,
     TAccountDestination,
-    TAccountAdminPermissions,
-    TAccountPermissionManagerConfig,
-    TAccountSpikoTokenProgram,
-    TAccountSpikoTokenEventAuthority,
-    TAccountTokenProgram,
-    TAccountTokenConfig,
-    TAccountMintAuthority,
-    TAccountMinterConfigPermissions,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountTokenProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): ApproveMintInstruction<
@@ -484,16 +268,7 @@ export function getApproveMintInstruction<
   TAccountMintOperation,
   TAccountMint,
   TAccountDestination,
-  TAccountAdminPermissions,
-  TAccountPermissionManagerConfig,
-  TAccountSpikoTokenProgram,
-  TAccountSpikoTokenEventAuthority,
-  TAccountTokenProgram,
-  TAccountTokenConfig,
-  TAccountMintAuthority,
-  TAccountMinterConfigPermissions,
-  TAccountEventAuthority,
-  TAccountProgram
+  TAccountTokenProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? MINTER_PROGRAM_ADDRESS;
@@ -505,31 +280,7 @@ export function getApproveMintInstruction<
     mintOperation: { value: input.mintOperation ?? null, isWritable: true },
     mint: { value: input.mint ?? null, isWritable: true },
     destination: { value: input.destination ?? null, isWritable: true },
-    adminPermissions: {
-      value: input.adminPermissions ?? null,
-      isWritable: false,
-    },
-    permissionManagerConfig: {
-      value: input.permissionManagerConfig ?? null,
-      isWritable: false,
-    },
-    spikoTokenProgram: {
-      value: input.spikoTokenProgram ?? null,
-      isWritable: false,
-    },
-    spikoTokenEventAuthority: {
-      value: input.spikoTokenEventAuthority ?? null,
-      isWritable: false,
-    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
-    tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
-    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
-    minterConfigPermissions: {
-      value: input.minterConfigPermissions ?? null,
-      isWritable: false,
-    },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -540,10 +291,6 @@ export function getApproveMintInstruction<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.spikoTokenProgram.value) {
-    accounts.spikoTokenProgram.value =
-      "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN" as Address<"F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN">;
-  }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
@@ -557,16 +304,7 @@ export function getApproveMintInstruction<
       getAccountMeta(accounts.mintOperation),
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.destination),
-      getAccountMeta(accounts.adminPermissions),
-      getAccountMeta(accounts.permissionManagerConfig),
-      getAccountMeta(accounts.spikoTokenProgram),
-      getAccountMeta(accounts.spikoTokenEventAuthority),
       getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.tokenConfig),
-      getAccountMeta(accounts.mintAuthority),
-      getAccountMeta(accounts.minterConfigPermissions),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
     ],
     data: getApproveMintInstructionDataEncoder().encode(
       args as ApproveMintInstructionDataArgs,
@@ -579,16 +317,7 @@ export function getApproveMintInstruction<
     TAccountMintOperation,
     TAccountMint,
     TAccountDestination,
-    TAccountAdminPermissions,
-    TAccountPermissionManagerConfig,
-    TAccountSpikoTokenProgram,
-    TAccountSpikoTokenEventAuthority,
-    TAccountTokenProgram,
-    TAccountTokenConfig,
-    TAccountMintAuthority,
-    TAccountMinterConfigPermissions,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountTokenProgram
   >);
 }
 
@@ -603,16 +332,7 @@ export type ParsedApproveMintInstruction<
     mintOperation: TAccountMetas[2];
     mint: TAccountMetas[3];
     destination: TAccountMetas[4];
-    adminPermissions: TAccountMetas[5];
-    permissionManagerConfig: TAccountMetas[6];
-    spikoTokenProgram: TAccountMetas[7];
-    spikoTokenEventAuthority: TAccountMetas[8];
-    tokenProgram: TAccountMetas[9];
-    tokenConfig: TAccountMetas[10];
-    mintAuthority: TAccountMetas[11];
-    minterConfigPermissions: TAccountMetas[12];
-    eventAuthority: TAccountMetas[13];
-    program: TAccountMetas[14];
+    tokenProgram: TAccountMetas[5];
   };
   data: ApproveMintInstructionData;
 };
@@ -625,7 +345,7 @@ export function parseApproveMintInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedApproveMintInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 15) {
+  if (instruction.accounts.length < 6) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -643,16 +363,7 @@ export function parseApproveMintInstruction<
       mintOperation: getNextAccount(),
       mint: getNextAccount(),
       destination: getNextAccount(),
-      adminPermissions: getNextAccount(),
-      permissionManagerConfig: getNextAccount(),
-      spikoTokenProgram: getNextAccount(),
-      spikoTokenEventAuthority: getNextAccount(),
       tokenProgram: getNextAccount(),
-      tokenConfig: getNextAccount(),
-      mintAuthority: getNextAccount(),
-      minterConfigPermissions: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      program: getNextAccount(),
     },
     data: getApproveMintInstructionDataDecoder().decode(instruction.data),
   };

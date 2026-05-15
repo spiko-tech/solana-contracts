@@ -19,8 +19,6 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getI64Decoder,
-  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
   getU8Decoder,
@@ -51,14 +49,14 @@ export function getMinterConfigDiscriminatorBytes() {
 
 export type MinterConfig = {
   discriminator: ReadonlyUint8Array;
-  maxDelay: bigint;
-  permissionManager: Address;
+  admin: Address;
+  mintInitiator: Address;
   bump: number;
 };
 
 export type MinterConfigArgs = {
-  maxDelay: number | bigint;
-  permissionManager: Address;
+  admin: Address;
+  mintInitiator: Address;
   bump: number;
 };
 
@@ -67,8 +65,8 @@ export function getMinterConfigEncoder(): FixedSizeEncoder<MinterConfigArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["maxDelay", getI64Encoder()],
-      ["permissionManager", getAddressEncoder()],
+      ["admin", getAddressEncoder()],
+      ["mintInitiator", getAddressEncoder()],
       ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: MINTER_CONFIG_DISCRIMINATOR }),
@@ -79,8 +77,8 @@ export function getMinterConfigEncoder(): FixedSizeEncoder<MinterConfigArgs> {
 export function getMinterConfigDecoder(): FixedSizeDecoder<MinterConfig> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["maxDelay", getI64Decoder()],
-    ["permissionManager", getAddressDecoder()],
+    ["admin", getAddressDecoder()],
+    ["mintInitiator", getAddressDecoder()],
     ["bump", getU8Decoder()],
   ]);
 }
@@ -147,5 +145,5 @@ export async function fetchAllMaybeMinterConfig(
 }
 
 export function getMinterConfigSize(): number {
-  return 49;
+  return 73;
 }

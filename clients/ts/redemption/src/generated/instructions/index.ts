@@ -7,7 +7,7 @@
  */
 
 export * from "./cancel";
-export * from "./createVault";
-export * from "./execute";
 export * from "./initialize";
-export * from "./onRedeem";
+export * from "./redeem";
+export * from "./setAdmin";
+export * from "./setRedemptionAuthority";

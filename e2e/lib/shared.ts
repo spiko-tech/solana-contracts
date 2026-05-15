@@ -1,9 +1,9 @@
 /**
  * Shared helpers for the E2E test.
  *
- * Uses Codama-generated PDA helpers and program addresses.
+ * Uses Codama-generated PDA helpers and instruction builders for all 4 programs.
  * Hand-written helpers only for Token-2022 raw instructions
- * (CreateAccount, TransferChecked, etc.).
+ * (CreateAccount, TransferChecked, InitializeMint2, extensions, etc.).
  */
 
 import {
@@ -29,63 +29,76 @@ import {
   signTransactionMessageWithSigners,
   sendAndConfirmTransactionFactory,
   getSignatureFromTransaction,
+  generateKeyPairSigner,
 } from "@solana/kit";
 
 import fs from "fs";
 import path from "path";
 
 // ── Program addresses ────────────────────────────────────────
-import { PERMISSION_MANAGER_PROGRAM_ADDRESS } from "../../clients/ts/permission-manager/src/generated/programs/index.js";
-import { SPIKO_TOKEN_PROGRAM_ADDRESS } from "../../clients/ts/spiko-token/src/generated/programs/index.js";
+import { TRANSFER_HOOK_PROGRAM_ADDRESS } from "../../clients/ts/transfer-hook/src/generated/programs/index.js";
 import { MINTER_PROGRAM_ADDRESS } from "../../clients/ts/minter/src/generated/programs/index.js";
 import { REDEMPTION_PROGRAM_ADDRESS } from "../../clients/ts/redemption/src/generated/programs/index.js";
-import { SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS } from "../../clients/ts/spiko-transfer-hook/src/generated/programs/index.js";
 import { CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS } from "../../clients/ts/custodial-gatekeeper/src/generated/programs/index.js";
 
 // ── Codama-generated PDA helpers ─────────────────────────────
-import { findConfigPda, findUserPermissionsPda } from "../../clients/ts/permission-manager/src/generated/pdas/index.js";
-import { findTokenConfigPda, findMintAuthorityPda } from "../../clients/ts/spiko-token/src/generated/pdas/index.js";
-import { findExtraAccountMetasPda, findHookConfigPda } from "../../clients/ts/spiko-transfer-hook/src/generated/pdas/index.js";
+import { findExtraAccountMetasPda, findHookConfigPda, findWhitelistStatePda } from "../../clients/ts/transfer-hook/src/generated/pdas/index.js";
 import { findMinterConfigPda, findMintDailyLimitPda, findMintOperationPda } from "../../clients/ts/minter/src/generated/pdas/index.js";
-import { findRedemptionConfigPda, findRedemptionOperationPda, findVaultAuthorityPda as findRedemptionVaultAuthorityPda } from "../../clients/ts/redemption/src/generated/pdas/index.js";
-import { findGatekeeperConfigPda, findVaultAuthorityPda as findCgVaultAuthorityPda, findWithdrawalDailyLimitPda, findWithdrawalOperationPda } from "../../clients/ts/custodial-gatekeeper/src/generated/pdas/index.js";
+import { findRedemptionConfigPda, findRedemptionRecordPda, findVaultAuthorityPda as findRedemptionVaultAuthorityPda } from "../../clients/ts/redemption/src/generated/pdas/index.js";
+import { findGatekeeperConfigPda, findGatekeepOperationPda, findVaultAuthorityPda as findCgVaultAuthorityPda, findWithdrawalDailyLimitPda } from "../../clients/ts/custodial-gatekeeper/src/generated/pdas/index.js";
+
+// ── Codama-generated instruction builders ────────────────────
+// Transfer hook
+export { getInitializeInstructionAsync as getThInitializeInstructionAsync } from "../../clients/ts/transfer-hook/src/generated/instructions/initialize.js";
+export { getRegisterMintInstructionAsync } from "../../clients/ts/transfer-hook/src/generated/instructions/registerMint.js";
+export { getWhitelistInstructionAsync } from "../../clients/ts/transfer-hook/src/generated/instructions/whitelist.js";
+export { getAddGateInstructionAsync } from "../../clients/ts/transfer-hook/src/generated/instructions/addGate.js";
+export { getUnwhitelistInstructionAsync } from "../../clients/ts/transfer-hook/src/generated/instructions/unwhitelist.js";
+export { getRemoveGateInstructionAsync } from "../../clients/ts/transfer-hook/src/generated/instructions/removeGate.js";
+
+// Minter
+export { getInitializeInstructionAsync as getMtInitializeInstructionAsync } from "../../clients/ts/minter/src/generated/instructions/initialize.js";
+export { getInitiateMintInstructionAsync } from "../../clients/ts/minter/src/generated/instructions/initiateMint.js";
+export { getApproveMintInstructionAsync } from "../../clients/ts/minter/src/generated/instructions/approveMint.js";
+export { getCancelMintInstructionAsync } from "../../clients/ts/minter/src/generated/instructions/cancelMint.js";
+export { getSetDailyLimitInstructionAsync as getMtSetDailyLimitInstructionAsync } from "../../clients/ts/minter/src/generated/instructions/setDailyLimit.js";
+export { getSetMintInitiatorInstructionAsync } from "../../clients/ts/minter/src/generated/instructions/setMintInitiator.js";
+
+// Redemption
+export { getInitializeInstructionAsync as getRdInitializeInstructionAsync } from "../../clients/ts/redemption/src/generated/instructions/initialize.js";
+export { getRedeemInstructionAsync } from "../../clients/ts/redemption/src/generated/instructions/redeem.js";
+
+// Custodial Gatekeeper
+export { getInitializeInstructionAsync as getCgInitializeInstructionAsync } from "../../clients/ts/custodial-gatekeeper/src/generated/instructions/initialize.js";
+export { getInitiateGatekeepInstructionAsync } from "../../clients/ts/custodial-gatekeeper/src/generated/instructions/initiateGatekeep.js";
+export { getApproveGatekeepInstructionAsync } from "../../clients/ts/custodial-gatekeeper/src/generated/instructions/approveGatekeep.js";
+export { getCancelGatekeepInstructionAsync } from "../../clients/ts/custodial-gatekeeper/src/generated/instructions/cancelGatekeep.js";
+export { getSetDailyLimitInstructionAsync as getCgSetDailyLimitInstructionAsync } from "../../clients/ts/custodial-gatekeeper/src/generated/instructions/setDailyLimit.js";
+export { getSetGatekeeperInitiatorInstructionAsync } from "../../clients/ts/custodial-gatekeeper/src/generated/instructions/setGatekeeperInitiator.js";
 
 export {
-  PERMISSION_MANAGER_PROGRAM_ADDRESS,
-  SPIKO_TOKEN_PROGRAM_ADDRESS,
+  TRANSFER_HOOK_PROGRAM_ADDRESS,
   MINTER_PROGRAM_ADDRESS,
   REDEMPTION_PROGRAM_ADDRESS,
-  SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS,
   CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
-  findConfigPda,
-  findUserPermissionsPda,
-  findTokenConfigPda,
-  findMintAuthorityPda,
   findExtraAccountMetasPda,
   findHookConfigPda,
+  findWhitelistStatePda,
   findMinterConfigPda,
   findMintDailyLimitPda,
   findMintOperationPda,
   findRedemptionConfigPda,
-  findRedemptionOperationPda,
+  findRedemptionRecordPda,
   findRedemptionVaultAuthorityPda,
   findGatekeeperConfigPda,
+  findGatekeepOperationPda,
   findCgVaultAuthorityPda,
   findWithdrawalDailyLimitPda,
-  findWithdrawalOperationPda,
 };
 
-/**
- * Derive the Anchor event authority PDA for a given program.
- * Seeds: [b"__event_authority"]
- */
-export async function findEventAuthorityPda(programAddress: Address): Promise<Address> {
-  const [addr] = await getProgramDerivedAddress({
-    programAddress,
-    seeds: [new TextEncoder().encode("__event_authority")],
-  });
-  return addr;
-}
+export { generateKeyPairSigner };
+
+// ── Constants ────────────────────────────────────────────────
 
 export const TOKEN_2022_PROGRAM_ID: Address =
   address("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
@@ -96,30 +109,12 @@ export const SYSTEM_PROGRAM_ID: Address =
 export const ASSOCIATED_TOKEN_PROGRAM_ID: Address =
   address("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 
-// ── Role constants (bitmask values matching permission_manager::constants) ──
-export const ROLE_MINTER = 1;
-export const ROLE_PAUSER = 2;
-export const ROLE_BURNER = 4;
-export const ROLE_WHITELISTER = 8;
-export const ROLE_WHITELISTED = 16;
-export const ROLE_REDEMPTION_EXECUTOR = 32;
-export const ROLE_MINT_APPROVER = 64;
-export const ROLE_MINT_INITIATOR = 128;
-export const ROLE_WHITELISTED_EXT = 256;
-export const ROLE_CUSTODIAL_GATEKEEPER_APPROVER = 512;
-
-export const ROLE_NAMES: Record<number, string> = {
-  [ROLE_MINTER]: "MINTER",
-  [ROLE_PAUSER]: "PAUSER",
-  [ROLE_BURNER]: "BURNER",
-  [ROLE_WHITELISTER]: "WHITELISTER",
-  [ROLE_WHITELISTED]: "WHITELISTED",
-  [ROLE_REDEMPTION_EXECUTOR]: "REDEMPTION_EXECUTOR",
-  [ROLE_MINT_APPROVER]: "MINT_APPROVER",
-  [ROLE_MINT_INITIATOR]: "MINT_INITIATOR",
-  [ROLE_WHITELISTED_EXT]: "WHITELISTED_EXT",
-  [ROLE_CUSTODIAL_GATEKEEPER_APPROVER]: "CUSTODIAL_GATEKEEPER_APPROVER",
-};
+// Role constants (matching transfer-hook program)
+export const ROLE_WHITELISTED_GATE = 1;
+export const ROLE_WHITELISTED = 2;
+export const ROLE_UNWHITELISTED = 3;
+export const ROLE_WHITELISTED_EXT = 4;
+export const ROLE_UNWHITELISTED_EXT = 5;
 
 // ── Utility helpers ──────────────────────────────────────────
 const addressEncoder = getAddressEncoder();
@@ -152,7 +147,6 @@ export function loadSolanaConfig(): { rpcUrl: string; keypairPath: string } {
 
 function rpcUrlToWsUrl(rpcUrl: string): string {
   let wsUrl = rpcUrl.replace("https://", "wss://").replace("http://", "ws://");
-  // Local validator uses port 8900 for WebSocket while RPC is on 8899
   if (wsUrl.includes("127.0.0.1:8899") || wsUrl.includes("localhost:8899")) {
     wsUrl = wsUrl.replace(":8899", ":8900");
   }
@@ -174,6 +168,32 @@ export async function accountExists(
     .getAccountInfo(addr, { encoding: "base64" })
     .send();
   return value !== null;
+}
+
+export async function getTokenBalance(
+  rpc: Rpc<SolanaRpcApi>,
+  tokenAccount: Address
+): Promise<bigint> {
+  const { value } = await rpc
+    .getAccountInfo(tokenAccount, { encoding: "base64" })
+    .send();
+  if (!value || !value.data) return 0n;
+  const data = Buffer.from((value.data as any)[0], "base64");
+  // Token account layout: mint[0..32], owner[32..64], amount[64..72]
+  return data.readBigUInt64LE(64);
+}
+
+export async function getMintSupply(
+  rpc: Rpc<SolanaRpcApi>,
+  mint: Address
+): Promise<bigint> {
+  const { value } = await rpc
+    .getAccountInfo(mint, { encoding: "base64" })
+    .send();
+  if (!value || !value.data) return 0n;
+  const data = Buffer.from((value.data as any)[0], "base64");
+  // Mint layout: COption<authority>[0..36], supply[36..44]
+  return data.readBigUInt64LE(36);
 }
 
 export async function sendTx(
@@ -204,6 +224,25 @@ export async function sendTx(
   return sig;
 }
 
+/**
+ * Send a transaction and expect it to fail. Returns true if it failed.
+ */
+export async function sendTxExpectFail(
+  rpc: Rpc<SolanaRpcApi>,
+  rpcSubscriptions: RpcSubscriptions<SolanaRpcSubscriptionsApi>,
+  payer: KeyPairSigner,
+  instructions: Parameters<typeof appendTransactionMessageInstructions>[0],
+  label: string
+): Promise<boolean> {
+  try {
+    await sendTx(rpc, rpcSubscriptions, payer, instructions, label);
+    return false; // Did not fail
+  } catch (e) {
+    console.log(`  ${label}: FAILED as expected`);
+    return true;
+  }
+}
+
 export async function setup() {
   const config = loadSolanaConfig();
   const rpc = createSolanaRpc(config.rpcUrl);
@@ -216,6 +255,10 @@ export async function setup() {
   return { rpc, rpcSub, admin };
 }
 
+// ── Token-2022 helpers ───────────────────────────────────────
+
+const addressEnc = getAddressEncoder();
+
 export async function getAssociatedTokenAddress(
   wallet: Address,
   mint: Address
@@ -223,9 +266,9 @@ export async function getAssociatedTokenAddress(
   const [ata] = await getProgramDerivedAddress({
     programAddress: ASSOCIATED_TOKEN_PROGRAM_ID,
     seeds: [
-      addressEncoder.encode(wallet),
-      addressEncoder.encode(TOKEN_2022_PROGRAM_ID),
-      addressEncoder.encode(mint),
+      addressEnc.encode(wallet),
+      addressEnc.encode(TOKEN_2022_PROGRAM_ID),
+      addressEnc.encode(mint),
     ],
   });
   return ata;
@@ -233,7 +276,6 @@ export async function getAssociatedTokenAddress(
 
 /**
  * Build a CreateAssociatedTokenAccountIdempotent instruction for Token-2022.
- * ATA program instruction index 1 = CreateIdempotent.
  */
 export function createAssociatedTokenAccountIdempotent(
   payer: { address: Address; [key: string]: any },
@@ -255,127 +297,25 @@ export function createAssociatedTokenAccountIdempotent(
   };
 }
 
-export async function computeOperationId(
-  user: Address,
-  mint: Address,
-  amount: bigint,
-  salt: bigint
-): Promise<Uint8Array> {
-  const input = new Uint8Array(80);
-  input.set(addressEncoder.encode(user), 0);
-  input.set(addressEncoder.encode(mint), 32);
-
-  const amountBuf = new ArrayBuffer(8);
-  new DataView(amountBuf).setBigUint64(0, amount, true);
-  input.set(new Uint8Array(amountBuf), 64);
-
-  const saltBuf = new ArrayBuffer(8);
-  new DataView(saltBuf).setBigUint64(0, salt, true);
-  input.set(new Uint8Array(saltBuf), 72);
-
-  const hash = await crypto.subtle.digest("SHA-256", input);
-  return new Uint8Array(hash);
-}
-
 /**
- * Compute the required account space for a Token-2022 mint with
- * TransferHook + PermanentDelegate + MetadataPointer + inline metadata.
+ * Build a TransferChecked instruction with transfer-hook extra accounts.
  *
- * Layout:
- *   BASE_MINT (82) + padding to multisig boundary (83) = 165
- *   + ACCOUNT_TYPE (1) = 166
- *   + each extension: TYPE_u16(2) + LENGTH_u16(2) + data
- *
- * Extensions:
- *   TransferHook:     2+2 + 64 (authority 32 + programId 32) = 68
- *   PermanentDelegate: 2+2 + 32 (delegate) = 36
- *   MetadataPointer:  2+2 + 64 (authority 32 + metadataAddress 32) = 68
- *   TokenMetadata:    2+2 + variable
- *     update_authority(32) + mint(32) + name(4+len) + symbol(4+len) + uri(4+len)
- *     + additional_metadata_len(4) = variable
- */
-/**
- * Fixed extensions size: base mint + TransferHook + PermanentDelegate + MetadataPointer.
- * Token-2022 InitializeMint2 validates against this exact size.
- * Metadata is added later by TokenMetadataInitialize which reallocs the account.
- */
-export const MINT_FIXED_EXTENSIONS_SIZE = 338; // 166 + 68 + 36 + 68
-
-/**
- * Full account size including TokenMetadata extension (used for rent calculation).
- * Token-2022's TokenMetadataInitialize will realloc the account to this size.
- */
-export function getMintAccountSpace(
-  name: string,
-  symbol: string,
-  uri: string
-): number {
-  // TokenMetadata extension: type(2) + len(2) + data
-  //   data = update_authority(32) + mint(32)
-  //        + name_len(4) + name_bytes + symbol_len(4) + symbol_bytes + uri_len(4) + uri_bytes
-  //        + additional_metadata_count(4)
-  const metadataDataLen =
-    32 + 32 + (4 + name.length) + (4 + symbol.length) + (4 + uri.length) + 4;
-  const TOKEN_METADATA = 4 + metadataDataLen;
-
-  return MINT_FIXED_EXTENSIONS_SIZE + TOKEN_METADATA;
-}
-
-/**
- * Build a SystemProgram::CreateAccount instruction to allocate the mint account.
- * The mint keypair must sign the transaction.
- */
-export function buildCreateAccountInstruction(
-  payer: KeyPairSigner,
-  newAccount: KeyPairSigner,
-  lamports: bigint,
-  space: number,
-  owner: Address
-) {
-  // SystemProgram CreateAccount instruction data:
-  //   index(4 LE) = 0 + lamports(8 LE) + space(8 LE) + owner(32)
-  const data = new Uint8Array(4 + 8 + 8 + 32);
-  const view = new DataView(data.buffer);
-  view.setUint32(0, 0, true); // CreateAccount instruction index
-  view.setBigUint64(4, lamports, true);
-  view.setBigUint64(12, BigInt(space), true);
-  data.set(addressEncoder.encode(owner), 20);
-
-  return {
-    programAddress: SYSTEM_PROGRAM_ID,
-    accounts: [
-      { address: payer.address, role: AccountRole.WRITABLE_SIGNER as const, signer: payer },
-      { address: newAccount.address, role: AccountRole.WRITABLE_SIGNER as const, signer: newAccount },
-    ],
-    data: data as ReadonlyUint8Array,
-  };
-}
-
-/**
- * Build a raw Token-2022 TransferChecked with transfer hook extra accounts.
- * Hand-written since Codama only generates Spiko program clients.
- *
- * Transfer hook extra accounts order (matches ExtraAccountMetaList):
- *   1. extra_account_metas_list PDA (transfer-hook program)
- *   2. hook_config PDA (transfer-hook program)
- *   3. permission_manager_program
- *   4. permission_manager_config PDA
- *   5. source_permissions PDA (permission-manager)
- *   6. destination_permissions PDA (permission-manager)
- *   7. event_authority PDA (transfer-hook program)
- *   8. transfer_hook_program
+ * Extra accounts order (matches ExtraAccountMetaList):
+ *   1. extra_account_metas PDA
+ *   2. hook_config PDA
+ *   3. source_whitelist PDA (derived from source owner)
+ *   4. dest_whitelist PDA (derived from dest owner)
+ *   5. transfer_hook_program
  */
 export function buildTransferChecked(
   sender: KeyPairSigner,
   sourceAta: Address,
   destinationAta: Address,
   mint: Address,
-  hookConfigAddr: Address,
-  senderPermsAddr: Address,
-  recipientPermsAddr: Address,
   extraAccountMetaListAddr: Address,
-  permissionManagerConfigAddr: Address,
-  hookEventAuthorityAddr: Address,
+  hookConfigAddr: Address,
+  sourceWhitelistAddr: Address,
+  destWhitelistAddr: Address,
   amount: bigint,
   decimals: number,
 ) {
@@ -392,15 +332,12 @@ export function buildTransferChecked(
       { address: mint, role: AccountRole.READONLY as const },
       { address: destinationAta, role: AccountRole.WRITABLE as const },
       { address: sender.address, role: AccountRole.WRITABLE_SIGNER as const, signer: sender },
-      // Transfer hook extra accounts (order must match ExtraAccountMetaList)
+      // Transfer hook extra accounts
       { address: extraAccountMetaListAddr, role: AccountRole.READONLY as const },
       { address: hookConfigAddr, role: AccountRole.READONLY as const },
-      { address: PERMISSION_MANAGER_PROGRAM_ADDRESS as Address, role: AccountRole.READONLY as const },
-      { address: permissionManagerConfigAddr, role: AccountRole.READONLY as const },
-      { address: senderPermsAddr, role: AccountRole.READONLY as const },
-      { address: recipientPermsAddr, role: AccountRole.READONLY as const },
-      { address: hookEventAuthorityAddr, role: AccountRole.READONLY as const },
-      { address: SPIKO_TRANSFER_HOOK_PROGRAM_ADDRESS as Address, role: AccountRole.READONLY as const },
+      { address: sourceWhitelistAddr, role: AccountRole.READONLY as const },
+      { address: destWhitelistAddr, role: AccountRole.READONLY as const },
+      { address: TRANSFER_HOOK_PROGRAM_ADDRESS as Address, role: AccountRole.READONLY as const },
     ],
     data: data as ReadonlyUint8Array,
   };
@@ -408,21 +345,54 @@ export function buildTransferChecked(
 
 // ── Token-2022 mint initialization helpers ───────────────────
 
-const addressEnc = getAddressEncoder();
-
 /**
- * Token-2022 InitializeTransferHook instruction.
- * Must be called BEFORE InitializeMint2.
- * Opcode: 36 (u8), sub-opcode: 0 (u8), authority(32), programId(32)
+ * Fixed extensions size: base mint + TransferHook + PermanentDelegate + MetadataPointer.
  */
+export const MINT_FIXED_EXTENSIONS_SIZE = 338; // 166 + 68 + 36 + 68
+
+export function getMintAccountSpace(
+  name: string,
+  symbol: string,
+  uri: string
+): number {
+  const metadataDataLen =
+    32 + 32 + (4 + name.length) + (4 + symbol.length) + (4 + uri.length) + 4;
+  const TOKEN_METADATA = 4 + metadataDataLen;
+  return MINT_FIXED_EXTENSIONS_SIZE + TOKEN_METADATA;
+}
+
+export function buildCreateAccountInstruction(
+  payer: KeyPairSigner,
+  newAccount: KeyPairSigner,
+  lamports: bigint,
+  space: number,
+  owner: Address
+) {
+  const data = new Uint8Array(4 + 8 + 8 + 32);
+  const view = new DataView(data.buffer);
+  view.setUint32(0, 0, true);
+  view.setBigUint64(4, lamports, true);
+  view.setBigUint64(12, BigInt(space), true);
+  data.set(addressEnc.encode(owner), 20);
+
+  return {
+    programAddress: SYSTEM_PROGRAM_ID,
+    accounts: [
+      { address: payer.address, role: AccountRole.WRITABLE_SIGNER as const, signer: payer },
+      { address: newAccount.address, role: AccountRole.WRITABLE_SIGNER as const, signer: newAccount },
+    ],
+    data: data as ReadonlyUint8Array,
+  };
+}
+
 export function buildInitializeTransferHook(
   mint: Address,
   authority: Address,
   hookProgramId: Address,
 ) {
   const data = new Uint8Array(2 + 32 + 32);
-  data[0] = 36; // TransferHookExtension instruction
-  data[1] = 0;  // InitializeTransferHook sub-instruction
+  data[0] = 36;
+  data[1] = 0;
   data.set(addressEnc.encode(authority), 2);
   data.set(addressEnc.encode(hookProgramId), 34);
 
@@ -435,17 +405,12 @@ export function buildInitializeTransferHook(
   };
 }
 
-/**
- * Token-2022 InitializePermanentDelegate instruction.
- * Must be called BEFORE InitializeMint2.
- * Opcode: 35 (u8), delegate(32)
- */
 export function buildInitializePermanentDelegate(
   mint: Address,
   delegate: Address,
 ) {
   const data = new Uint8Array(1 + 32);
-  data[0] = 35; // InitializePermanentDelegate
+  data[0] = 35;
   data.set(addressEnc.encode(delegate), 1);
 
   return {
@@ -457,19 +422,14 @@ export function buildInitializePermanentDelegate(
   };
 }
 
-/**
- * Token-2022 InitializeMetadataPointer instruction.
- * Must be called BEFORE InitializeMint2.
- * Opcode: 39 (u8), sub-opcode: 0 (u8), authority(32), metadataAddress(32)
- */
 export function buildInitializeMetadataPointer(
   mint: Address,
   authority: Address,
   metadataAddress: Address,
 ) {
   const data = new Uint8Array(2 + 32 + 32);
-  data[0] = 39; // MetadataPointerExtension instruction
-  data[1] = 0;  // InitializeMetadataPointer sub-instruction
+  data[0] = 39;
+  data[1] = 0;
   data.set(addressEnc.encode(authority), 2);
   data.set(addressEnc.encode(metadataAddress), 34);
 
@@ -482,17 +442,13 @@ export function buildInitializeMetadataPointer(
   };
 }
 
-/**
- * Token-2022 InitializeMint2 instruction (no freeze authority).
- * Opcode: 20 (u8), decimals(u8), mintAuthority(32), freezeOption(u8=0)
- */
 export function buildInitializeMint2(
   mint: Address,
   decimals: number,
   mintAuthority: Address,
 ) {
   const data = new Uint8Array(1 + 1 + 32 + 1);
-  data[0] = 20; // InitializeMint2
+  data[0] = 20;
   data[1] = decimals;
   data.set(addressEnc.encode(mintAuthority), 2);
   data[34] = 0; // no freeze authority
@@ -506,14 +462,6 @@ export function buildInitializeMint2(
   };
 }
 
-/**
- * spl_token_metadata_interface Initialize instruction.
- * Emitted as a Token-2022 instruction against the mint with metadata pointer.
- *
- * Discriminator: first 8 bytes of hash("spl_token_metadata_interface:initialize_account")
- *   = [210, 225, 30, 162, 88, 184, 118, 21]
- * Then: name(borsh string: u32_le + bytes), symbol(borsh string), uri(borsh string)
- */
 export function buildTokenMetadataInitialize(
   mint: Address,
   updateAuthority: Address,
@@ -530,25 +478,20 @@ export function buildTokenMetadataInitialize(
   const data = new Uint8Array(dataLen);
   const view = new DataView(data.buffer);
 
-  // Discriminator: hash("spl_token_metadata_interface:initialize_account")[0..8]
   const disc = new Uint8Array([210, 225, 30, 162, 88, 184, 77, 141]);
   data.set(disc, 0);
 
   let offset = 8;
-
-  // name (borsh string)
   view.setUint32(offset, nameBytes.length, true);
   offset += 4;
   data.set(nameBytes, offset);
   offset += nameBytes.length;
 
-  // symbol (borsh string)
   view.setUint32(offset, symbolBytes.length, true);
   offset += 4;
   data.set(symbolBytes, offset);
   offset += symbolBytes.length;
 
-  // uri (borsh string)
   view.setUint32(offset, uriBytes.length, true);
   offset += 4;
   data.set(uriBytes, offset);
@@ -558,8 +501,105 @@ export function buildTokenMetadataInitialize(
     accounts: [
       { address: mint, role: AccountRole.WRITABLE as const },
       { address: updateAuthority, role: AccountRole.READONLY as const },
-      { address: mint, role: AccountRole.READONLY as const }, // mint (same as metadata account since pointer points to self)
+      { address: mint, role: AccountRole.READONLY as const },
       { address: mintAuthority.address, role: AccountRole.READONLY_SIGNER as const, signer: mintAuthority },
+    ],
+    data: data as ReadonlyUint8Array,
+  };
+}
+
+/**
+ * Create a token account owned by a PDA (not an ATA).
+ * Uses Token-2022 CreateAccount + InitializeAccount3 (opcode 18).
+ */
+export function buildCreateTokenAccount(
+  payer: KeyPairSigner,
+  tokenAccount: KeyPairSigner,
+  lamports: bigint,
+  mint: Address,
+  owner: Address, // PDA address
+) {
+  const TOKEN_ACCOUNT_SIZE = 165;
+  const createAccount = buildCreateAccountInstruction(
+    payer,
+    tokenAccount,
+    lamports,
+    TOKEN_ACCOUNT_SIZE,
+    TOKEN_2022_PROGRAM_ID,
+  );
+
+  // InitializeAccount3: opcode(1) + owner(32)
+  const initData = new Uint8Array(1 + 32);
+  initData[0] = 18; // InitializeAccount3
+  initData.set(addressEnc.encode(owner), 1);
+
+  const initAccount = {
+    programAddress: TOKEN_2022_PROGRAM_ID,
+    accounts: [
+      { address: tokenAccount.address, role: AccountRole.WRITABLE as const },
+      { address: mint, role: AccountRole.READONLY as const },
+    ],
+    data: initData as ReadonlyUint8Array,
+  };
+
+  return [createAccount, initAccount];
+}
+
+/**
+ * Get minimum rent for a given account size.
+ */
+export async function getMinimumRent(
+  rpc: Rpc<SolanaRpcApi>,
+  size: number
+): Promise<bigint> {
+  const rent = await rpc.getMinimumBalanceForRentExemption(BigInt(size)).send();
+  return rent;
+}
+
+/**
+ * Append transfer-hook extra accounts to an instruction (for CPI calls that trigger the hook).
+ * Needed for custodial-gatekeeper and redemption instructions that do internal TransferChecked.
+ */
+export function appendHookAccounts(
+  instruction: any,
+  extraAccountMetasAddr: Address,
+  hookConfigAddr: Address,
+  sourceWhitelistAddr: Address,
+  destWhitelistAddr: Address,
+) {
+  const hookAccounts = [
+    { address: extraAccountMetasAddr, role: AccountRole.READONLY as const },
+    { address: hookConfigAddr, role: AccountRole.READONLY as const },
+    { address: sourceWhitelistAddr, role: AccountRole.READONLY as const },
+    { address: destWhitelistAddr, role: AccountRole.READONLY as const },
+    { address: TRANSFER_HOOK_PROGRAM_ADDRESS as Address, role: AccountRole.READONLY as const },
+  ];
+  return {
+    ...instruction,
+    accounts: [...instruction.accounts, ...hookAccounts],
+  };
+}
+
+export function buildSetAuthority(
+  account: Address,
+  currentAuthority: KeyPairSigner,
+  authorityType: number,
+  newAuthority: Address | null,
+) {
+  const hasNew = newAuthority !== null;
+  const data = new Uint8Array(1 + 1 + 1 + (hasNew ? 32 : 0));
+  data[0] = 6; // SetAuthority opcode
+  data[1] = authorityType;
+  data[2] = hasNew ? 1 : 0; // COption tag
+  if (hasNew) {
+    data.set(addressEnc.encode(newAuthority), 3);
+  }
+
+  return {
+    programAddress: TOKEN_2022_PROGRAM_ID,
+    accounts: [
+      { address: account, role: AccountRole.WRITABLE as const },
+      { address: currentAuthority.address, role: AccountRole.READONLY_SIGNER as const, signer: currentAuthority },
     ],
     data: data as ReadonlyUint8Array,
   };

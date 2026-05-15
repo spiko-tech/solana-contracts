@@ -18,23 +18,23 @@ import {
 } from "@solana/kit";
 import {
   parseCancelInstruction,
-  parseCreateVaultInstruction,
-  parseExecuteInstruction,
   parseInitializeInstruction,
-  parseOnRedeemInstruction,
+  parseRedeemInstruction,
+  parseSetAdminInstruction,
+  parseSetRedemptionAuthorityInstruction,
   type ParsedCancelInstruction,
-  type ParsedCreateVaultInstruction,
-  type ParsedExecuteInstruction,
   type ParsedInitializeInstruction,
-  type ParsedOnRedeemInstruction,
+  type ParsedRedeemInstruction,
+  type ParsedSetAdminInstruction,
+  type ParsedSetRedemptionAuthorityInstruction,
 } from "../instructions";
 
 export const REDEMPTION_PROGRAM_ADDRESS =
-  "2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D" as Address<"2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D">;
+  "B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr" as Address<"B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr">;
 
 export enum RedemptionAccount {
   RedemptionConfig,
-  RedemptionOperation,
+  RedemptionRecord,
   VaultAuthority,
 }
 
@@ -57,12 +57,12 @@ export function identifyRedemptionAccount(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([35, 191, 240, 189, 29, 46, 219, 210]),
+        new Uint8Array([225, 49, 176, 110, 91, 172, 28, 16]),
       ),
       0,
     )
   ) {
-    return RedemptionAccount.RedemptionOperation;
+    return RedemptionAccount.RedemptionRecord;
   }
   if (
     containsBytes(
@@ -82,10 +82,10 @@ export function identifyRedemptionAccount(
 
 export enum RedemptionInstruction {
   Cancel,
-  CreateVault,
-  Execute,
   Initialize,
-  OnRedeem,
+  Redeem,
+  SetAdmin,
+  SetRedemptionAuthority,
 }
 
 export function identifyRedemptionInstruction(
@@ -107,28 +107,6 @@ export function identifyRedemptionInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([29, 237, 247, 208, 193, 82, 54, 135]),
-      ),
-      0,
-    )
-  ) {
-    return RedemptionInstruction.CreateVault;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([130, 221, 242, 154, 13, 193, 189, 29]),
-      ),
-      0,
-    )
-  ) {
-    return RedemptionInstruction.Execute;
-  }
-  if (
-    containsBytes(
-      data,
-      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([175, 175, 109, 31, 13, 152, 155, 237]),
       ),
       0,
@@ -140,12 +118,34 @@ export function identifyRedemptionInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([223, 206, 53, 237, 249, 236, 62, 45]),
+        new Uint8Array([184, 12, 86, 149, 70, 196, 97, 225]),
       ),
       0,
     )
   ) {
-    return RedemptionInstruction.OnRedeem;
+    return RedemptionInstruction.Redeem;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([251, 163, 0, 52, 91, 194, 187, 92]),
+      ),
+      0,
+    )
+  ) {
+    return RedemptionInstruction.SetAdmin;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([236, 144, 84, 64, 171, 117, 177, 227]),
+      ),
+      0,
+    )
+  ) {
+    return RedemptionInstruction.SetRedemptionAuthority;
   }
   throw new Error(
     "The provided instruction could not be identified as a redemption instruction.",
@@ -153,23 +153,23 @@ export function identifyRedemptionInstruction(
 }
 
 export type ParsedRedemptionInstruction<
-  TProgram extends string = "2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D",
+  TProgram extends string = "B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr",
 > =
   | ({
       instructionType: RedemptionInstruction.Cancel;
     } & ParsedCancelInstruction<TProgram>)
   | ({
-      instructionType: RedemptionInstruction.CreateVault;
-    } & ParsedCreateVaultInstruction<TProgram>)
-  | ({
-      instructionType: RedemptionInstruction.Execute;
-    } & ParsedExecuteInstruction<TProgram>)
-  | ({
       instructionType: RedemptionInstruction.Initialize;
     } & ParsedInitializeInstruction<TProgram>)
   | ({
-      instructionType: RedemptionInstruction.OnRedeem;
-    } & ParsedOnRedeemInstruction<TProgram>);
+      instructionType: RedemptionInstruction.Redeem;
+    } & ParsedRedeemInstruction<TProgram>)
+  | ({
+      instructionType: RedemptionInstruction.SetAdmin;
+    } & ParsedSetAdminInstruction<TProgram>)
+  | ({
+      instructionType: RedemptionInstruction.SetRedemptionAuthority;
+    } & ParsedSetRedemptionAuthorityInstruction<TProgram>);
 
 export function parseRedemptionInstruction<TProgram extends string>(
   instruction: Instruction<TProgram> & InstructionWithData<ReadonlyUint8Array>,
@@ -183,20 +183,6 @@ export function parseRedemptionInstruction<TProgram extends string>(
         ...parseCancelInstruction(instruction),
       };
     }
-    case RedemptionInstruction.CreateVault: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: RedemptionInstruction.CreateVault,
-        ...parseCreateVaultInstruction(instruction),
-      };
-    }
-    case RedemptionInstruction.Execute: {
-      assertIsInstructionWithAccounts(instruction);
-      return {
-        instructionType: RedemptionInstruction.Execute,
-        ...parseExecuteInstruction(instruction),
-      };
-    }
     case RedemptionInstruction.Initialize: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -204,11 +190,25 @@ export function parseRedemptionInstruction<TProgram extends string>(
         ...parseInitializeInstruction(instruction),
       };
     }
-    case RedemptionInstruction.OnRedeem: {
+    case RedemptionInstruction.Redeem: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: RedemptionInstruction.OnRedeem,
-        ...parseOnRedeemInstruction(instruction),
+        instructionType: RedemptionInstruction.Redeem,
+        ...parseRedeemInstruction(instruction),
+      };
+    }
+    case RedemptionInstruction.SetAdmin: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RedemptionInstruction.SetAdmin,
+        ...parseSetAdminInstruction(instruction),
+      };
+    }
+    case RedemptionInstruction.SetRedemptionAuthority: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: RedemptionInstruction.SetRedemptionAuthority,
+        ...parseSetRedemptionAuthorityInstruction(instruction),
       };
     }
     default:

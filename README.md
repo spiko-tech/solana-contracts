@@ -8,12 +8,10 @@ Tokenized money market fund shares on Solana, built with Anchor and Token-2022.
 
 | Program             | Address                                        |
 | ------------------- | ---------------------------------------------- |
-| PermissionManager   | `7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD` |
-| SpikoToken          | `F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN` |
-| SpikoTransferHook   | `7DXckwPHM1ktduwLXWxsn87hWrmyUVKDNNst5ycAj8VU` |
-| Minter              | `9SwnGKZtV54CRsFd8eocmBNH5WzxCiG7bBb1B3romQSj` |
-| Redemption          | `2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D` |
-| CustodialGatekeeper | `9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5` |
+| TransferHook        | `Fzyd28cVXwzaqoU9bqU8hLpcYqhQQtSyJVaGCgcGFEjq` |
+| Minter              | `Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX` |
+| Redemption          | `B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr` |
+| CustodialGatekeeper | `5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6` |
 
 ### Mainnet
 
@@ -44,7 +42,7 @@ anchor test        # build, deploy to localnet, and run tests
 
 ## E2E Tests
 
-The E2E test is a self-contained multi-actor scenario that deploys all programs and runs through role grants, minting, transfers, custodial gatekeeper withdrawals, and redemptions. It verifies final balances and decodes all CPI events.
+The E2E test is a self-contained multi-actor scenario that runs the full lifecycle: program initialization, minting (auto-approve + pending/approve/cancel), transfers (direct + via custodial gatekeeper with daily limits), and redemptions (burn from vault). It covers both EUTBL and USTBL tokens.
 
 ### Prerequisites
 
@@ -55,16 +53,18 @@ The E2E test is a self-contained multi-actor scenario that deploys all programs 
 
 ```bash
 # 1. Build all programs
-anchor build
+anchor build --ignore-keys
 
-# 2. Start a local validator (reset state)
-solana-test-validator --reset -q &
+# 2. Start a local validator with programs loaded (Terminal 1)
+solana-test-validator \
+  --bpf-program Fzyd28cVXwzaqoU9bqU8hLpcYqhQQtSyJVaGCgcGFEjq target/deploy/transfer_hook.so \
+  --bpf-program Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX target/deploy/minter.so \
+  --bpf-program B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr target/deploy/redemption.so \
+  --bpf-program 5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6 target/deploy/custodial_gatekeeper.so \
+  --reset
 
-# 3. Deploy all programs
-for f in target/deploy/*.so; do
-  [[ "$f" == *spl_token* ]] && continue
-  solana program deploy "$f"
-done
+# 3. Configure CLI for localnet (Terminal 2)
+solana config set --url http://127.0.0.1:8899
 
 # 4. Run the e2e test
 cd e2e && npx tsx e2e.ts
@@ -74,38 +74,19 @@ cd e2e && npx tsx e2e.ts
 
 ```bash
 # 1. Build all programs
-anchor build
+anchor build --ignore-keys
 
 # 2. Configure CLI for devnet
 solana config set --url https://api.devnet.solana.com
 
 # 3. Deploy all programs (ensure funded keypair)
-solana program deploy target/deploy/permission_manager.so
-solana program deploy target/deploy/spiko_transfer_hook.so
-solana program deploy target/deploy/spiko_token.so
-solana program deploy target/deploy/minter.so
-solana program deploy target/deploy/redemption.so
-solana program deploy target/deploy/custodial_gatekeeper.so
+solana program deploy target/deploy/transfer_hook.so --program-id target/deploy/transfer_hook-keypair.json
+solana program deploy target/deploy/minter.so --program-id target/deploy/minter-keypair.json
+solana program deploy target/deploy/redemption.so --program-id target/deploy/redemption-keypair.json
+solana program deploy target/deploy/custodial_gatekeeper.so --program-id target/deploy/custodial_gatekeeper-keypair.json
 
 # 4. Run the e2e test
 cd e2e && npx tsx e2e.ts
-```
-
-### Expected output
-
-All 13 steps should pass with all events decoded:
-
-```
-Steps:          13
-Events decoded: 13/13
-All expected events were found!
-
---- Final Balances ---
-  User1: 4 shares
-  User2: 5 shares
-  User3: 1 shares
-  Vault: 0 shares
-  CG Vault: 0 shares
 ```
 
 The test reads the RPC URL and admin keypair from `~/.config/solana/cli/config.yml`.

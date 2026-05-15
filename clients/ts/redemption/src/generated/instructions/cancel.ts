@@ -10,6 +10,8 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getAddressDecoder,
+  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
   getStructDecoder,
@@ -31,15 +33,15 @@ import {
   type ReadonlyUint8Array,
   type TransactionSigner,
   type WritableAccount,
+  type WritableSignerAccount,
 } from "@solana/kit";
 import {
   findRedemptionConfigPda,
-  findRedemptionOperationPda,
+  findRedemptionRecordPda,
   findVaultAuthorityPda,
 } from "../pdas";
 import { REDEMPTION_PROGRAM_ADDRESS } from "../programs";
 import {
-  expectAddress,
   expectSome,
   getAccountMetaFactory,
   type ResolvedAccount,
@@ -55,77 +57,79 @@ export function getCancelDiscriminatorBytes() {
 
 export type CancelInstruction<
   TProgram extends string = typeof REDEMPTION_PROGRAM_ADDRESS,
-  TAccountCaller extends string | AccountMeta<string> = string,
-  TAccountMint extends string | AccountMeta<string> = string,
+  TAccountAdmin extends string | AccountMeta<string> = string,
   TAccountRedemptionConfig extends string | AccountMeta<string> = string,
-  TAccountRedemptionOperation extends string | AccountMeta<string> = string,
+  TAccountMint extends string | AccountMeta<string> = string,
+  TAccountVaultAuthority extends string | AccountMeta<string> = string,
   TAccountVault extends string | AccountMeta<string> = string,
   TAccountUserTokenAccount extends string | AccountMeta<string> = string,
-  TAccountVaultAuthority extends string | AccountMeta<string> = string,
+  TAccountRedemptionRecord extends string | AccountMeta<string> = string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-  TAccountEventAuthority extends string | AccountMeta<string> = string,
-  TAccountProgram extends string | AccountMeta<string> = string,
+  TAccountPayer extends string | AccountMeta<string> = string,
+  TAccountSystemProgram extends string | AccountMeta<string> =
+    "11111111111111111111111111111111",
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountCaller extends string
-        ? ReadonlySignerAccount<TAccountCaller> &
-            AccountSignerMeta<TAccountCaller>
-        : TAccountCaller,
-      TAccountMint extends string
-        ? ReadonlyAccount<TAccountMint>
-        : TAccountMint,
+      TAccountAdmin extends string
+        ? ReadonlySignerAccount<TAccountAdmin> &
+            AccountSignerMeta<TAccountAdmin>
+        : TAccountAdmin,
       TAccountRedemptionConfig extends string
         ? ReadonlyAccount<TAccountRedemptionConfig>
         : TAccountRedemptionConfig,
-      TAccountRedemptionOperation extends string
-        ? WritableAccount<TAccountRedemptionOperation>
-        : TAccountRedemptionOperation,
+      TAccountMint extends string
+        ? ReadonlyAccount<TAccountMint>
+        : TAccountMint,
+      TAccountVaultAuthority extends string
+        ? ReadonlyAccount<TAccountVaultAuthority>
+        : TAccountVaultAuthority,
       TAccountVault extends string
         ? WritableAccount<TAccountVault>
         : TAccountVault,
       TAccountUserTokenAccount extends string
         ? WritableAccount<TAccountUserTokenAccount>
         : TAccountUserTokenAccount,
-      TAccountVaultAuthority extends string
-        ? ReadonlyAccount<TAccountVaultAuthority>
-        : TAccountVaultAuthority,
+      TAccountRedemptionRecord extends string
+        ? WritableAccount<TAccountRedemptionRecord>
+        : TAccountRedemptionRecord,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountProgram extends string
-        ? ReadonlyAccount<TAccountProgram>
-        : TAccountProgram,
+      TAccountPayer extends string
+        ? WritableSignerAccount<TAccountPayer> &
+            AccountSignerMeta<TAccountPayer>
+        : TAccountPayer,
+      TAccountSystemProgram extends string
+        ? ReadonlyAccount<TAccountSystemProgram>
+        : TAccountSystemProgram,
       ...TRemainingAccounts,
     ]
   >;
 
 export type CancelInstructionData = {
   discriminator: ReadonlyUint8Array;
-  operationId: ReadonlyUint8Array;
-  amount: bigint;
   salt: bigint;
+  amount: bigint;
+  user: Address;
 };
 
 export type CancelInstructionDataArgs = {
-  operationId: ReadonlyUint8Array;
-  amount: number | bigint;
   salt: number | bigint;
+  amount: number | bigint;
+  user: Address;
 };
 
 export function getCancelInstructionDataEncoder(): FixedSizeEncoder<CancelInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["operationId", fixEncoderSize(getBytesEncoder(), 32)],
-      ["amount", getU64Encoder()],
       ["salt", getU64Encoder()],
+      ["amount", getU64Encoder()],
+      ["user", getAddressEncoder()],
     ]),
     (value) => ({ ...value, discriminator: CANCEL_DISCRIMINATOR }),
   );
@@ -134,9 +138,9 @@ export function getCancelInstructionDataEncoder(): FixedSizeEncoder<CancelInstru
 export function getCancelInstructionDataDecoder(): FixedSizeDecoder<CancelInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["operationId", fixDecoderSize(getBytesDecoder(), 32)],
-    ["amount", getU64Decoder()],
     ["salt", getU64Decoder()],
+    ["amount", getU64Decoder()],
+    ["user", getAddressDecoder()],
   ]);
 }
 
@@ -151,71 +155,71 @@ export function getCancelInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type CancelAsyncInput<
-  TAccountCaller extends string = string,
-  TAccountMint extends string = string,
+  TAccountAdmin extends string = string,
   TAccountRedemptionConfig extends string = string,
-  TAccountRedemptionOperation extends string = string,
+  TAccountMint extends string = string,
+  TAccountVaultAuthority extends string = string,
   TAccountVault extends string = string,
   TAccountUserTokenAccount extends string = string,
-  TAccountVaultAuthority extends string = string,
+  TAccountRedemptionRecord extends string = string,
   TAccountTokenProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountPayer extends string = string,
+  TAccountSystemProgram extends string = string,
 > = {
-  caller: TransactionSigner<TAccountCaller>;
-  mint: Address<TAccountMint>;
+  admin: TransactionSigner<TAccountAdmin>;
   redemptionConfig?: Address<TAccountRedemptionConfig>;
-  redemptionOperation?: Address<TAccountRedemptionOperation>;
+  mint: Address<TAccountMint>;
+  vaultAuthority?: Address<TAccountVaultAuthority>;
   vault: Address<TAccountVault>;
   userTokenAccount: Address<TAccountUserTokenAccount>;
-  vaultAuthority?: Address<TAccountVaultAuthority>;
+  redemptionRecord?: Address<TAccountRedemptionRecord>;
   tokenProgram?: Address<TAccountTokenProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  operationId: CancelInstructionDataArgs["operationId"];
-  amount: CancelInstructionDataArgs["amount"];
+  payer: TransactionSigner<TAccountPayer>;
+  systemProgram?: Address<TAccountSystemProgram>;
   salt: CancelInstructionDataArgs["salt"];
+  amount: CancelInstructionDataArgs["amount"];
+  user: CancelInstructionDataArgs["user"];
 };
 
 export async function getCancelInstructionAsync<
-  TAccountCaller extends string,
-  TAccountMint extends string,
+  TAccountAdmin extends string,
   TAccountRedemptionConfig extends string,
-  TAccountRedemptionOperation extends string,
+  TAccountMint extends string,
+  TAccountVaultAuthority extends string,
   TAccountVault extends string,
   TAccountUserTokenAccount extends string,
-  TAccountVaultAuthority extends string,
+  TAccountRedemptionRecord extends string,
   TAccountTokenProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountPayer extends string,
+  TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: CancelAsyncInput<
-    TAccountCaller,
-    TAccountMint,
+    TAccountAdmin,
     TAccountRedemptionConfig,
-    TAccountRedemptionOperation,
+    TAccountMint,
+    TAccountVaultAuthority,
     TAccountVault,
     TAccountUserTokenAccount,
-    TAccountVaultAuthority,
+    TAccountRedemptionRecord,
     TAccountTokenProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountPayer,
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
   CancelInstruction<
     TProgramAddress,
-    TAccountCaller,
-    TAccountMint,
+    TAccountAdmin,
     TAccountRedemptionConfig,
-    TAccountRedemptionOperation,
+    TAccountMint,
+    TAccountVaultAuthority,
     TAccountVault,
     TAccountUserTokenAccount,
-    TAccountVaultAuthority,
+    TAccountRedemptionRecord,
     TAccountTokenProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountPayer,
+    TAccountSystemProgram
   >
 > {
   // Program address.
@@ -223,25 +227,25 @@ export async function getCancelInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    caller: { value: input.caller ?? null, isWritable: false },
-    mint: { value: input.mint ?? null, isWritable: false },
+    admin: { value: input.admin ?? null, isWritable: false },
     redemptionConfig: {
       value: input.redemptionConfig ?? null,
       isWritable: false,
     },
-    redemptionOperation: {
-      value: input.redemptionOperation ?? null,
-      isWritable: true,
-    },
+    mint: { value: input.mint ?? null, isWritable: false },
+    vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
     vault: { value: input.vault ?? null, isWritable: true },
     userTokenAccount: {
       value: input.userTokenAccount ?? null,
       isWritable: true,
     },
-    vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
+    redemptionRecord: {
+      value: input.redemptionRecord ?? null,
+      isWritable: true,
+    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
+    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -255,34 +259,36 @@ export async function getCancelInstructionAsync<
   if (!accounts.redemptionConfig.value) {
     accounts.redemptionConfig.value = await findRedemptionConfigPda();
   }
-  if (!accounts.redemptionOperation.value) {
-    accounts.redemptionOperation.value = await findRedemptionOperationPda({
-      operationId: expectSome(args.operationId),
-    });
-  }
   if (!accounts.vaultAuthority.value) {
-    accounts.vaultAuthority.value = await findVaultAuthorityPda({
-      mint: expectAddress(accounts.mint.value),
+    accounts.vaultAuthority.value = await findVaultAuthorityPda();
+  }
+  if (!accounts.redemptionRecord.value) {
+    accounts.redemptionRecord.value = await findRedemptionRecordPda({
+      salt: expectSome(args.salt),
     });
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
   }
+  if (!accounts.systemProgram.value) {
+    accounts.systemProgram.value =
+      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
+  }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.caller),
-      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.admin),
       getAccountMeta(accounts.redemptionConfig),
-      getAccountMeta(accounts.redemptionOperation),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.vaultAuthority),
       getAccountMeta(accounts.vault),
       getAccountMeta(accounts.userTokenAccount),
-      getAccountMeta(accounts.vaultAuthority),
+      getAccountMeta(accounts.redemptionRecord),
       getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta(accounts.payer),
+      getAccountMeta(accounts.systemProgram),
     ],
     data: getCancelInstructionDataEncoder().encode(
       args as CancelInstructionDataArgs,
@@ -290,109 +296,109 @@ export async function getCancelInstructionAsync<
     programAddress,
   } as CancelInstruction<
     TProgramAddress,
-    TAccountCaller,
-    TAccountMint,
+    TAccountAdmin,
     TAccountRedemptionConfig,
-    TAccountRedemptionOperation,
+    TAccountMint,
+    TAccountVaultAuthority,
     TAccountVault,
     TAccountUserTokenAccount,
-    TAccountVaultAuthority,
+    TAccountRedemptionRecord,
     TAccountTokenProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountPayer,
+    TAccountSystemProgram
   >);
 }
 
 export type CancelInput<
-  TAccountCaller extends string = string,
-  TAccountMint extends string = string,
+  TAccountAdmin extends string = string,
   TAccountRedemptionConfig extends string = string,
-  TAccountRedemptionOperation extends string = string,
+  TAccountMint extends string = string,
+  TAccountVaultAuthority extends string = string,
   TAccountVault extends string = string,
   TAccountUserTokenAccount extends string = string,
-  TAccountVaultAuthority extends string = string,
+  TAccountRedemptionRecord extends string = string,
   TAccountTokenProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
+  TAccountPayer extends string = string,
+  TAccountSystemProgram extends string = string,
 > = {
-  caller: TransactionSigner<TAccountCaller>;
-  mint: Address<TAccountMint>;
+  admin: TransactionSigner<TAccountAdmin>;
   redemptionConfig: Address<TAccountRedemptionConfig>;
-  redemptionOperation: Address<TAccountRedemptionOperation>;
+  mint: Address<TAccountMint>;
+  vaultAuthority: Address<TAccountVaultAuthority>;
   vault: Address<TAccountVault>;
   userTokenAccount: Address<TAccountUserTokenAccount>;
-  vaultAuthority: Address<TAccountVaultAuthority>;
+  redemptionRecord: Address<TAccountRedemptionRecord>;
   tokenProgram?: Address<TAccountTokenProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  operationId: CancelInstructionDataArgs["operationId"];
-  amount: CancelInstructionDataArgs["amount"];
+  payer: TransactionSigner<TAccountPayer>;
+  systemProgram?: Address<TAccountSystemProgram>;
   salt: CancelInstructionDataArgs["salt"];
+  amount: CancelInstructionDataArgs["amount"];
+  user: CancelInstructionDataArgs["user"];
 };
 
 export function getCancelInstruction<
-  TAccountCaller extends string,
-  TAccountMint extends string,
+  TAccountAdmin extends string,
   TAccountRedemptionConfig extends string,
-  TAccountRedemptionOperation extends string,
+  TAccountMint extends string,
+  TAccountVaultAuthority extends string,
   TAccountVault extends string,
   TAccountUserTokenAccount extends string,
-  TAccountVaultAuthority extends string,
+  TAccountRedemptionRecord extends string,
   TAccountTokenProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
+  TAccountPayer extends string,
+  TAccountSystemProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: CancelInput<
-    TAccountCaller,
-    TAccountMint,
+    TAccountAdmin,
     TAccountRedemptionConfig,
-    TAccountRedemptionOperation,
+    TAccountMint,
+    TAccountVaultAuthority,
     TAccountVault,
     TAccountUserTokenAccount,
-    TAccountVaultAuthority,
+    TAccountRedemptionRecord,
     TAccountTokenProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountPayer,
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): CancelInstruction<
   TProgramAddress,
-  TAccountCaller,
-  TAccountMint,
+  TAccountAdmin,
   TAccountRedemptionConfig,
-  TAccountRedemptionOperation,
+  TAccountMint,
+  TAccountVaultAuthority,
   TAccountVault,
   TAccountUserTokenAccount,
-  TAccountVaultAuthority,
+  TAccountRedemptionRecord,
   TAccountTokenProgram,
-  TAccountEventAuthority,
-  TAccountProgram
+  TAccountPayer,
+  TAccountSystemProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? REDEMPTION_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    caller: { value: input.caller ?? null, isWritable: false },
-    mint: { value: input.mint ?? null, isWritable: false },
+    admin: { value: input.admin ?? null, isWritable: false },
     redemptionConfig: {
       value: input.redemptionConfig ?? null,
       isWritable: false,
     },
-    redemptionOperation: {
-      value: input.redemptionOperation ?? null,
-      isWritable: true,
-    },
+    mint: { value: input.mint ?? null, isWritable: false },
+    vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
     vault: { value: input.vault ?? null, isWritable: true },
     userTokenAccount: {
       value: input.userTokenAccount ?? null,
       isWritable: true,
     },
-    vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: false },
+    redemptionRecord: {
+      value: input.redemptionRecord ?? null,
+      isWritable: true,
+    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
+    payer: { value: input.payer ?? null, isWritable: true },
+    systemProgram: { value: input.systemProgram ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -407,20 +413,24 @@ export function getCancelInstruction<
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
   }
+  if (!accounts.systemProgram.value) {
+    accounts.systemProgram.value =
+      "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
+  }
 
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.caller),
-      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.admin),
       getAccountMeta(accounts.redemptionConfig),
-      getAccountMeta(accounts.redemptionOperation),
+      getAccountMeta(accounts.mint),
+      getAccountMeta(accounts.vaultAuthority),
       getAccountMeta(accounts.vault),
       getAccountMeta(accounts.userTokenAccount),
-      getAccountMeta(accounts.vaultAuthority),
+      getAccountMeta(accounts.redemptionRecord),
       getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
+      getAccountMeta(accounts.payer),
+      getAccountMeta(accounts.systemProgram),
     ],
     data: getCancelInstructionDataEncoder().encode(
       args as CancelInstructionDataArgs,
@@ -428,16 +438,16 @@ export function getCancelInstruction<
     programAddress,
   } as CancelInstruction<
     TProgramAddress,
-    TAccountCaller,
-    TAccountMint,
+    TAccountAdmin,
     TAccountRedemptionConfig,
-    TAccountRedemptionOperation,
+    TAccountMint,
+    TAccountVaultAuthority,
     TAccountVault,
     TAccountUserTokenAccount,
-    TAccountVaultAuthority,
+    TAccountRedemptionRecord,
     TAccountTokenProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountPayer,
+    TAccountSystemProgram
   >);
 }
 
@@ -447,16 +457,16 @@ export type ParsedCancelInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    caller: TAccountMetas[0];
-    mint: TAccountMetas[1];
-    redemptionConfig: TAccountMetas[2];
-    redemptionOperation: TAccountMetas[3];
+    admin: TAccountMetas[0];
+    redemptionConfig: TAccountMetas[1];
+    mint: TAccountMetas[2];
+    vaultAuthority: TAccountMetas[3];
     vault: TAccountMetas[4];
     userTokenAccount: TAccountMetas[5];
-    vaultAuthority: TAccountMetas[6];
+    redemptionRecord: TAccountMetas[6];
     tokenProgram: TAccountMetas[7];
-    eventAuthority: TAccountMetas[8];
-    program: TAccountMetas[9];
+    payer: TAccountMetas[8];
+    systemProgram: TAccountMetas[9];
   };
   data: CancelInstructionData;
 };
@@ -482,16 +492,16 @@ export function parseCancelInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      caller: getNextAccount(),
-      mint: getNextAccount(),
+      admin: getNextAccount(),
       redemptionConfig: getNextAccount(),
-      redemptionOperation: getNextAccount(),
+      mint: getNextAccount(),
+      vaultAuthority: getNextAccount(),
       vault: getNextAccount(),
       userTokenAccount: getNextAccount(),
-      vaultAuthority: getNextAccount(),
+      redemptionRecord: getNextAccount(),
       tokenProgram: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      program: getNextAccount(),
+      payer: getNextAccount(),
+      systemProgram: getNextAccount(),
     },
     data: getCancelInstructionDataDecoder().decode(instruction.data),
   };

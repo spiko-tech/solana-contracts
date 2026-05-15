@@ -1,15 +1,12 @@
 use anchor_lang::prelude::*;
 
-use crate::constants::*;
 use crate::errors::GatekeeperError;
-
-pub use permission_manager::state::{has_role, is_admin, PermissionConfig, UserPermissions};
 
 #[account]
 #[derive(InitSpace)]
 pub struct GatekeeperConfig {
-    pub max_delay: i64,
-    pub permission_manager: Pubkey,
+    pub admin: Pubkey,
+    pub gatekeeper_initiator: Pubkey,
     pub bump: u8,
 }
 
@@ -55,50 +52,11 @@ impl WithdrawalDailyLimit {
 
 #[account]
 #[derive(InitSpace)]
-pub struct WithdrawalOperation {
+pub struct GatekeepOperation {
     pub status: u8,
-    pub deadline: i64,
     pub sender: Pubkey,
-    pub recipient: Pubkey,
+    pub destination: Pubkey,
     pub mint: Pubkey,
     pub amount: u64,
     pub bump: u8,
-}
-
-impl WithdrawalOperation {
-    pub fn is_pending(&self) -> bool {
-        self.status == STATUS_PENDING
-    }
-
-    pub fn validate_for_approval(
-        &self,
-        operation_id: &[u8; 32],
-        mint: &Pubkey,
-        amount: u64,
-        salt: u64,
-    ) -> Result<()> {
-        crate::utils::verify_operation_id(&self.sender, mint, amount, salt, operation_id)?;
-        let clock = Clock::get()?;
-        require!(
-            clock.unix_timestamp <= self.deadline,
-            GatekeeperError::DeadlinePassed
-        );
-        Ok(())
-    }
-
-    pub fn validate_for_cancellation(
-        &self,
-        operation_id: &[u8; 32],
-        mint: &Pubkey,
-        amount: u64,
-        salt: u64,
-    ) -> Result<()> {
-        crate::utils::verify_operation_id(&self.sender, mint, amount, salt, operation_id)?;
-        let clock = Clock::get()?;
-        require!(
-            clock.unix_timestamp > self.deadline,
-            GatekeeperError::DeadlineNotPassed
-        );
-        Ok(())
-    }
 }

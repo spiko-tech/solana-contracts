@@ -17,10 +17,17 @@ export async function findVaultAuthorityPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5" as Address<"9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5">,
+    programAddress = "5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6" as Address<"5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
-    seeds: [getBytesEncoder().encode(new Uint8Array([118, 97, 117, 108, 116]))],
+    seeds: [
+      getBytesEncoder().encode(
+        new Uint8Array([
+          118, 97, 117, 108, 116, 95, 97, 117, 116, 104, 111, 114, 105, 116,
+          121,
+        ]),
+      ),
+    ],
   });
 }

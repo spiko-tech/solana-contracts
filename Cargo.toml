@@ -1,22 +1,18 @@
 [workspace]
 resolver = "2"
 members = [
-    "programs/permission-manager",
-    "programs/spiko-token",
-    "programs/spiko-transfer-hook",
+    "programs/transfer-hook",
     "programs/minter",
     "programs/redemption",
     "programs/custodial-gatekeeper",
 ]
 
 [workspace.dependencies]
-anchor-lang = { version = "1.0.2", features = ["event-cpi"] }
+anchor-lang = { version = "1.0.2", features = ["init-if-needed"] }
 anchor-spl = "1.0.2"
 spl-transfer-hook-interface = "2.1.0"
 spl-tlv-account-resolution = "0.11.1"
-solana-sha256-hasher = "3"
-litesvm = "0.11.0"
-blake3 = "=1.5.5"
+spl-token-2022-interface = "2.1.0"
 
 [profile.release]
 overflow-checks = true
