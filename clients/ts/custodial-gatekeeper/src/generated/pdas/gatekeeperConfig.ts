@@ -17,7 +17,7 @@ export async function findGatekeeperConfigPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5" as Address<"9z86yHHZEojd2HoGBviCKf7kWbbZJqWzRgQQm3bKCBh5">,
+    programAddress = "5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6" as Address<"5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,

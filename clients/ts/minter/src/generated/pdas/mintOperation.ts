@@ -7,16 +7,15 @@
  */
 
 import {
-  fixEncoderSize,
   getBytesEncoder,
   getProgramDerivedAddress,
+  getU64Encoder,
   type Address,
   type ProgramDerivedAddress,
-  type ReadonlyUint8Array,
 } from "@solana/kit";
 
 export type MintOperationSeeds = {
-  operationId: ReadonlyUint8Array;
+  salt: number | bigint;
 };
 
 export async function findMintOperationPda(
@@ -24,7 +23,7 @@ export async function findMintOperationPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "9SwnGKZtV54CRsFd8eocmBNH5WzxCiG7bBb1B3romQSj" as Address<"9SwnGKZtV54CRsFd8eocmBNH5WzxCiG7bBb1B3romQSj">,
+    programAddress = "Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX" as Address<"Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
@@ -32,7 +31,7 @@ export async function findMintOperationPda(
       getBytesEncoder().encode(
         new Uint8Array([109, 105, 110, 116, 95, 111, 112]),
       ),
-      fixEncoderSize(getBytesEncoder(), 32).encode(seeds.operationId),
+      getU64Encoder().encode(seeds.salt),
     ],
   });
 }

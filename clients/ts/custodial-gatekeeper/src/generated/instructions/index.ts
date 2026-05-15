@@ -6,8 +6,10 @@
  * @see https://github.com/codama-idl/codama
  */
 
-export * from "./approveWithdrawal";
-export * from "./cancelWithdrawal";
-export * from "./custodialWithdraw";
+export * from "./approveGatekeep";
+export * from "./cancelGatekeep";
 export * from "./initialize";
+export * from "./initiateGatekeep";
+export * from "./setAdmin";
 export * from "./setDailyLimit";
+export * from "./setGatekeeperInitiator";

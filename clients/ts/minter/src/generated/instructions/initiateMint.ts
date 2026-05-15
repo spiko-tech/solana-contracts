@@ -14,7 +14,6 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -61,37 +60,26 @@ export function getInitiateMintDiscriminatorBytes() {
 
 export type InitiateMintInstruction<
   TProgram extends string = typeof MINTER_PROGRAM_ADDRESS,
-  TAccountMinter extends string | AccountMeta<string> = string,
+  TAccountInitiator extends string | AccountMeta<string> = string,
   TAccountMinterConfig extends string | AccountMeta<string> = string,
   TAccountMintDailyLimit extends string | AccountMeta<string> = string,
   TAccountMintOperation extends string | AccountMeta<string> = string,
   TAccountMint extends string | AccountMeta<string> = string,
   TAccountDestination extends string | AccountMeta<string> = string,
-  TAccountMinterPermissions extends string | AccountMeta<string> = string,
-  TAccountMinterConfigPermissions extends string | AccountMeta<string> = string,
-  TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
-  TAccountSpikoTokenProgram extends string | AccountMeta<string> =
-    "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN",
-  TAccountSpikoTokenEventAuthority extends string | AccountMeta<string> =
-    string,
   TAccountTokenProgram extends string | AccountMeta<string> =
     "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
-  TAccountTokenConfig extends string | AccountMeta<string> = string,
-  TAccountMintAuthority extends string | AccountMeta<string> = string,
   TAccountPayer extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
-  TAccountEventAuthority extends string | AccountMeta<string> = string,
-  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountMinter extends string
-        ? ReadonlySignerAccount<TAccountMinter> &
-            AccountSignerMeta<TAccountMinter>
-        : TAccountMinter,
+      TAccountInitiator extends string
+        ? ReadonlySignerAccount<TAccountInitiator> &
+            AccountSignerMeta<TAccountInitiator>
+        : TAccountInitiator,
       TAccountMinterConfig extends string
         ? ReadonlyAccount<TAccountMinterConfig>
         : TAccountMinterConfig,
@@ -107,30 +95,9 @@ export type InitiateMintInstruction<
       TAccountDestination extends string
         ? WritableAccount<TAccountDestination>
         : TAccountDestination,
-      TAccountMinterPermissions extends string
-        ? ReadonlyAccount<TAccountMinterPermissions>
-        : TAccountMinterPermissions,
-      TAccountMinterConfigPermissions extends string
-        ? ReadonlyAccount<TAccountMinterConfigPermissions>
-        : TAccountMinterConfigPermissions,
-      TAccountPermissionManagerConfig extends string
-        ? ReadonlyAccount<TAccountPermissionManagerConfig>
-        : TAccountPermissionManagerConfig,
-      TAccountSpikoTokenProgram extends string
-        ? ReadonlyAccount<TAccountSpikoTokenProgram>
-        : TAccountSpikoTokenProgram,
-      TAccountSpikoTokenEventAuthority extends string
-        ? ReadonlyAccount<TAccountSpikoTokenEventAuthority>
-        : TAccountSpikoTokenEventAuthority,
       TAccountTokenProgram extends string
         ? ReadonlyAccount<TAccountTokenProgram>
         : TAccountTokenProgram,
-      TAccountTokenConfig extends string
-        ? ReadonlyAccount<TAccountTokenConfig>
-        : TAccountTokenConfig,
-      TAccountMintAuthority extends string
-        ? ReadonlyAccount<TAccountMintAuthority>
-        : TAccountMintAuthority,
       TAccountPayer extends string
         ? WritableSignerAccount<TAccountPayer> &
             AccountSignerMeta<TAccountPayer>
@@ -138,39 +105,30 @@ export type InitiateMintInstruction<
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountProgram extends string
-        ? ReadonlyAccount<TAccountProgram>
-        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
 
 export type InitiateMintInstructionData = {
   discriminator: ReadonlyUint8Array;
-  operationId: ReadonlyUint8Array;
+  salt: bigint;
   recipient: Address;
   amount: bigint;
-  salt: bigint;
 };
 
 export type InitiateMintInstructionDataArgs = {
-  operationId: ReadonlyUint8Array;
+  salt: number | bigint;
   recipient: Address;
   amount: number | bigint;
-  salt: number | bigint;
 };
 
 export function getInitiateMintInstructionDataEncoder(): FixedSizeEncoder<InitiateMintInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["operationId", fixEncoderSize(getBytesEncoder(), 32)],
+      ["salt", getU64Encoder()],
       ["recipient", getAddressEncoder()],
       ["amount", getU64Encoder()],
-      ["salt", getU64Encoder()],
     ]),
     (value) => ({ ...value, discriminator: INITIATE_MINT_DISCRIMINATOR }),
   );
@@ -179,10 +137,9 @@ export function getInitiateMintInstructionDataEncoder(): FixedSizeEncoder<Initia
 export function getInitiateMintInstructionDataDecoder(): FixedSizeDecoder<InitiateMintInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["operationId", fixDecoderSize(getBytesDecoder(), 32)],
+    ["salt", getU64Decoder()],
     ["recipient", getAddressDecoder()],
     ["amount", getU64Decoder()],
-    ["salt", getU64Decoder()],
   ]);
 }
 
@@ -197,113 +154,66 @@ export function getInitiateMintInstructionDataCodec(): FixedSizeCodec<
 }
 
 export type InitiateMintAsyncInput<
-  TAccountMinter extends string = string,
+  TAccountInitiator extends string = string,
   TAccountMinterConfig extends string = string,
   TAccountMintDailyLimit extends string = string,
   TAccountMintOperation extends string = string,
   TAccountMint extends string = string,
   TAccountDestination extends string = string,
-  TAccountMinterPermissions extends string = string,
-  TAccountMinterConfigPermissions extends string = string,
-  TAccountPermissionManagerConfig extends string = string,
-  TAccountSpikoTokenProgram extends string = string,
-  TAccountSpikoTokenEventAuthority extends string = string,
   TAccountTokenProgram extends string = string,
-  TAccountTokenConfig extends string = string,
-  TAccountMintAuthority extends string = string,
   TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
 > = {
-  minter: TransactionSigner<TAccountMinter>;
+  initiator: TransactionSigner<TAccountInitiator>;
   minterConfig?: Address<TAccountMinterConfig>;
   mintDailyLimit?: Address<TAccountMintDailyLimit>;
   mintOperation?: Address<TAccountMintOperation>;
   mint: Address<TAccountMint>;
   destination: Address<TAccountDestination>;
-  minterPermissions?: Address<TAccountMinterPermissions>;
-  /** UserPermissions for MinterConfig PDA (must have ROLE_MINTER for spiko-token CPI) */
-  minterConfigPermissions: Address<TAccountMinterConfigPermissions>;
-  permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
-  spikoTokenProgram?: Address<TAccountSpikoTokenProgram>;
-  spikoTokenEventAuthority: Address<TAccountSpikoTokenEventAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
-  tokenConfig: Address<TAccountTokenConfig>;
-  mintAuthority: Address<TAccountMintAuthority>;
   payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  operationId: InitiateMintInstructionDataArgs["operationId"];
+  salt: InitiateMintInstructionDataArgs["salt"];
   recipient: InitiateMintInstructionDataArgs["recipient"];
   amount: InitiateMintInstructionDataArgs["amount"];
-  salt: InitiateMintInstructionDataArgs["salt"];
 };
 
 export async function getInitiateMintInstructionAsync<
-  TAccountMinter extends string,
+  TAccountInitiator extends string,
   TAccountMinterConfig extends string,
   TAccountMintDailyLimit extends string,
   TAccountMintOperation extends string,
   TAccountMint extends string,
   TAccountDestination extends string,
-  TAccountMinterPermissions extends string,
-  TAccountMinterConfigPermissions extends string,
-  TAccountPermissionManagerConfig extends string,
-  TAccountSpikoTokenProgram extends string,
-  TAccountSpikoTokenEventAuthority extends string,
   TAccountTokenProgram extends string,
-  TAccountTokenConfig extends string,
-  TAccountMintAuthority extends string,
   TAccountPayer extends string,
   TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
   TProgramAddress extends Address = typeof MINTER_PROGRAM_ADDRESS,
 >(
   input: InitiateMintAsyncInput<
-    TAccountMinter,
+    TAccountInitiator,
     TAccountMinterConfig,
     TAccountMintDailyLimit,
     TAccountMintOperation,
     TAccountMint,
     TAccountDestination,
-    TAccountMinterPermissions,
-    TAccountMinterConfigPermissions,
-    TAccountPermissionManagerConfig,
-    TAccountSpikoTokenProgram,
-    TAccountSpikoTokenEventAuthority,
     TAccountTokenProgram,
-    TAccountTokenConfig,
-    TAccountMintAuthority,
     TAccountPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
   InitiateMintInstruction<
     TProgramAddress,
-    TAccountMinter,
+    TAccountInitiator,
     TAccountMinterConfig,
     TAccountMintDailyLimit,
     TAccountMintOperation,
     TAccountMint,
     TAccountDestination,
-    TAccountMinterPermissions,
-    TAccountMinterConfigPermissions,
-    TAccountPermissionManagerConfig,
-    TAccountSpikoTokenProgram,
-    TAccountSpikoTokenEventAuthority,
     TAccountTokenProgram,
-    TAccountTokenConfig,
-    TAccountMintAuthority,
     TAccountPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountSystemProgram
   >
 > {
   // Program address.
@@ -311,39 +221,15 @@ export async function getInitiateMintInstructionAsync<
 
   // Original accounts.
   const originalAccounts = {
-    minter: { value: input.minter ?? null, isWritable: false },
+    initiator: { value: input.initiator ?? null, isWritable: false },
     minterConfig: { value: input.minterConfig ?? null, isWritable: false },
     mintDailyLimit: { value: input.mintDailyLimit ?? null, isWritable: true },
     mintOperation: { value: input.mintOperation ?? null, isWritable: true },
     mint: { value: input.mint ?? null, isWritable: true },
     destination: { value: input.destination ?? null, isWritable: true },
-    minterPermissions: {
-      value: input.minterPermissions ?? null,
-      isWritable: false,
-    },
-    minterConfigPermissions: {
-      value: input.minterConfigPermissions ?? null,
-      isWritable: false,
-    },
-    permissionManagerConfig: {
-      value: input.permissionManagerConfig ?? null,
-      isWritable: false,
-    },
-    spikoTokenProgram: {
-      value: input.spikoTokenProgram ?? null,
-      isWritable: false,
-    },
-    spikoTokenEventAuthority: {
-      value: input.spikoTokenEventAuthority ?? null,
-      isWritable: false,
-    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
-    tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
-    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
     payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -364,39 +250,8 @@ export async function getInitiateMintInstructionAsync<
   }
   if (!accounts.mintOperation.value) {
     accounts.mintOperation.value = await findMintOperationPda({
-      operationId: expectSome(args.operationId),
+      salt: expectSome(args.salt),
     });
-  }
-  if (!accounts.permissionManagerConfig.value) {
-    accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
-      programAddress:
-        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
-      seeds: [
-        getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
-      ],
-    });
-  }
-  if (!accounts.minterPermissions.value) {
-    accounts.minterPermissions.value = await getProgramDerivedAddress({
-      programAddress:
-        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
-      seeds: [
-        getBytesEncoder().encode(
-          new Uint8Array([
-            117, 115, 101, 114, 95, 112, 101, 114, 109, 105, 115, 115, 105, 111,
-            110,
-          ]),
-        ),
-        getAddressEncoder().encode(expectAddress(accounts.minter.value)),
-        getAddressEncoder().encode(
-          expectAddress(accounts.permissionManagerConfig.value),
-        ),
-      ],
-    });
-  }
-  if (!accounts.spikoTokenProgram.value) {
-    accounts.spikoTokenProgram.value =
-      "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN" as Address<"F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN">;
   }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
@@ -410,24 +265,15 @@ export async function getInitiateMintInstructionAsync<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.minter),
+      getAccountMeta(accounts.initiator),
       getAccountMeta(accounts.minterConfig),
       getAccountMeta(accounts.mintDailyLimit),
       getAccountMeta(accounts.mintOperation),
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.destination),
-      getAccountMeta(accounts.minterPermissions),
-      getAccountMeta(accounts.minterConfigPermissions),
-      getAccountMeta(accounts.permissionManagerConfig),
-      getAccountMeta(accounts.spikoTokenProgram),
-      getAccountMeta(accounts.spikoTokenEventAuthority),
       getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.tokenConfig),
-      getAccountMeta(accounts.mintAuthority),
       getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
     ],
     data: getInitiateMintInstructionDataEncoder().encode(
       args as InitiateMintInstructionDataArgs,
@@ -435,173 +281,93 @@ export async function getInitiateMintInstructionAsync<
     programAddress,
   } as InitiateMintInstruction<
     TProgramAddress,
-    TAccountMinter,
+    TAccountInitiator,
     TAccountMinterConfig,
     TAccountMintDailyLimit,
     TAccountMintOperation,
     TAccountMint,
     TAccountDestination,
-    TAccountMinterPermissions,
-    TAccountMinterConfigPermissions,
-    TAccountPermissionManagerConfig,
-    TAccountSpikoTokenProgram,
-    TAccountSpikoTokenEventAuthority,
     TAccountTokenProgram,
-    TAccountTokenConfig,
-    TAccountMintAuthority,
     TAccountPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountSystemProgram
   >);
 }
 
 export type InitiateMintInput<
-  TAccountMinter extends string = string,
+  TAccountInitiator extends string = string,
   TAccountMinterConfig extends string = string,
   TAccountMintDailyLimit extends string = string,
   TAccountMintOperation extends string = string,
   TAccountMint extends string = string,
   TAccountDestination extends string = string,
-  TAccountMinterPermissions extends string = string,
-  TAccountMinterConfigPermissions extends string = string,
-  TAccountPermissionManagerConfig extends string = string,
-  TAccountSpikoTokenProgram extends string = string,
-  TAccountSpikoTokenEventAuthority extends string = string,
   TAccountTokenProgram extends string = string,
-  TAccountTokenConfig extends string = string,
-  TAccountMintAuthority extends string = string,
   TAccountPayer extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
 > = {
-  minter: TransactionSigner<TAccountMinter>;
+  initiator: TransactionSigner<TAccountInitiator>;
   minterConfig: Address<TAccountMinterConfig>;
   mintDailyLimit: Address<TAccountMintDailyLimit>;
   mintOperation: Address<TAccountMintOperation>;
   mint: Address<TAccountMint>;
   destination: Address<TAccountDestination>;
-  minterPermissions: Address<TAccountMinterPermissions>;
-  /** UserPermissions for MinterConfig PDA (must have ROLE_MINTER for spiko-token CPI) */
-  minterConfigPermissions: Address<TAccountMinterConfigPermissions>;
-  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
-  spikoTokenProgram?: Address<TAccountSpikoTokenProgram>;
-  spikoTokenEventAuthority: Address<TAccountSpikoTokenEventAuthority>;
   tokenProgram?: Address<TAccountTokenProgram>;
-  tokenConfig: Address<TAccountTokenConfig>;
-  mintAuthority: Address<TAccountMintAuthority>;
   payer: TransactionSigner<TAccountPayer>;
   systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  operationId: InitiateMintInstructionDataArgs["operationId"];
+  salt: InitiateMintInstructionDataArgs["salt"];
   recipient: InitiateMintInstructionDataArgs["recipient"];
   amount: InitiateMintInstructionDataArgs["amount"];
-  salt: InitiateMintInstructionDataArgs["salt"];
 };
 
 export function getInitiateMintInstruction<
-  TAccountMinter extends string,
+  TAccountInitiator extends string,
   TAccountMinterConfig extends string,
   TAccountMintDailyLimit extends string,
   TAccountMintOperation extends string,
   TAccountMint extends string,
   TAccountDestination extends string,
-  TAccountMinterPermissions extends string,
-  TAccountMinterConfigPermissions extends string,
-  TAccountPermissionManagerConfig extends string,
-  TAccountSpikoTokenProgram extends string,
-  TAccountSpikoTokenEventAuthority extends string,
   TAccountTokenProgram extends string,
-  TAccountTokenConfig extends string,
-  TAccountMintAuthority extends string,
   TAccountPayer extends string,
   TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
   TProgramAddress extends Address = typeof MINTER_PROGRAM_ADDRESS,
 >(
   input: InitiateMintInput<
-    TAccountMinter,
+    TAccountInitiator,
     TAccountMinterConfig,
     TAccountMintDailyLimit,
     TAccountMintOperation,
     TAccountMint,
     TAccountDestination,
-    TAccountMinterPermissions,
-    TAccountMinterConfigPermissions,
-    TAccountPermissionManagerConfig,
-    TAccountSpikoTokenProgram,
-    TAccountSpikoTokenEventAuthority,
     TAccountTokenProgram,
-    TAccountTokenConfig,
-    TAccountMintAuthority,
     TAccountPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): InitiateMintInstruction<
   TProgramAddress,
-  TAccountMinter,
+  TAccountInitiator,
   TAccountMinterConfig,
   TAccountMintDailyLimit,
   TAccountMintOperation,
   TAccountMint,
   TAccountDestination,
-  TAccountMinterPermissions,
-  TAccountMinterConfigPermissions,
-  TAccountPermissionManagerConfig,
-  TAccountSpikoTokenProgram,
-  TAccountSpikoTokenEventAuthority,
   TAccountTokenProgram,
-  TAccountTokenConfig,
-  TAccountMintAuthority,
   TAccountPayer,
-  TAccountSystemProgram,
-  TAccountEventAuthority,
-  TAccountProgram
+  TAccountSystemProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? MINTER_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    minter: { value: input.minter ?? null, isWritable: false },
+    initiator: { value: input.initiator ?? null, isWritable: false },
     minterConfig: { value: input.minterConfig ?? null, isWritable: false },
     mintDailyLimit: { value: input.mintDailyLimit ?? null, isWritable: true },
     mintOperation: { value: input.mintOperation ?? null, isWritable: true },
     mint: { value: input.mint ?? null, isWritable: true },
     destination: { value: input.destination ?? null, isWritable: true },
-    minterPermissions: {
-      value: input.minterPermissions ?? null,
-      isWritable: false,
-    },
-    minterConfigPermissions: {
-      value: input.minterConfigPermissions ?? null,
-      isWritable: false,
-    },
-    permissionManagerConfig: {
-      value: input.permissionManagerConfig ?? null,
-      isWritable: false,
-    },
-    spikoTokenProgram: {
-      value: input.spikoTokenProgram ?? null,
-      isWritable: false,
-    },
-    spikoTokenEventAuthority: {
-      value: input.spikoTokenEventAuthority ?? null,
-      isWritable: false,
-    },
     tokenProgram: { value: input.tokenProgram ?? null, isWritable: false },
-    tokenConfig: { value: input.tokenConfig ?? null, isWritable: false },
-    mintAuthority: { value: input.mintAuthority ?? null, isWritable: false },
     payer: { value: input.payer ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -612,10 +378,6 @@ export function getInitiateMintInstruction<
   const args = { ...input };
 
   // Resolve default values.
-  if (!accounts.spikoTokenProgram.value) {
-    accounts.spikoTokenProgram.value =
-      "F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN" as Address<"F8sDrPvNHJCaB8EBKj5fJc2jt4FpxfAVW7Y2pqsHqcEN">;
-  }
   if (!accounts.tokenProgram.value) {
     accounts.tokenProgram.value =
       "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" as Address<"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA">;
@@ -628,24 +390,15 @@ export function getInitiateMintInstruction<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.minter),
+      getAccountMeta(accounts.initiator),
       getAccountMeta(accounts.minterConfig),
       getAccountMeta(accounts.mintDailyLimit),
       getAccountMeta(accounts.mintOperation),
       getAccountMeta(accounts.mint),
       getAccountMeta(accounts.destination),
-      getAccountMeta(accounts.minterPermissions),
-      getAccountMeta(accounts.minterConfigPermissions),
-      getAccountMeta(accounts.permissionManagerConfig),
-      getAccountMeta(accounts.spikoTokenProgram),
-      getAccountMeta(accounts.spikoTokenEventAuthority),
       getAccountMeta(accounts.tokenProgram),
-      getAccountMeta(accounts.tokenConfig),
-      getAccountMeta(accounts.mintAuthority),
       getAccountMeta(accounts.payer),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
     ],
     data: getInitiateMintInstructionDataEncoder().encode(
       args as InitiateMintInstructionDataArgs,
@@ -653,24 +406,15 @@ export function getInitiateMintInstruction<
     programAddress,
   } as InitiateMintInstruction<
     TProgramAddress,
-    TAccountMinter,
+    TAccountInitiator,
     TAccountMinterConfig,
     TAccountMintDailyLimit,
     TAccountMintOperation,
     TAccountMint,
     TAccountDestination,
-    TAccountMinterPermissions,
-    TAccountMinterConfigPermissions,
-    TAccountPermissionManagerConfig,
-    TAccountSpikoTokenProgram,
-    TAccountSpikoTokenEventAuthority,
     TAccountTokenProgram,
-    TAccountTokenConfig,
-    TAccountMintAuthority,
     TAccountPayer,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountSystemProgram
   >);
 }
 
@@ -680,25 +424,15 @@ export type ParsedInitiateMintInstruction<
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    minter: TAccountMetas[0];
+    initiator: TAccountMetas[0];
     minterConfig: TAccountMetas[1];
     mintDailyLimit: TAccountMetas[2];
     mintOperation: TAccountMetas[3];
     mint: TAccountMetas[4];
     destination: TAccountMetas[5];
-    minterPermissions: TAccountMetas[6];
-    /** UserPermissions for MinterConfig PDA (must have ROLE_MINTER for spiko-token CPI) */
-    minterConfigPermissions: TAccountMetas[7];
-    permissionManagerConfig: TAccountMetas[8];
-    spikoTokenProgram: TAccountMetas[9];
-    spikoTokenEventAuthority: TAccountMetas[10];
-    tokenProgram: TAccountMetas[11];
-    tokenConfig: TAccountMetas[12];
-    mintAuthority: TAccountMetas[13];
-    payer: TAccountMetas[14];
-    systemProgram: TAccountMetas[15];
-    eventAuthority: TAccountMetas[16];
-    program: TAccountMetas[17];
+    tokenProgram: TAccountMetas[6];
+    payer: TAccountMetas[7];
+    systemProgram: TAccountMetas[8];
   };
   data: InitiateMintInstructionData;
 };
@@ -711,7 +445,7 @@ export function parseInitiateMintInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitiateMintInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 18) {
+  if (instruction.accounts.length < 9) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -724,24 +458,15 @@ export function parseInitiateMintInstruction<
   return {
     programAddress: instruction.programAddress,
     accounts: {
-      minter: getNextAccount(),
+      initiator: getNextAccount(),
       minterConfig: getNextAccount(),
       mintDailyLimit: getNextAccount(),
       mintOperation: getNextAccount(),
       mint: getNextAccount(),
       destination: getNextAccount(),
-      minterPermissions: getNextAccount(),
-      minterConfigPermissions: getNextAccount(),
-      permissionManagerConfig: getNextAccount(),
-      spikoTokenProgram: getNextAccount(),
-      spikoTokenEventAuthority: getNextAccount(),
       tokenProgram: getNextAccount(),
-      tokenConfig: getNextAccount(),
-      mintAuthority: getNextAccount(),
       payer: getNextAccount(),
       systemProgram: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      program: getNextAccount(),
     },
     data: getInitiateMintInstructionDataDecoder().decode(instruction.data),
   };

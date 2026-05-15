@@ -1,11 +1,11 @@
 pub mod cancel;
-pub mod create_vault;
-pub mod execute;
 pub mod initialize;
-pub mod on_redeem;
+pub mod redeem;
+pub mod set_admin;
+pub mod set_redemption_authority;
 
 pub use cancel::*;
-pub use create_vault::*;
-pub use execute::*;
 pub use initialize::*;
-pub use on_redeem::*;
+pub use redeem::*;
+pub use set_admin::*;
+pub use set_redemption_authority::*;

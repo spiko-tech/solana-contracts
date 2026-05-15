@@ -10,11 +10,10 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
+  getAddressDecoder,
+  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getI64Decoder,
-  getI64Encoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   transformEncoder,
@@ -33,7 +32,7 @@ import {
   type WritableAccount,
   type WritableSignerAccount,
 } from "@solana/kit";
-import { findRedemptionConfigPda } from "../pdas";
+import { findRedemptionConfigPda, findVaultAuthorityPda } from "../pdas";
 import { REDEMPTION_PROGRAM_ADDRESS } from "../programs";
 import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
@@ -49,11 +48,9 @@ export type InitializeInstruction<
   TProgram extends string = typeof REDEMPTION_PROGRAM_ADDRESS,
   TAccountAdmin extends string | AccountMeta<string> = string,
   TAccountRedemptionConfig extends string | AccountMeta<string> = string,
-  TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
+  TAccountVaultAuthority extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
-  TAccountEventAuthority extends string | AccountMeta<string> = string,
-  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -66,34 +63,28 @@ export type InitializeInstruction<
       TAccountRedemptionConfig extends string
         ? WritableAccount<TAccountRedemptionConfig>
         : TAccountRedemptionConfig,
-      TAccountPermissionManagerConfig extends string
-        ? ReadonlyAccount<TAccountPermissionManagerConfig>
-        : TAccountPermissionManagerConfig,
+      TAccountVaultAuthority extends string
+        ? WritableAccount<TAccountVaultAuthority>
+        : TAccountVaultAuthority,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountProgram extends string
-        ? ReadonlyAccount<TAccountProgram>
-        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
 
 export type InitializeInstructionData = {
   discriminator: ReadonlyUint8Array;
-  deadlineDelay: bigint;
+  redemptionAuthority: Address;
 };
 
-export type InitializeInstructionDataArgs = { deadlineDelay: number | bigint };
+export type InitializeInstructionDataArgs = { redemptionAuthority: Address };
 
 export function getInitializeInstructionDataEncoder(): FixedSizeEncoder<InitializeInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["deadlineDelay", getI64Encoder()],
+      ["redemptionAuthority", getAddressEncoder()],
     ]),
     (value) => ({ ...value, discriminator: INITIALIZE_DISCRIMINATOR }),
   );
@@ -102,7 +93,7 @@ export function getInitializeInstructionDataEncoder(): FixedSizeEncoder<Initiali
 export function getInitializeInstructionDataDecoder(): FixedSizeDecoder<InitializeInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["deadlineDelay", getI64Decoder()],
+    ["redemptionAuthority", getAddressDecoder()],
   ]);
 }
 
@@ -119,36 +110,28 @@ export function getInitializeInstructionDataCodec(): FixedSizeCodec<
 export type InitializeAsyncInput<
   TAccountAdmin extends string = string,
   TAccountRedemptionConfig extends string = string,
-  TAccountPermissionManagerConfig extends string = string,
+  TAccountVaultAuthority extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   redemptionConfig?: Address<TAccountRedemptionConfig>;
-  permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
+  vaultAuthority?: Address<TAccountVaultAuthority>;
   systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  deadlineDelay: InitializeInstructionDataArgs["deadlineDelay"];
+  redemptionAuthority: InitializeInstructionDataArgs["redemptionAuthority"];
 };
 
 export async function getInitializeInstructionAsync<
   TAccountAdmin extends string,
   TAccountRedemptionConfig extends string,
-  TAccountPermissionManagerConfig extends string,
+  TAccountVaultAuthority extends string,
   TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: InitializeAsyncInput<
     TAccountAdmin,
     TAccountRedemptionConfig,
-    TAccountPermissionManagerConfig,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountVaultAuthority,
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -156,10 +139,8 @@ export async function getInitializeInstructionAsync<
     TProgramAddress,
     TAccountAdmin,
     TAccountRedemptionConfig,
-    TAccountPermissionManagerConfig,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountVaultAuthority,
+    TAccountSystemProgram
   >
 > {
   // Program address.
@@ -172,13 +153,8 @@ export async function getInitializeInstructionAsync<
       value: input.redemptionConfig ?? null,
       isWritable: true,
     },
-    permissionManagerConfig: {
-      value: input.permissionManagerConfig ?? null,
-      isWritable: false,
-    },
+    vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -192,14 +168,8 @@ export async function getInitializeInstructionAsync<
   if (!accounts.redemptionConfig.value) {
     accounts.redemptionConfig.value = await findRedemptionConfigPda();
   }
-  if (!accounts.permissionManagerConfig.value) {
-    accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
-      programAddress:
-        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
-      seeds: [
-        getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
-      ],
-    });
+  if (!accounts.vaultAuthority.value) {
+    accounts.vaultAuthority.value = await findVaultAuthorityPda();
   }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
@@ -211,10 +181,8 @@ export async function getInitializeInstructionAsync<
     accounts: [
       getAccountMeta(accounts.admin),
       getAccountMeta(accounts.redemptionConfig),
-      getAccountMeta(accounts.permissionManagerConfig),
+      getAccountMeta(accounts.vaultAuthority),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode(
       args as InitializeInstructionDataArgs,
@@ -224,56 +192,44 @@ export async function getInitializeInstructionAsync<
     TProgramAddress,
     TAccountAdmin,
     TAccountRedemptionConfig,
-    TAccountPermissionManagerConfig,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountVaultAuthority,
+    TAccountSystemProgram
   >);
 }
 
 export type InitializeInput<
   TAccountAdmin extends string = string,
   TAccountRedemptionConfig extends string = string,
-  TAccountPermissionManagerConfig extends string = string,
+  TAccountVaultAuthority extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   redemptionConfig: Address<TAccountRedemptionConfig>;
-  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
+  vaultAuthority: Address<TAccountVaultAuthority>;
   systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  deadlineDelay: InitializeInstructionDataArgs["deadlineDelay"];
+  redemptionAuthority: InitializeInstructionDataArgs["redemptionAuthority"];
 };
 
 export function getInitializeInstruction<
   TAccountAdmin extends string,
   TAccountRedemptionConfig extends string,
-  TAccountPermissionManagerConfig extends string,
+  TAccountVaultAuthority extends string,
   TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
   TProgramAddress extends Address = typeof REDEMPTION_PROGRAM_ADDRESS,
 >(
   input: InitializeInput<
     TAccountAdmin,
     TAccountRedemptionConfig,
-    TAccountPermissionManagerConfig,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountVaultAuthority,
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): InitializeInstruction<
   TProgramAddress,
   TAccountAdmin,
   TAccountRedemptionConfig,
-  TAccountPermissionManagerConfig,
-  TAccountSystemProgram,
-  TAccountEventAuthority,
-  TAccountProgram
+  TAccountVaultAuthority,
+  TAccountSystemProgram
 > {
   // Program address.
   const programAddress = config?.programAddress ?? REDEMPTION_PROGRAM_ADDRESS;
@@ -285,13 +241,8 @@ export function getInitializeInstruction<
       value: input.redemptionConfig ?? null,
       isWritable: true,
     },
-    permissionManagerConfig: {
-      value: input.permissionManagerConfig ?? null,
-      isWritable: false,
-    },
+    vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: true },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -312,10 +263,8 @@ export function getInitializeInstruction<
     accounts: [
       getAccountMeta(accounts.admin),
       getAccountMeta(accounts.redemptionConfig),
-      getAccountMeta(accounts.permissionManagerConfig),
+      getAccountMeta(accounts.vaultAuthority),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode(
       args as InitializeInstructionDataArgs,
@@ -325,10 +274,8 @@ export function getInitializeInstruction<
     TProgramAddress,
     TAccountAdmin,
     TAccountRedemptionConfig,
-    TAccountPermissionManagerConfig,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountVaultAuthority,
+    TAccountSystemProgram
   >);
 }
 
@@ -340,10 +287,8 @@ export type ParsedInitializeInstruction<
   accounts: {
     admin: TAccountMetas[0];
     redemptionConfig: TAccountMetas[1];
-    permissionManagerConfig: TAccountMetas[2];
+    vaultAuthority: TAccountMetas[2];
     systemProgram: TAccountMetas[3];
-    eventAuthority: TAccountMetas[4];
-    program: TAccountMetas[5];
   };
   data: InitializeInstructionData;
 };
@@ -356,7 +301,7 @@ export function parseInitializeInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 6) {
+  if (instruction.accounts.length < 4) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -371,10 +316,8 @@ export function parseInitializeInstruction<
     accounts: {
       admin: getNextAccount(),
       redemptionConfig: getNextAccount(),
-      permissionManagerConfig: getNextAccount(),
+      vaultAuthority: getNextAccount(),
       systemProgram: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      program: getNextAccount(),
     },
     data: getInitializeInstructionDataDecoder().decode(instruction.data),
   };

@@ -16,36 +16,21 @@ import { CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS } from "../programs";
 
 /** Unauthorized: Unauthorized */
 export const CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED = 0x1770; // 6000
-/** OperationAlreadyExists: Operation already exists */
-export const CUSTODIAL_GATEKEEPER_ERROR__OPERATION_ALREADY_EXISTS = 0x1771; // 6001
 /** NotPending: Operation is not pending */
-export const CUSTODIAL_GATEKEEPER_ERROR__NOT_PENDING = 0x1772; // 6002
-/** DeadlinePassed: Deadline has passed */
-export const CUSTODIAL_GATEKEEPER_ERROR__DEADLINE_PASSED = 0x1773; // 6003
-/** DeadlineNotPassed: Deadline has not passed */
-export const CUSTODIAL_GATEKEEPER_ERROR__DEADLINE_NOT_PASSED = 0x1774; // 6004
-/** InvalidMaxDelay: Invalid max delay */
-export const CUSTODIAL_GATEKEEPER_ERROR__INVALID_MAX_DELAY = 0x1775; // 6005
-/** UnauthorizedSender: Unauthorized sender */
-export const CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED_SENDER = 0x1776; // 6006
-/** UnauthorizedRecipient: Unauthorized recipient */
-export const CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED_RECIPIENT = 0x1777; // 6007
-/** InvalidOperationId: Invalid operation ID */
-export const CUSTODIAL_GATEKEEPER_ERROR__INVALID_OPERATION_ID = 0x1778; // 6008
+export const CUSTODIAL_GATEKEEPER_ERROR__NOT_PENDING = 0x1771; // 6001
 /** ArithmeticOverflow: Arithmetic overflow */
-export const CUSTODIAL_GATEKEEPER_ERROR__ARITHMETIC_OVERFLOW = 0x1779; // 6009
+export const CUSTODIAL_GATEKEEPER_ERROR__ARITHMETIC_OVERFLOW = 0x1772; // 6002
+/** DailyLimitExceeded: Daily limit exceeded */
+export const CUSTODIAL_GATEKEEPER_ERROR__DAILY_LIMIT_EXCEEDED = 0x1773; // 6003
+/** InvalidAmount: Invalid amount */
+export const CUSTODIAL_GATEKEEPER_ERROR__INVALID_AMOUNT = 0x1774; // 6004
 
 export type CustodialGatekeeperError =
   | typeof CUSTODIAL_GATEKEEPER_ERROR__ARITHMETIC_OVERFLOW
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__DEADLINE_NOT_PASSED
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__DEADLINE_PASSED
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__INVALID_MAX_DELAY
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__INVALID_OPERATION_ID
+  | typeof CUSTODIAL_GATEKEEPER_ERROR__DAILY_LIMIT_EXCEEDED
+  | typeof CUSTODIAL_GATEKEEPER_ERROR__INVALID_AMOUNT
   | typeof CUSTODIAL_GATEKEEPER_ERROR__NOT_PENDING
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__OPERATION_ALREADY_EXISTS
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED_RECIPIENT
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED_SENDER;
+  | typeof CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED;
 
 let custodialGatekeeperErrorMessages:
   | Record<CustodialGatekeeperError, string>
@@ -53,15 +38,10 @@ let custodialGatekeeperErrorMessages:
 if (process.env.NODE_ENV !== "production") {
   custodialGatekeeperErrorMessages = {
     [CUSTODIAL_GATEKEEPER_ERROR__ARITHMETIC_OVERFLOW]: `Arithmetic overflow`,
-    [CUSTODIAL_GATEKEEPER_ERROR__DEADLINE_NOT_PASSED]: `Deadline has not passed`,
-    [CUSTODIAL_GATEKEEPER_ERROR__DEADLINE_PASSED]: `Deadline has passed`,
-    [CUSTODIAL_GATEKEEPER_ERROR__INVALID_MAX_DELAY]: `Invalid max delay`,
-    [CUSTODIAL_GATEKEEPER_ERROR__INVALID_OPERATION_ID]: `Invalid operation ID`,
+    [CUSTODIAL_GATEKEEPER_ERROR__DAILY_LIMIT_EXCEEDED]: `Daily limit exceeded`,
+    [CUSTODIAL_GATEKEEPER_ERROR__INVALID_AMOUNT]: `Invalid amount`,
     [CUSTODIAL_GATEKEEPER_ERROR__NOT_PENDING]: `Operation is not pending`,
-    [CUSTODIAL_GATEKEEPER_ERROR__OPERATION_ALREADY_EXISTS]: `Operation already exists`,
     [CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED]: `Unauthorized`,
-    [CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED_RECIPIENT]: `Unauthorized recipient`,
-    [CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED_SENDER]: `Unauthorized sender`,
   };
 }
 

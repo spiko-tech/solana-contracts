@@ -19,8 +19,6 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getI64Decoder,
-  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
   getU8Decoder,
@@ -51,14 +49,14 @@ export function getRedemptionConfigDiscriminatorBytes() {
 
 export type RedemptionConfig = {
   discriminator: ReadonlyUint8Array;
-  deadlineDelay: bigint;
-  permissionManager: Address;
+  admin: Address;
+  redemptionAuthority: Address;
   bump: number;
 };
 
 export type RedemptionConfigArgs = {
-  deadlineDelay: number | bigint;
-  permissionManager: Address;
+  admin: Address;
+  redemptionAuthority: Address;
   bump: number;
 };
 
@@ -67,8 +65,8 @@ export function getRedemptionConfigEncoder(): FixedSizeEncoder<RedemptionConfigA
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["deadlineDelay", getI64Encoder()],
-      ["permissionManager", getAddressEncoder()],
+      ["admin", getAddressEncoder()],
+      ["redemptionAuthority", getAddressEncoder()],
       ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: REDEMPTION_CONFIG_DISCRIMINATOR }),
@@ -79,8 +77,8 @@ export function getRedemptionConfigEncoder(): FixedSizeEncoder<RedemptionConfigA
 export function getRedemptionConfigDecoder(): FixedSizeDecoder<RedemptionConfig> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["deadlineDelay", getI64Decoder()],
-    ["permissionManager", getAddressDecoder()],
+    ["admin", getAddressDecoder()],
+    ["redemptionAuthority", getAddressDecoder()],
     ["bump", getU8Decoder()],
   ]);
 }
@@ -160,5 +158,5 @@ export async function fetchAllMaybeRedemptionConfig(
 }
 
 export function getRedemptionConfigSize(): number {
-  return 49;
+  return 73;
 }

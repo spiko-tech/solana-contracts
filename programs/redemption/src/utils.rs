@@ -1,30 +1,5 @@
 use anchor_lang::prelude::*;
-use solana_sha256_hasher::hashv;
 
-use crate::errors::RedemptionError;
-
-pub fn compute_operation_id(user: &Pubkey, mint: &Pubkey, amount: u64, salt: u64) -> [u8; 32] {
-    let amount_bytes = amount.to_le_bytes();
-    let salt_bytes = salt.to_le_bytes();
-    hashv(&[user.as_ref(), mint.as_ref(), &amount_bytes, &salt_bytes]).to_bytes()
-}
-
-pub fn verify_operation_id(
-    user: &Pubkey,
-    mint: &Pubkey,
-    amount: u64,
-    salt: u64,
-    expected: &[u8; 32],
-) -> Result<()> {
-    let computed = compute_operation_id(user, mint, amount, salt);
-    require!(computed == *expected, RedemptionError::InvalidOperationId);
-    Ok(())
-}
-
-/// Invokes Token-2022 `transfer_checked` with additional hook accounts appended.
-///
-/// This is necessary because `anchor_spl::token_interface::transfer_checked` ignores
-/// `remaining_accounts` in the CPI, so Token-2022 never sees the hook accounts.
 pub fn invoke_transfer_checked_with_hook<'info>(
     token_program_key: &Pubkey,
     from: &AccountInfo<'info>,

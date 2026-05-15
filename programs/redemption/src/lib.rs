@@ -2,51 +2,43 @@ use anchor_lang::prelude::*;
 
 pub mod constants;
 pub mod errors;
-pub mod events;
 pub mod instructions;
 pub mod state;
 pub mod utils;
 
 use instructions::*;
 
-declare_id!("2MJeRdtRSUu9UJkuuVzWHKc8rgQpTfYEuKevpoM1Uv1D");
+declare_id!("B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr");
 
 #[program]
 pub mod redemption {
     use super::*;
 
-    pub fn initialize(ctx: Context<Initialize>, deadline_delay: i64) -> Result<()> {
-        instructions::initialize::handler(ctx, deadline_delay)
+    pub fn initialize(ctx: Context<Initialize>, redemption_authority: Pubkey) -> Result<()> {
+        instructions::initialize::handler(ctx, redemption_authority)
     }
 
-    pub fn create_vault(ctx: Context<CreateVault>) -> Result<()> {
-        instructions::create_vault::handler(ctx)
-    }
-
-    pub fn on_redeem(
-        ctx: Context<OnRedeem>,
-        operation_id: [u8; 32],
-        amount: u64,
-        salt: u64,
-    ) -> Result<()> {
-        instructions::on_redeem::handler(ctx, operation_id, amount, salt)
-    }
-
-    pub fn execute(
-        ctx: Context<Execute>,
-        operation_id: [u8; 32],
-        amount: u64,
-        salt: u64,
-    ) -> Result<()> {
-        instructions::execute::handler(ctx, operation_id, amount, salt)
+    pub fn redeem(ctx: Context<Redeem>, salt: u64, amount: u64) -> Result<()> {
+        instructions::redeem::handler(ctx, salt, amount)
     }
 
     pub fn cancel<'info>(
         ctx: Context<'info, Cancel<'info>>,
-        operation_id: [u8; 32],
-        amount: u64,
         salt: u64,
+        amount: u64,
+        user: Pubkey,
     ) -> Result<()> {
-        instructions::cancel::handler(ctx, operation_id, amount, salt)
+        instructions::cancel::handler(ctx, salt, amount, user)
+    }
+
+    pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
+        instructions::set_admin::handler(ctx, new_admin)
+    }
+
+    pub fn set_redemption_authority(
+        ctx: Context<SetRedemptionAuthority>,
+        new_authority: Pubkey,
+    ) -> Result<()> {
+        instructions::set_redemption_authority::handler(ctx, new_authority)
     }
 }

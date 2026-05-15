@@ -2,31 +2,29 @@ use anchor_lang::prelude::*;
 use anchor_spl::token_interface::{Mint, TokenAccount, TokenInterface};
 
 use crate::constants::*;
-use crate::events::RedemptionCanceled;
-use crate::state::*;
+use crate::errors::RedemptionError;
+use crate::state::{RedemptionConfig, RedemptionRecord, VaultAuthority};
 use crate::utils::invoke_transfer_checked_with_hook;
 
 #[derive(Accounts)]
-#[instruction(operation_id: [u8; 32])]
-#[event_cpi]
+#[instruction(salt: u64, amount: u64, user: Pubkey)]
 pub struct Cancel<'info> {
-    pub caller: Signer<'info>,
-
-    #[account(address = redemption_operation.mint)]
-    pub mint: InterfaceAccount<'info, Mint>,
+    pub admin: Signer<'info>,
 
     #[account(
         seeds = [REDEMPTION_CONFIG_SEED],
         bump = redemption_config.bump,
+        constraint = redemption_config.admin == admin.key() @ RedemptionError::Unauthorized,
     )]
     pub redemption_config: Account<'info, RedemptionConfig>,
 
+    pub mint: InterfaceAccount<'info, Mint>,
+
     #[account(
-        mut,
-        seeds = [REDEMPTION_OPERATION_SEED, operation_id.as_ref()],
-        bump = redemption_operation.bump,
+        seeds = [VAULT_AUTHORITY_SEED],
+        bump = vault_authority.bump,
     )]
-    pub redemption_operation: Account<'info, RedemptionOperation>,
+    pub vault_authority: Account<'info, VaultAuthority>,
 
     #[account(
         mut,
@@ -38,37 +36,36 @@ pub struct Cancel<'info> {
     #[account(
         mut,
         token::mint = mint,
-        token::authority = redemption_operation.user,
-        token::token_program = token_program,
+        token::authority = user,
     )]
     pub user_token_account: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
-        seeds = [VAULT_AUTHORITY_SEED, mint.key().as_ref()],
-        bump = vault_authority.bump,
+        init,
+        payer = payer,
+        space = 8 + RedemptionRecord::INIT_SPACE,
+        seeds = [REDEMPTION_RECORD_SEED, salt.to_le_bytes().as_ref()],
+        bump,
     )]
-    pub vault_authority: Account<'info, VaultAuthority>,
+    pub redemption_record: Account<'info, RedemptionRecord>,
 
     pub token_program: Interface<'info, TokenInterface>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    pub system_program: Program<'info, System>,
 }
 
 pub(crate) fn handler<'info>(
     ctx: Context<'info, Cancel<'info>>,
-    operation_id: [u8; 32],
+    _salt: u64,
     amount: u64,
-    salt: u64,
+    _user: Pubkey,
 ) -> Result<()> {
-    let mint_key = ctx.accounts.mint.key();
+    require!(amount > 0, RedemptionError::Unauthorized);
 
-    ctx.accounts
-        .redemption_operation
-        .validate_for_cancellation(&operation_id, &mint_key, amount, salt)?;
-
-    let seeds: &[&[u8]] = &[
-        VAULT_AUTHORITY_SEED,
-        mint_key.as_ref(),
-        &[ctx.accounts.vault_authority.bump],
-    ];
+    let seeds: &[&[u8]] = &[VAULT_AUTHORITY_SEED, &[ctx.accounts.vault_authority.bump]];
     let signer_seeds = &[&seeds[..]];
 
     invoke_transfer_checked_with_hook(
@@ -83,16 +80,7 @@ pub(crate) fn handler<'info>(
         signer_seeds,
     )?;
 
-    let op = &mut ctx.accounts.redemption_operation;
-    op.status = STATUS_CANCELED;
-
-    emit_cpi!(RedemptionCanceled {
-        caller: ctx.accounts.caller.key(),
-        user: op.user,
-        mint: mint_key,
-        amount,
-        salt,
-    });
+    ctx.accounts.redemption_record.bump = ctx.bumps.redemption_record;
 
     Ok(())
 }

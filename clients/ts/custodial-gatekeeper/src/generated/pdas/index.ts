@@ -7,6 +7,6 @@
  */
 
 export * from "./gatekeeperConfig";
+export * from "./gatekeepOperation";
 export * from "./vaultAuthority";
 export * from "./withdrawalDailyLimit";
-export * from "./withdrawalOperation";

@@ -10,4 +10,6 @@ export * from "./approveMint";
 export * from "./cancelMint";
 export * from "./initialize";
 export * from "./initiateMint";
+export * from "./setAdmin";
 export * from "./setDailyLimit";
+export * from "./setMintInitiator";

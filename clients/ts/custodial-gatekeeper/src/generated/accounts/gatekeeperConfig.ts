@@ -19,8 +19,6 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getI64Decoder,
-  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
   getU8Decoder,
@@ -51,14 +49,14 @@ export function getGatekeeperConfigDiscriminatorBytes() {
 
 export type GatekeeperConfig = {
   discriminator: ReadonlyUint8Array;
-  maxDelay: bigint;
-  permissionManager: Address;
+  admin: Address;
+  gatekeeperInitiator: Address;
   bump: number;
 };
 
 export type GatekeeperConfigArgs = {
-  maxDelay: number | bigint;
-  permissionManager: Address;
+  admin: Address;
+  gatekeeperInitiator: Address;
   bump: number;
 };
 
@@ -67,8 +65,8 @@ export function getGatekeeperConfigEncoder(): FixedSizeEncoder<GatekeeperConfigA
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["maxDelay", getI64Encoder()],
-      ["permissionManager", getAddressEncoder()],
+      ["admin", getAddressEncoder()],
+      ["gatekeeperInitiator", getAddressEncoder()],
       ["bump", getU8Encoder()],
     ]),
     (value) => ({ ...value, discriminator: GATEKEEPER_CONFIG_DISCRIMINATOR }),
@@ -79,8 +77,8 @@ export function getGatekeeperConfigEncoder(): FixedSizeEncoder<GatekeeperConfigA
 export function getGatekeeperConfigDecoder(): FixedSizeDecoder<GatekeeperConfig> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["maxDelay", getI64Decoder()],
-    ["permissionManager", getAddressDecoder()],
+    ["admin", getAddressDecoder()],
+    ["gatekeeperInitiator", getAddressDecoder()],
     ["bump", getU8Decoder()],
   ]);
 }
@@ -160,5 +158,5 @@ export async function fetchAllMaybeGatekeeperConfig(
 }
 
 export function getGatekeeperConfigSize(): number {
-  return 49;
+  return 73;
 }

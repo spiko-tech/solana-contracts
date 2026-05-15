@@ -19,8 +19,6 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getI64Decoder,
-  getI64Encoder,
   getStructDecoder,
   getStructEncoder,
   getU64Decoder,
@@ -54,7 +52,6 @@ export function getMintOperationDiscriminatorBytes() {
 export type MintOperation = {
   discriminator: ReadonlyUint8Array;
   status: number;
-  deadline: bigint;
   recipient: Address;
   mint: Address;
   amount: bigint;
@@ -63,7 +60,6 @@ export type MintOperation = {
 
 export type MintOperationArgs = {
   status: number;
-  deadline: number | bigint;
   recipient: Address;
   mint: Address;
   amount: number | bigint;
@@ -76,7 +72,6 @@ export function getMintOperationEncoder(): FixedSizeEncoder<MintOperationArgs> {
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["status", getU8Encoder()],
-      ["deadline", getI64Encoder()],
       ["recipient", getAddressEncoder()],
       ["mint", getAddressEncoder()],
       ["amount", getU64Encoder()],
@@ -91,7 +86,6 @@ export function getMintOperationDecoder(): FixedSizeDecoder<MintOperation> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["status", getU8Decoder()],
-    ["deadline", getI64Decoder()],
     ["recipient", getAddressDecoder()],
     ["mint", getAddressDecoder()],
     ["amount", getU64Decoder()],
@@ -165,5 +159,5 @@ export async function fetchAllMaybeMintOperation(
 }
 
 export function getMintOperationSize(): number {
-  return 90;
+  return 82;
 }

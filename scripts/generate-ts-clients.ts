@@ -11,11 +11,9 @@ const idlDir = path.join(projectRoot, "target", "idl");
 const clientsDir = path.join(projectRoot, "clients", "ts");
 
 const programs: [string, string][] = [
-  ["permission_manager.json", "permission-manager"],
-  ["spiko_token.json", "spiko-token"],
+  ["transfer_hook.json", "transfer-hook"],
   ["minter.json", "minter"],
   ["redemption.json", "redemption"],
-  ["spiko_transfer_hook.json", "spiko-transfer-hook"],
   ["custodial_gatekeeper.json", "custodial-gatekeeper"],
 ];
 

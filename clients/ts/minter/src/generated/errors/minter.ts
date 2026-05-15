@@ -16,45 +16,17 @@ import { MINTER_PROGRAM_ADDRESS } from "../programs";
 
 /** Unauthorized: Unauthorized */
 export const MINTER_ERROR__UNAUTHORIZED = 0x1770; // 6000
-/** OperationAlreadyExists: Operation already exists */
-export const MINTER_ERROR__OPERATION_ALREADY_EXISTS = 0x1771; // 6001
-/** NotPending: Operation is not pending */
-export const MINTER_ERROR__NOT_PENDING = 0x1772; // 6002
-/** DeadlinePassed: Deadline has passed */
-export const MINTER_ERROR__DEADLINE_PASSED = 0x1773; // 6003
-/** DeadlineNotPassed: Deadline has not passed */
-export const MINTER_ERROR__DEADLINE_NOT_PASSED = 0x1774; // 6004
-/** InvalidMaxDelay: Invalid max delay */
-export const MINTER_ERROR__INVALID_MAX_DELAY = 0x1775; // 6005
-/** InvalidAmount: Invalid amount */
-export const MINTER_ERROR__INVALID_AMOUNT = 0x1776; // 6006
-/** InvalidOperationId: Invalid operation id */
-export const MINTER_ERROR__INVALID_OPERATION_ID = 0x1777; // 6007
 /** ArithmeticOverflow: Arithmetic overflow */
-export const MINTER_ERROR__ARITHMETIC_OVERFLOW = 0x1778; // 6008
+export const MINTER_ERROR__ARITHMETIC_OVERFLOW = 0x1771; // 6001
 
 export type MinterError =
   | typeof MINTER_ERROR__ARITHMETIC_OVERFLOW
-  | typeof MINTER_ERROR__DEADLINE_NOT_PASSED
-  | typeof MINTER_ERROR__DEADLINE_PASSED
-  | typeof MINTER_ERROR__INVALID_AMOUNT
-  | typeof MINTER_ERROR__INVALID_MAX_DELAY
-  | typeof MINTER_ERROR__INVALID_OPERATION_ID
-  | typeof MINTER_ERROR__NOT_PENDING
-  | typeof MINTER_ERROR__OPERATION_ALREADY_EXISTS
   | typeof MINTER_ERROR__UNAUTHORIZED;
 
 let minterErrorMessages: Record<MinterError, string> | undefined;
 if (process.env.NODE_ENV !== "production") {
   minterErrorMessages = {
     [MINTER_ERROR__ARITHMETIC_OVERFLOW]: `Arithmetic overflow`,
-    [MINTER_ERROR__DEADLINE_NOT_PASSED]: `Deadline has not passed`,
-    [MINTER_ERROR__DEADLINE_PASSED]: `Deadline has passed`,
-    [MINTER_ERROR__INVALID_AMOUNT]: `Invalid amount`,
-    [MINTER_ERROR__INVALID_MAX_DELAY]: `Invalid max delay`,
-    [MINTER_ERROR__INVALID_OPERATION_ID]: `Invalid operation id`,
-    [MINTER_ERROR__NOT_PENDING]: `Operation is not pending`,
-    [MINTER_ERROR__OPERATION_ALREADY_EXISTS]: `Operation already exists`,
     [MINTER_ERROR__UNAUTHORIZED]: `Unauthorized`,
   };
 }

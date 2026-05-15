@@ -7,5 +7,5 @@
  */
 
 export * from "./redemptionConfig";
-export * from "./redemptionOperation";
+export * from "./redemptionRecord";
 export * from "./vaultAuthority";

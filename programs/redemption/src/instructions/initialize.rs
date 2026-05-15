@@ -1,12 +1,9 @@
 use anchor_lang::prelude::*;
 
 use crate::constants::*;
-use crate::errors::RedemptionError;
-use crate::events::RedemptionInitialized;
-use crate::state::*;
+use crate::state::{RedemptionConfig, VaultAuthority};
 
 #[derive(Accounts)]
-#[event_cpi]
 pub struct Initialize<'info> {
     #[account(mut)]
     pub admin: Signer<'info>,
@@ -21,28 +18,23 @@ pub struct Initialize<'info> {
     pub redemption_config: Account<'info, RedemptionConfig>,
 
     #[account(
-        owner = permission_manager_program_id(),
-        seeds = [PERMISSION_MANAGER_CONFIG_SEED],
-        bump = permission_manager_config.bump,
-        seeds::program = permission_manager_program_id(),
-        constraint = permission_manager_config.admin == admin.key() @ RedemptionError::Unauthorized,
+        init,
+        payer = admin,
+        space = 8 + VaultAuthority::INIT_SPACE,
+        seeds = [VAULT_AUTHORITY_SEED],
+        bump,
     )]
-    pub permission_manager_config: Account<'info, PermissionConfig>,
+    pub vault_authority: Account<'info, VaultAuthority>,
 
     pub system_program: Program<'info, System>,
 }
 
-pub(crate) fn handler(ctx: Context<Initialize>, deadline_delay: i64) -> Result<()> {
+pub(crate) fn handler(ctx: Context<Initialize>, redemption_authority: Pubkey) -> Result<()> {
     ctx.accounts.redemption_config.set_inner(RedemptionConfig {
-        deadline_delay,
-        permission_manager: ctx.accounts.permission_manager_config.key(),
+        admin: ctx.accounts.admin.key(),
+        redemption_authority,
         bump: ctx.bumps.redemption_config,
     });
-
-    emit_cpi!(RedemptionInitialized {
-        admin: ctx.accounts.admin.key(),
-        deadline_delay,
-    });
-
+    ctx.accounts.vault_authority.bump = ctx.bumps.vault_authority;
     Ok(())
 }

@@ -14,9 +14,6 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
-  getI64Decoder,
-  getI64Encoder,
-  getProgramDerivedAddress,
   getStructDecoder,
   getStructEncoder,
   transformEncoder,
@@ -52,11 +49,8 @@ export type InitializeInstruction<
   TAccountAdmin extends string | AccountMeta<string> = string,
   TAccountGatekeeperConfig extends string | AccountMeta<string> = string,
   TAccountVaultAuthority extends string | AccountMeta<string> = string,
-  TAccountPermissionManagerConfig extends string | AccountMeta<string> = string,
   TAccountSystemProgram extends string | AccountMeta<string> =
     "11111111111111111111111111111111",
-  TAccountEventAuthority extends string | AccountMeta<string> = string,
-  TAccountProgram extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
@@ -72,39 +66,25 @@ export type InitializeInstruction<
       TAccountVaultAuthority extends string
         ? WritableAccount<TAccountVaultAuthority>
         : TAccountVaultAuthority,
-      TAccountPermissionManagerConfig extends string
-        ? ReadonlyAccount<TAccountPermissionManagerConfig>
-        : TAccountPermissionManagerConfig,
       TAccountSystemProgram extends string
         ? ReadonlyAccount<TAccountSystemProgram>
         : TAccountSystemProgram,
-      TAccountEventAuthority extends string
-        ? ReadonlyAccount<TAccountEventAuthority>
-        : TAccountEventAuthority,
-      TAccountProgram extends string
-        ? ReadonlyAccount<TAccountProgram>
-        : TAccountProgram,
       ...TRemainingAccounts,
     ]
   >;
 
 export type InitializeInstructionData = {
   discriminator: ReadonlyUint8Array;
-  permissionManager: Address;
-  maxDelay: bigint;
+  gatekeeperInitiator: Address;
 };
 
-export type InitializeInstructionDataArgs = {
-  permissionManager: Address;
-  maxDelay: number | bigint;
-};
+export type InitializeInstructionDataArgs = { gatekeeperInitiator: Address };
 
 export function getInitializeInstructionDataEncoder(): FixedSizeEncoder<InitializeInstructionDataArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["permissionManager", getAddressEncoder()],
-      ["maxDelay", getI64Encoder()],
+      ["gatekeeperInitiator", getAddressEncoder()],
     ]),
     (value) => ({ ...value, discriminator: INITIALIZE_DISCRIMINATOR }),
   );
@@ -113,8 +93,7 @@ export function getInitializeInstructionDataEncoder(): FixedSizeEncoder<Initiali
 export function getInitializeInstructionDataDecoder(): FixedSizeDecoder<InitializeInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["permissionManager", getAddressDecoder()],
-    ["maxDelay", getI64Decoder()],
+    ["gatekeeperInitiator", getAddressDecoder()],
   ]);
 }
 
@@ -132,40 +111,27 @@ export type InitializeAsyncInput<
   TAccountAdmin extends string = string,
   TAccountGatekeeperConfig extends string = string,
   TAccountVaultAuthority extends string = string,
-  TAccountPermissionManagerConfig extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   gatekeeperConfig?: Address<TAccountGatekeeperConfig>;
   vaultAuthority?: Address<TAccountVaultAuthority>;
-  permissionManagerConfig?: Address<TAccountPermissionManagerConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  permissionManager: InitializeInstructionDataArgs["permissionManager"];
-  maxDelay: InitializeInstructionDataArgs["maxDelay"];
+  gatekeeperInitiator: InitializeInstructionDataArgs["gatekeeperInitiator"];
 };
 
 export async function getInitializeInstructionAsync<
   TAccountAdmin extends string,
   TAccountGatekeeperConfig extends string,
   TAccountVaultAuthority extends string,
-  TAccountPermissionManagerConfig extends string,
   TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
   TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
 >(
   input: InitializeAsyncInput<
     TAccountAdmin,
     TAccountGatekeeperConfig,
     TAccountVaultAuthority,
-    TAccountPermissionManagerConfig,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
@@ -174,10 +140,7 @@ export async function getInitializeInstructionAsync<
     TAccountAdmin,
     TAccountGatekeeperConfig,
     TAccountVaultAuthority,
-    TAccountPermissionManagerConfig,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountSystemProgram
   >
 > {
   // Program address.
@@ -192,13 +155,7 @@ export async function getInitializeInstructionAsync<
       isWritable: true,
     },
     vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: true },
-    permissionManagerConfig: {
-      value: input.permissionManagerConfig ?? null,
-      isWritable: false,
-    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -215,15 +172,6 @@ export async function getInitializeInstructionAsync<
   if (!accounts.vaultAuthority.value) {
     accounts.vaultAuthority.value = await findVaultAuthorityPda();
   }
-  if (!accounts.permissionManagerConfig.value) {
-    accounts.permissionManagerConfig.value = await getProgramDerivedAddress({
-      programAddress:
-        "7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD" as Address<"7Kn4rpdRjcPZSPgR4h1VU97DviDdZsBEd284BfSpUbMD">,
-      seeds: [
-        getBytesEncoder().encode(new Uint8Array([99, 111, 110, 102, 105, 103])),
-      ],
-    });
-  }
   if (!accounts.systemProgram.value) {
     accounts.systemProgram.value =
       "11111111111111111111111111111111" as Address<"11111111111111111111111111111111">;
@@ -235,10 +183,7 @@ export async function getInitializeInstructionAsync<
       getAccountMeta(accounts.admin),
       getAccountMeta(accounts.gatekeeperConfig),
       getAccountMeta(accounts.vaultAuthority),
-      getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode(
       args as InitializeInstructionDataArgs,
@@ -249,10 +194,7 @@ export async function getInitializeInstructionAsync<
     TAccountAdmin,
     TAccountGatekeeperConfig,
     TAccountVaultAuthority,
-    TAccountPermissionManagerConfig,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountSystemProgram
   >);
 }
 
@@ -260,40 +202,27 @@ export type InitializeInput<
   TAccountAdmin extends string = string,
   TAccountGatekeeperConfig extends string = string,
   TAccountVaultAuthority extends string = string,
-  TAccountPermissionManagerConfig extends string = string,
   TAccountSystemProgram extends string = string,
-  TAccountEventAuthority extends string = string,
-  TAccountProgram extends string = string,
 > = {
   admin: TransactionSigner<TAccountAdmin>;
   gatekeeperConfig: Address<TAccountGatekeeperConfig>;
   vaultAuthority: Address<TAccountVaultAuthority>;
-  permissionManagerConfig: Address<TAccountPermissionManagerConfig>;
   systemProgram?: Address<TAccountSystemProgram>;
-  eventAuthority: Address<TAccountEventAuthority>;
-  program: Address<TAccountProgram>;
-  permissionManager: InitializeInstructionDataArgs["permissionManager"];
-  maxDelay: InitializeInstructionDataArgs["maxDelay"];
+  gatekeeperInitiator: InitializeInstructionDataArgs["gatekeeperInitiator"];
 };
 
 export function getInitializeInstruction<
   TAccountAdmin extends string,
   TAccountGatekeeperConfig extends string,
   TAccountVaultAuthority extends string,
-  TAccountPermissionManagerConfig extends string,
   TAccountSystemProgram extends string,
-  TAccountEventAuthority extends string,
-  TAccountProgram extends string,
   TProgramAddress extends Address = typeof CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS,
 >(
   input: InitializeInput<
     TAccountAdmin,
     TAccountGatekeeperConfig,
     TAccountVaultAuthority,
-    TAccountPermissionManagerConfig,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountSystemProgram
   >,
   config?: { programAddress?: TProgramAddress },
 ): InitializeInstruction<
@@ -301,10 +230,7 @@ export function getInitializeInstruction<
   TAccountAdmin,
   TAccountGatekeeperConfig,
   TAccountVaultAuthority,
-  TAccountPermissionManagerConfig,
-  TAccountSystemProgram,
-  TAccountEventAuthority,
-  TAccountProgram
+  TAccountSystemProgram
 > {
   // Program address.
   const programAddress =
@@ -318,13 +244,7 @@ export function getInitializeInstruction<
       isWritable: true,
     },
     vaultAuthority: { value: input.vaultAuthority ?? null, isWritable: true },
-    permissionManagerConfig: {
-      value: input.permissionManagerConfig ?? null,
-      isWritable: false,
-    },
     systemProgram: { value: input.systemProgram ?? null, isWritable: false },
-    eventAuthority: { value: input.eventAuthority ?? null, isWritable: false },
-    program: { value: input.program ?? null, isWritable: false },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
@@ -346,10 +266,7 @@ export function getInitializeInstruction<
       getAccountMeta(accounts.admin),
       getAccountMeta(accounts.gatekeeperConfig),
       getAccountMeta(accounts.vaultAuthority),
-      getAccountMeta(accounts.permissionManagerConfig),
       getAccountMeta(accounts.systemProgram),
-      getAccountMeta(accounts.eventAuthority),
-      getAccountMeta(accounts.program),
     ],
     data: getInitializeInstructionDataEncoder().encode(
       args as InitializeInstructionDataArgs,
@@ -360,10 +277,7 @@ export function getInitializeInstruction<
     TAccountAdmin,
     TAccountGatekeeperConfig,
     TAccountVaultAuthority,
-    TAccountPermissionManagerConfig,
-    TAccountSystemProgram,
-    TAccountEventAuthority,
-    TAccountProgram
+    TAccountSystemProgram
   >);
 }
 
@@ -376,10 +290,7 @@ export type ParsedInitializeInstruction<
     admin: TAccountMetas[0];
     gatekeeperConfig: TAccountMetas[1];
     vaultAuthority: TAccountMetas[2];
-    permissionManagerConfig: TAccountMetas[3];
-    systemProgram: TAccountMetas[4];
-    eventAuthority: TAccountMetas[5];
-    program: TAccountMetas[6];
+    systemProgram: TAccountMetas[3];
   };
   data: InitializeInstructionData;
 };
@@ -392,7 +303,7 @@ export function parseInitializeInstruction<
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
 ): ParsedInitializeInstruction<TProgram, TAccountMetas> {
-  if (instruction.accounts.length < 7) {
+  if (instruction.accounts.length < 4) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
   }
@@ -408,10 +319,7 @@ export function parseInitializeInstruction<
       admin: getNextAccount(),
       gatekeeperConfig: getNextAccount(),
       vaultAuthority: getNextAccount(),
-      permissionManagerConfig: getNextAccount(),
       systemProgram: getNextAccount(),
-      eventAuthority: getNextAccount(),
-      program: getNextAccount(),
     },
     data: getInitializeInstructionDataDecoder().decode(instruction.data),
   };
