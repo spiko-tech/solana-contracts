@@ -24,6 +24,7 @@ Prerequisites: Rust (stable), Solana CLI 2.x, Anchor CLI 1.0.2, Node.js 20+, pnp
 ```bash
 pnpm install       # install Node.js dependencies
 anchor build       # build all programs (SBF binaries + IDL)
+pnpm generate-clients  # regenerate TypeScript clients (Codama)
 anchor test        # build, deploy to localnet, and run tests
 ```
 
