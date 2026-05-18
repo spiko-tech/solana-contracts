@@ -71,7 +71,7 @@ pub(crate) fn handler<'info>(
     destination: Pubkey,
     amount: u64,
 ) -> Result<()> {
-    require!(amount > 0, GatekeeperError::InvalidAmount);
+    require!(amount > 0, GatekeeperError::Unauthorized);
 
     let clock = Clock::get()?;
     let current_day = clock

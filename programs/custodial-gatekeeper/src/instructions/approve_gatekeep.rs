@@ -22,7 +22,7 @@ pub struct ApproveGatekeep<'info> {
         mut,
         seeds = [GATEKEEP_OPERATION_SEED, salt.to_le_bytes().as_ref()],
         bump = gatekeep_operation.bump,
-        constraint = gatekeep_operation.status == STATUS_PENDING @ GatekeeperError::NotPending,
+        constraint = gatekeep_operation.status == STATUS_PENDING @ GatekeeperError::Unauthorized,
     )]
     pub gatekeep_operation: Account<'info, GatekeepOperation>,
 

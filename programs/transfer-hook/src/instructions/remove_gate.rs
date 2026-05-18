@@ -22,6 +22,7 @@ pub struct RemoveGate<'info> {
         mut,
         seeds = [WHITELIST_SEED, wallet.key().as_ref()],
         bump = whitelist_state.bump,
+        constraint = whitelist_state.role == ROLE_WHITELISTED_GATE @ TransferHookError::Unauthorized,
         close = payer,
     )]
     pub whitelist_state: Account<'info, WhitelistState>,

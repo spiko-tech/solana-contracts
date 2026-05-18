@@ -16,20 +16,11 @@ import { CUSTODIAL_GATEKEEPER_PROGRAM_ADDRESS } from "../programs";
 
 /** Unauthorized: Unauthorized */
 export const CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED = 0x1770; // 6000
-/** NotPending: Operation is not pending */
-export const CUSTODIAL_GATEKEEPER_ERROR__NOT_PENDING = 0x1771; // 6001
 /** ArithmeticOverflow: Arithmetic overflow */
-export const CUSTODIAL_GATEKEEPER_ERROR__ARITHMETIC_OVERFLOW = 0x1772; // 6002
-/** DailyLimitExceeded: Daily limit exceeded */
-export const CUSTODIAL_GATEKEEPER_ERROR__DAILY_LIMIT_EXCEEDED = 0x1773; // 6003
-/** InvalidAmount: Invalid amount */
-export const CUSTODIAL_GATEKEEPER_ERROR__INVALID_AMOUNT = 0x1774; // 6004
+export const CUSTODIAL_GATEKEEPER_ERROR__ARITHMETIC_OVERFLOW = 0x1771; // 6001
 
 export type CustodialGatekeeperError =
   | typeof CUSTODIAL_GATEKEEPER_ERROR__ARITHMETIC_OVERFLOW
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__DAILY_LIMIT_EXCEEDED
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__INVALID_AMOUNT
-  | typeof CUSTODIAL_GATEKEEPER_ERROR__NOT_PENDING
   | typeof CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED;
 
 let custodialGatekeeperErrorMessages:
@@ -38,9 +29,6 @@ let custodialGatekeeperErrorMessages:
 if (process.env.NODE_ENV !== "production") {
   custodialGatekeeperErrorMessages = {
     [CUSTODIAL_GATEKEEPER_ERROR__ARITHMETIC_OVERFLOW]: `Arithmetic overflow`,
-    [CUSTODIAL_GATEKEEPER_ERROR__DAILY_LIMIT_EXCEEDED]: `Daily limit exceeded`,
-    [CUSTODIAL_GATEKEEPER_ERROR__INVALID_AMOUNT]: `Invalid amount`,
-    [CUSTODIAL_GATEKEEPER_ERROR__NOT_PENDING]: `Operation is not pending`,
     [CUSTODIAL_GATEKEEPER_ERROR__UNAUTHORIZED]: `Unauthorized`,
   };
 }
