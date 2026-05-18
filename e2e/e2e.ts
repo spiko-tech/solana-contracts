@@ -5,7 +5,7 @@
  * (devnet or localnet).
  *
  * Usage:
- *   cd e2e && npx tsx e2e.ts
+ *   cd e2e && pnpm tsx e2e.ts
  */
 
 import {

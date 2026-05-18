@@ -67,7 +67,7 @@ solana-test-validator \
 solana config set --url http://127.0.0.1:8899
 
 # 4. Run the e2e test
-cd e2e && npx tsx e2e.ts
+cd e2e && pnpm tsx e2e.ts
 ```
 
 ### Running on devnet
@@ -86,7 +86,7 @@ solana program deploy target/deploy/redemption.so --program-id target/deploy/red
 solana program deploy target/deploy/custodial_gatekeeper.so --program-id target/deploy/custodial_gatekeeper-keypair.json
 
 # 4. Run the e2e test
-cd e2e && npx tsx e2e.ts
+cd e2e && pnpm tsx e2e.ts
 ```
 
 The test reads the RPC URL and admin keypair from `~/.config/solana/cli/config.yml`.
