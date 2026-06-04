@@ -1,6 +1,8 @@
 tmp/
 .worktree/
 
+deployer.json
+
 # Rust
 target/
 **/*.rs.bk
@@ -25,7 +27,6 @@ node_modules/
 # Environment
 .env
 *.pem
-*.json
 !package.json
 !tsconfig.json
 

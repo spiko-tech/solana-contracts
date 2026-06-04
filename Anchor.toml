@@ -7,10 +7,7 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-custodial_gatekeeper = "5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6"
-minter = "Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX"
-redemption = "B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr"
-transfer_hook = "Fzyd28cVXwzaqoU9bqU8hLpcYqhQQtSyJVaGCgcGFEjq"
+minter = "Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc"
 
 [provider]
 cluster = "localnet"

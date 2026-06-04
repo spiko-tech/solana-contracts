@@ -3,12 +3,31 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-"dependencies": {
-    "@effect/cli": "^0.75",
-    "@effect/platform": "^0.96",
-    "@effect/platform-node": "^0.106",
-    "@solana/kit": "^2.1",
-    "@solana-program/system": "^0.7",
-    "effect": "^3.21"
+  "scripts": {
+    "fmt": "oxfmt scripts/",
+    "fmt:check": "oxfmt --check scripts/",
+    "lint": "oxlint scripts/",
+    "lint:fix": "oxlint --fix scripts/",
+    "generate-clients": "tsx scripts/generate-ts-clients.ts"
+  },
+  "dependencies": {
+    "@solana-program/memo": "^0.11.0",
+    "@solana-program/system": "^0.12.0",
+    "@solana-program/token-2022": "^0.9.0",
+    "@solana/kit": "^6.8.0",
+    "@solana/sysvars": "^5.0",
+    "@solana/token-acl-gate-sdk": "^0.2.0",
+    "@solana/token-acl-sdk": "^0.3.0",
+    "@solana/web3.js": "^1.98.4",
+    "@sqds/multisig": "^2.1.4",
+    "bs58": "^6.0.0"
+  },
+  "devDependencies": {
+    "@codama/nodes-from-anchor": "^1.0.0",
+    "@codama/renderers-js": "^1.0.0",
+    "@types/node": "^25.9.1",
+    "codama": "^1.0.0",
+    "oxfmt": "^0.52.0",
+    "oxlint": "^1.67.0"
   }
 }

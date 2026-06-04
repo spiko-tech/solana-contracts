@@ -2,182 +2,167 @@
 
 Tokenized money market fund shares on Solana, built with Anchor and Token-2022.
 
+## Architecture
+
+- **Minter** — Custom Anchor program for controlled token minting (initiate → approve flow with daily limits)
+- **Token ACL** (`TACLkU6CiCdkQN2MjoyDkVg2yAH9zkxiHDsiztQ52TP`) — Freeze authority delegation + permissionless thaw
+- **ABL Gate** (`GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz`) — Allow/block list management (composite mode: allow for KYC, block for sanctions)
+
+All new token accounts start **frozen** (DefaultAccountState). Users are thawed permissionlessly after being added to the allow list. Block list always wins.
+
 ## Program IDs
 
 ### Devnet
 
-| Program             | Address                                        |
-| ------------------- | ---------------------------------------------- |
-| TransferHook        | `Fzyd28cVXwzaqoU9bqU8hLpcYqhQQtSyJVaGCgcGFEjq` |
-| Minter              | `Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX` |
-| Redemption          | `B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr` |
-| CustodialGatekeeper | `5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6` |
+| Program | Address                                        |
+| ------- | ---------------------------------------------- |
+| Minter  | `Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc` |
 
-### Mainnet
+## Authorities
 
-TBD
+### Devnet
+
+#### Squads
+
+| Name                       | Multisig Account                               | Squad Vault                                    |
+| -------------------------- | ---------------------------------------------- | ---------------------------------------------- |
+| Minter Admin               | `3ynDxXhWUe2e4qj35rEAXnzJZLMxYNhTkLmekSz3yZTv` | `DbvTDctFR9vg9Zr9B3AXwuijwaEG2CrQsAbVRJGDLXcd` |
+| Gate Authority             | `2UPy4twDntnEGAtzPwSgbKFuH7JrPU6RXtGdCzPLnNok` | `4wMDSynaKhXyHThzhDugX61bcRQW1FQdPCQ3ap5e8vkN` |
+| Permanent Delegate         | `9Nduu43LCQ6CCCZVezots6Yfrwx3BKPNBtGD583L8Q5A` | `HPiFoPhj9GBp4R36tZDgYx5EyvBiY7sKr6YQo3hNVKBF` |
+| Metadata Pointer Authority | `9CDu7eu8ViFSozLgo2HfLcbwLNAw5uLJdojHxvcApFJU` | `FocY7ZDCpZ6mBDtnmiQvKf5Cc1VvE4qmnH8Uh6KKAogq` |
+| Metadata Update Authority  | `5thvQzhm8cqeqRPvcDzr2Mp6brThsa8mwQFuDRRNRBQ`  | `4MmywJDnBM21o2VW4Eg5ycvVpD6HSbi8FESy4rECfYHq` |
+| Pause Authority            | `8GLJnGqrtUYrzfNbXov3BcZvJaymhodRLcB5C136mAkj` | `9fcM9RjgMbczEBShPfD7q424sbDSD7h8zXvq685kBFRj` |
+| Mint Close Authority       | `FE2zryGDUEPdwVernzNDLFV7L9rU4vHyfEwyFHJgqW4k` | `22fFELs3pQztY75UNzU27Q6j1Sv5tjuMSxANHMkP8yj2` |
+| Token Acl Authority        | `6xACzLmDsZEEM9iXiwDmJmwkPRnMNk2g7DPq82sYeyiZ` | `5HhTmXJwmg62wbtjbK9jjcsiz6btc37iQ5G753cAqTqi` |
+
+#### Operational Keypairs
+
+| Name             | Address                                        |
+| ---------------- | ---------------------------------------------- |
+| Minter Initiator | `5kx1nLkKyqG2UyAMtb5yhWVurZ9mqUnUabrGYdtkZoNM` |
 
 ## Setup
 
 Prerequisites: Rust (stable), Solana CLI 2.x, Anchor CLI 1.0.2, Node.js 20+, pnpm.
 
 ```bash
-pnpm install       # install Node.js dependencies
-anchor build       # build all programs (SBF binaries + IDL)
-pnpm generate-clients  # regenerate TypeScript clients (Codama)
-anchor test        # build, deploy to localnet, and run tests
+pnpm install
+
+# Download SPL Token 2022 program (required for tests)
+solana program dump TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb target/deploy/spl_token_2022.so --url mainnet-beta
 ```
 
-## Just Commands
-
-| Command                | Description                     |
-| ---------------------- | ------------------------------- |
-| `just install`         | Install Node.js dependencies    |
-| `just build`           | Build all programs (SBF + IDL)  |
-| `just build-no-idl`    | Build without IDL generation    |
-| `just check`           | Check Rust code (no .so output) |
-| `just fmt`             | Format Rust code                |
-| `just clippy`          | Run clippy                      |
-| `just test`            | Run tests                       |
-| `just test-skip-build` | Run tests without rebuilding    |
-
-## E2E Tests
-
-The E2E test is a self-contained multi-actor scenario that runs the full lifecycle: program initialization, minting (auto-approve + pending/approve/cancel), transfers (direct + via custodial gatekeeper with daily limits), and redemptions (burn from vault). It covers both EUTBL and USTBL tokens.
-
-### Prerequisites
-
-- Solana CLI 2.x, Anchor CLI 1.0.2, Node.js 20+, pnpm
-- A funded admin keypair (the test reads from `~/.config/solana/cli/config.yml`)
-
-### Running on local validator
+## Common Commands
 
 ```bash
-# 1. Build all programs
-anchor build --ignore-keys
+# Build
+anchor build -p minter
 
-# 2. Start a local validator with programs loaded (Terminal 1)
-solana-test-validator \
-  --bpf-program Fzyd28cVXwzaqoU9bqU8hLpcYqhQQtSyJVaGCgcGFEjq target/deploy/transfer_hook.so \
-  --bpf-program Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX target/deploy/minter.so \
-  --bpf-program B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr target/deploy/redemption.so \
-  --bpf-program 5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6 target/deploy/custodial_gatekeeper.so \
-  --reset
+# Run LiteSVM unit tests
+cargo test -p minter
 
-# 3. Configure CLI for localnet (Terminal 2)
-solana config set --url http://127.0.0.1:8899
-
-# 4. Run the e2e test
-cd e2e && pnpm tsx e2e.ts
+# Regenerate TypeScript clients (Codama)
+pnpm generate-clients
 ```
-
-### Running on devnet
-
-```bash
-# 1. Build all programs
-anchor build --ignore-keys
-
-# 2. Configure CLI for devnet
-solana config set --url https://api.devnet.solana.com
-
-# 3. Deploy all programs (ensure funded keypair)
-solana program deploy target/deploy/transfer_hook.so --program-id target/deploy/transfer_hook-keypair.json
-solana program deploy target/deploy/minter.so --program-id target/deploy/minter-keypair.json
-solana program deploy target/deploy/redemption.so --program-id target/deploy/redemption-keypair.json
-solana program deploy target/deploy/custodial_gatekeeper.so --program-id target/deploy/custodial_gatekeeper-keypair.json
-
-# 4. Run the e2e test
-cd e2e && pnpm tsx e2e.ts
-```
-
-The test reads the RPC URL and admin keypair from `~/.config/solana/cli/config.yml`.
 
 ## Deployment Scripts
 
-Two scripts handle program setup and token creation independently.
+Scripts target `devnet` or `mainnet-beta` only.
 
-### 1. Setup Programs
+### 1. Setup Minter
 
-Initializes all 4 programs and gates vault PDAs. Optionally builds and deploys the `.so` binaries. Idempotent — safe to re-run.
+First-time deploy + initialization. Transfers config admin to a multisig. Upgrade authority stays with the deployer keypair.
 
 ```bash
-pnpm tsx scripts/setup-programs.ts \
-  --cluster <localnet|devnet|mainnet-beta> \
-  --keypair <path-to-admin-keypair.json> \
-  --deploy <true|false> \
-  --whitelist-authority <pubkey> \
-  --mint-initiator <pubkey> \
-  --redemption-authority <pubkey> \
-  --gatekeeper-initiator <pubkey>
+### Devnet
+pnpm tsx scripts/setup-minter.ts \
+  --cluster devnet \
+  --keypair ./deployer.json \
+  --minter-admin DbvTDctFR9vg9Zr9B3AXwuijwaEG2CrQsAbVRJGDLXcd \
+  --mint-initiator 5kx1nLkKyqG2UyAMtb5yhWVurZ9mqUnUabrGYdtkZoNM
 ```
 
-| Flag                     | Description                                                           |
-| ------------------------ | --------------------------------------------------------------------- |
-| `--cluster`              | Target network (`localnet`, `devnet`, `mainnet-beta`)                 |
-| `--keypair`              | Path to the admin keypair JSON file                                   |
-| `--deploy`               | `true` = run `anchor build` + `solana program deploy`; `false` = skip |
-| `--whitelist-authority`  | Pubkey for Transfer Hook whitelist authority                          |
-| `--mint-initiator`       | Pubkey for Minter initiator role                                      |
-| `--redemption-authority` | Pubkey for Redemption authority role                                  |
-| `--gatekeeper-initiator` | Pubkey for Custodial Gatekeeper initiator role                        |
+| Flag               | Description                             |
+| ------------------ | --------------------------------------- |
+| `--cluster`        | `devnet` or `mainnet-beta`              |
+| `--keypair`        | Deployer keypair (pays + initial admin) |
+| `--minter-admin`   | Final config admin (Squads multisig)    |
+| `--mint-initiator` | Pubkey authorized to initiate mints     |
 
-**Output:** `deployments/programs-<cluster>.json`
+**Output:** `deployments/minter-<cluster>.json`
 
-### 2. Create Token
+### 2. Setup ACL
 
-Creates a new Token-2022 mint with all Spiko extensions (TransferHook, PermanentDelegate, MetadataPointer), registers it, sets daily limits, and creates vault ATAs. Requires `setup-programs` to have been run first.
+One-time creation of the shared ABL Gate allow/block lists. The gate-authority becomes the immutable list owner.
+
+- On **devnet** with `--multisig-pubkey`: automatically creates and executes the vault transactions via the Squads SDK.
+- On **mainnet** (or without `--multisig-pubkey`): prints raw instruction details for manual execution via the Squads web UI.
 
 ```bash
-pnpm tsx scripts/create-token.ts \
-  --cluster <localnet|devnet|mainnet-beta> \
-  --keypair <path-to-admin-keypair.json> \
+### Devnet
+pnpm tsx scripts/setup-acl.ts \
+  --cluster devnet \
+  --keypair ./deployer.json \
+  --gate-authority 4wMDSynaKhXyHThzhDugX61bcRQW1FQdPCQ3ap5e8vkN \
+  --multisig-pubkey 2UPy4twDntnEGAtzPwSgbKFuH7JrPU6RXtGdCzPLnNok \
+  --vault-index 0
+```
+
+| Flag                | Description                                       |
+| ------------------- | ------------------------------------------------- |
+| `--cluster`         | `devnet` or `mainnet-beta`                        |
+| `--keypair`         | Payer keypair (devnet: also the proposer/member)  |
+| `--gate-authority`  | ABL list authority (immutable, e.g. Squads vault) |
+| `--multisig-pubkey` | Squads multisig account (optional, devnet only)   |
+| `--vault-index`     | Vault index (default: `0`, optional, devnet only) |
+
+**Output:** `deployments/acl-<cluster>.json`
+
+### 3. Setup Token
+
+Creates a Token-2022 mint with all extensions, configures Token ACL, and transfers authorities. Requires `setup-minter` and `setup-acl` to have been run first.
+
+```bash
+### Devnet
+pnpm tsx scripts/setup-token.ts \
+  --cluster devnet \
+  --keypair ./deployer.json \
   --symbol EUTBL \
-  --name "EU T-Bill Token" \
+  --name "EU T-Bill" \
   --uri "https://spiko.finance/eutbl" \
   --decimals 6 \
   --minter-daily-limit 1000000 \
-  --cg-daily-limit 500000
+  --permanent-delegate HPiFoPhj9GBp4R36tZDgYx5EyvBiY7sKr6YQo3hNVKBF \
+  --metadata-pointer-authority FocY7ZDCpZ6mBDtnmiQvKf5Cc1VvE4qmnH8Uh6KKAogq \
+  --metadata-update-authority 4MmywJDnBM21o2VW4Eg5ycvVpD6HSbi8FESy4rECfYHq \
+  --pause-authority 9fcM9RjgMbczEBShPfD7q424sbDSD7h8zXvq685kBFRj \
+  --mint-close-authority 22fFELs3pQztY75UNzU27Q6j1Sv5tjuMSxANHMkP8yj2 \
+  --token-acl-authority 5HhTmXJwmg62wbtjbK9jjcsiz6btc37iQ5G753cAqTqi \
+  --multisig-pubkey 3ynDxXhWUe2e4qj35rEAXnzJZLMxYNhTkLmekSz3yZTv \
+  --vault-index 0
 ```
 
-| Flag                   | Description                                           |
-| ---------------------- | ----------------------------------------------------- |
-| `--cluster`            | Target network                                        |
-| `--keypair`            | Path to the admin keypair JSON file                   |
-| `--symbol`             | Token symbol (e.g. `EUTBL`)                           |
-| `--name`               | Token display name                                    |
-| `--uri`                | Metadata URI                                          |
-| `--decimals`           | Token decimals (e.g. `6`)                             |
-| `--minter-daily-limit` | Minter daily limit in whole token units               |
-| `--cg-daily-limit`     | Custodial Gatekeeper daily limit in whole token units |
+| Flag                           | Description                                       |
+| ------------------------------ | ------------------------------------------------- |
+| `--cluster`                    | `devnet` or `mainnet-beta`                        |
+| `--keypair`                    | Payer/temp authority keypair                      |
+| `--symbol`                     | Token symbol (e.g. `EUTBL`)                       |
+| `--name`                       | Token display name                                |
+| `--uri`                        | Metadata URI                                      |
+| `--decimals`                   | Token decimals (default: 6)                       |
+| `--minter-daily-limit`         | Daily limit in whole token units                  |
+| `--permanent-delegate`         | Permanent delegate (immutable!)                   |
+| `--metadata-pointer-authority` | Metadata pointer authority (set at init)          |
+| `--metadata-update-authority`  | Final metadata update authority                   |
+| `--pause-authority`            | Pause authority (set at init)                     |
+| `--mint-close-authority`       | Mint close authority (set at init)                |
+| `--token-acl-authority`        | Final Token ACL config authority                  |
+| `--multisig-pubkey`            | Squads multisig account (optional, devnet only)   |
+| `--vault-index`                | Vault index (default: `0`, optional, devnet only) |
 
-**Output:** `deployments/<symbol>-<cluster>.json`
+After execution, the keypair has no remaining power.
 
-### Example: Full localnet setup
+- On **devnet** with `--multisig-pubkey`: automatically creates and executes the Squads vault transactions for **Minter setDailyLimit**.
+- On **mainnet** (or without `--multisig-pubkey`): prints instruction details for manual execution via the Squads web UI.
 
-```bash
-# Terminal 1: start validator
-solana-test-validator \
-  --bpf-program Fzyd28cVXwzaqoU9bqU8hLpcYqhQQtSyJVaGCgcGFEjq target/deploy/transfer_hook.so \
-  --bpf-program Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX target/deploy/minter.so \
-  --bpf-program B3ustaVazAzqwbgkxARcsL9KKKaNKT6o6FFQyo4b4EBr target/deploy/redemption.so \
-  --bpf-program 5Y7mJuJRdBFTXBrXG3rCUZTjRtNKhrRjCA3vKnVX2Zb6 target/deploy/custodial_gatekeeper.so \
-  --reset
-
-# Terminal 2: setup + create tokens
-ADMIN=$(solana address)
-
-pnpm tsx scripts/setup-programs.ts \
-  --cluster localnet --keypair ~/.config/solana/id.json --deploy false \
-  --whitelist-authority $ADMIN --mint-initiator $ADMIN \
-  --redemption-authority $ADMIN --gatekeeper-initiator $ADMIN
-
-pnpm tsx scripts/create-token.ts \
-  --cluster localnet --keypair ~/.config/solana/id.json \
-  --symbol EUTBL --name "EU T-Bill Token" --uri "https://spiko.finance/eutbl" \
-  --decimals 6 --minter-daily-limit 1000000 --cg-daily-limit 500000
-
-pnpm tsx scripts/create-token.ts \
-  --cluster localnet --keypair ~/.config/solana/id.json \
-  --symbol USTBL --name "US T-Bill Token" --uri "https://spiko.finance/ustbl" \
-  --decimals 6 --minter-daily-limit 1000000 --cg-daily-limit 500000
-```
+**Output:** `deployments/{SYMBOL}-{cluster}.json` + mint keypair saved to `deployments/`
