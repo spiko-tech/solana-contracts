@@ -9,7 +9,7 @@ use solana_signer::Signer;
 use solana_transaction::Transaction;
 
 pub const PROGRAM_ID: Pubkey =
-    solana_pubkey::pubkey!("Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX");
+    solana_pubkey::pubkey!("Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc");
 
 pub const TOKEN_2022_PROGRAM_ID: Pubkey =
     solana_pubkey::pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");

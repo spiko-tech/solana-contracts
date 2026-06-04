@@ -1,17 +1,10 @@
 [workspace]
 resolver = "2"
-members = [
-    "programs/transfer-hook",
-    "programs/minter",
-    "programs/redemption",
-    "programs/custodial-gatekeeper",
-]
+members = ["programs/minter"]
 
 [workspace.dependencies]
 anchor-lang = { version = "1.0.2", features = ["init-if-needed"] }
 anchor-spl = "1.0.2"
-spl-transfer-hook-interface = "2.1.0"
-spl-tlv-account-resolution = "0.11.1"
 spl-token-2022-interface = "2.1.0"
 
 [profile.release]

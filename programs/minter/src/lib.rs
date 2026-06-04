@@ -7,7 +7,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("Hygpx48FpJyDjW1uW8fykwb94Jmak4CaWvihRREsJyFX");
+declare_id!("Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc");
 
 #[program]
 pub mod minter {

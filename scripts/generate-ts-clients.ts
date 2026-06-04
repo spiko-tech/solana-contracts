@@ -11,10 +11,7 @@ const idlDir = path.join(projectRoot, "target", "idl");
 const clientsDir = path.join(projectRoot, "clients", "ts");
 
 const programs: [string, string][] = [
-  ["transfer_hook.json", "transfer-hook"],
   ["minter.json", "minter"],
-  ["redemption.json", "redemption"],
-  ["custodial_gatekeeper.json", "custodial-gatekeeper"],
 ];
 
 function preserveConfigFiles(clientDir: string) {
@@ -41,10 +38,7 @@ function preserveConfigFiles(clientDir: string) {
             fs.unlinkSync(tempPath);
           }
         } catch (error) {
-          console.warn(
-            `Warning: Failed to restore ${filename}:`,
-            (error as Error).message,
-          );
+          console.warn(`Warning: Failed to restore ${filename}:`, (error as Error).message);
         }
       }
     },

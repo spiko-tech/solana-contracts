@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "sourceMap": false,
+    "rootDir": "..",
+    "outDir": "dist",
+    "types": ["node"]
+  },
+  "include": [
+    "setup-minter.ts",
+    "setup-acl.ts",
+    "setup-token.ts",
+    "lib/**/*.ts",
+    "../clients/ts/minter/**/*.ts"
+  ]
+}
