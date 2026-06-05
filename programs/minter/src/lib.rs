@@ -45,4 +45,8 @@ pub mod minter {
     pub fn set_mint_initiator(ctx: Context<SetMintInitiator>, new_initiator: Pubkey) -> Result<()> {
         instructions::set_mint_initiator::handler(ctx, new_initiator)
     }
+
+    pub fn set_mint_authority(ctx: Context<SetMintAuthority>, new_authority: Pubkey) -> Result<()> {
+        instructions::set_mint_authority::handler(ctx, new_authority)
+    }
 }
