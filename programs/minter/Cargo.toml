@@ -17,6 +17,7 @@ idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 [dependencies]
 anchor-lang = { workspace = true, features = ["init-if-needed"] }
 anchor-spl = { workspace = true }
+spl-token-2022-interface = { workspace = true }
 
 [dev-dependencies]
 litesvm = "0.12"

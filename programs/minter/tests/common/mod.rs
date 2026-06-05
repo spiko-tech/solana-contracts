@@ -278,6 +278,29 @@ pub fn ix_set_mint_initiator(admin: &Pubkey, new_initiator: Pubkey) -> Instructi
     }
 }
 
+pub fn ix_set_mint_authority(admin: &Pubkey, mint: &Pubkey, new_authority: Pubkey) -> Instruction {
+    let (config, _) = minter_config_pda();
+
+    #[derive(AnchorSerialize)]
+    struct Args {
+        new_authority: Pubkey,
+    }
+
+    let mut data = anchor_discriminator("set_mint_authority").to_vec();
+    Args { new_authority }.serialize(&mut data).unwrap();
+
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: vec![
+            AccountMeta::new_readonly(*admin, true),
+            AccountMeta::new_readonly(config, false),
+            AccountMeta::new(*mint, false),
+            AccountMeta::new_readonly(TOKEN_2022_PROGRAM_ID, false),
+        ],
+        data,
+    }
+}
+
 // === Setup Helpers ===
 
 pub fn setup_initialized() -> (LiteSVM, Keypair, Keypair, Keypair) {
@@ -358,6 +381,20 @@ pub fn read_token_balance(svm: &LiteSVM, account: &Pubkey) -> Option<u64> {
         return None;
     }
     Some(u64::from_le_bytes(acc.data[64..72].try_into().unwrap()))
+}
+
+/// Read the mint authority from a Token-2022 mint account (COption<Pubkey> at bytes 0..36)
+pub fn read_mint_authority(svm: &LiteSVM, mint: &Pubkey) -> Option<Pubkey> {
+    let acc = svm.get_account(mint)?;
+    if acc.data.len() < 36 {
+        return None;
+    }
+    let tag = u32::from_le_bytes(acc.data[0..4].try_into().unwrap());
+    if tag == 1 {
+        Some(Pubkey::new_from_array(acc.data[4..36].try_into().unwrap()))
+    } else {
+        None
+    }
 }
 
 /// Read MintOperation status from account data (discriminator[8] + status[1])
