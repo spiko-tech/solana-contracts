@@ -16,7 +16,7 @@ All new token accounts start **frozen** (DefaultAccountState). Users are thawed 
 
 | Program | Address                                        |
 | ------- | ---------------------------------------------- |
-| Minter  | `Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc` |
+| Minter  | `GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb` |
 
 ## Authorities
 
@@ -71,23 +71,28 @@ Scripts target `devnet` or `mainnet-beta` only.
 
 ### 1. Setup Minter
 
-First-time deploy + initialization. Transfers config admin to a multisig. Upgrade authority stays with the deployer keypair.
+First-time deploy + initialization. Nominates the Squads vault as config admin via a two-step transfer (nominate → accept). Upgrade authority stays with the deployer keypair.
+
+- On **devnet**: automatically executes the `accept_admin` vault transaction via the Squads SDK.
+- On **mainnet** (`mainnet-beta`): stops after `nominate_admin` and prints instruction details for manual proposal via the Squads web UI.
 
 ```bash
 ### Devnet
 pnpm tsx scripts/setup-minter.ts \
   --cluster devnet \
   --keypair ./deployer.json \
-  --minter-admin DbvTDctFR9vg9Zr9B3AXwuijwaEG2CrQsAbVRJGDLXcd \
+  --minter-admin-squad-account 3ynDxXhWUe2e4qj35rEAXnzJZLMxYNhTkLmekSz3yZTv \
+  --minter-admin-squad-vault DbvTDctFR9vg9Zr9B3AXwuijwaEG2CrQsAbVRJGDLXcd \
   --mint-initiator 5kx1nLkKyqG2UyAMtb5yhWVurZ9mqUnUabrGYdtkZoNM
 ```
 
-| Flag               | Description                             |
-| ------------------ | --------------------------------------- |
-| `--cluster`        | `devnet` or `mainnet-beta`              |
-| `--keypair`        | Deployer keypair (pays + initial admin) |
-| `--minter-admin`   | Final config admin (Squads multisig)    |
-| `--mint-initiator` | Pubkey authorized to initiate mints     |
+| Flag                           | Description                                      |
+| ------------------------------ | ------------------------------------------------ |
+| `--cluster`                    | `devnet` or `mainnet-beta`                       |
+| `--keypair`                    | Deployer keypair (pays + initial admin)          |
+| `--minter-admin-squad-account` | Squads multisig account pubkey                   |
+| `--minter-admin-squad-vault`   | Squads vault PDA (derived, validated at runtime) |
+| `--mint-initiator`             | Pubkey authorized to initiate mints              |
 
 **Output:** `deployments/minter-<cluster>.json`
 
@@ -130,7 +135,7 @@ pnpm tsx scripts/setup-token.ts \
   --symbol EUTBL \
   --name "EU T-Bill" \
   --uri "https://spiko.finance/eutbl" \
-  --decimals 6 \
+  --decimals 5 \
   --minter-daily-limit 1000000 \
   --permanent-delegate HPiFoPhj9GBp4R36tZDgYx5EyvBiY7sKr6YQo3hNVKBF \
   --metadata-pointer-authority FocY7ZDCpZ6mBDtnmiQvKf5Cc1VvE4qmnH8Uh6KKAogq \

@@ -41,9 +41,8 @@ pub(crate) fn handler(ctx: Context<SetDailyLimit>, limit: u64) -> Result<()> {
         .ok_or(MinterError::ArithmeticOverflow)?;
 
     let daily_limit = &mut ctx.accounts.mint_daily_limit;
+    daily_limit.reset_if_new_day(current_day);
     daily_limit.limit = limit;
-    daily_limit.used_amount = 0;
-    daily_limit.last_day = current_day;
     daily_limit.bump = ctx.bumps.mint_daily_limit;
 
     Ok(())

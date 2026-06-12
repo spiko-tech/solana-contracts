@@ -10,8 +10,6 @@ import {
   combineCodec,
   fixDecoderSize,
   fixEncoderSize,
-  getAddressDecoder,
-  getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
   getStructDecoder,
@@ -35,27 +33,29 @@ import { findMinterConfigPda } from "../pdas";
 import { MINTER_PROGRAM_ADDRESS } from "../programs";
 import { getAccountMetaFactory, type ResolvedAccount } from "../shared";
 
-export const SET_ADMIN_DISCRIMINATOR = new Uint8Array([
-  251, 163, 0, 52, 91, 194, 187, 92,
+export const ACCEPT_ADMIN_DISCRIMINATOR = new Uint8Array([
+  112, 42, 45, 90, 116, 181, 13, 170,
 ]);
 
-export function getSetAdminDiscriminatorBytes() {
-  return fixEncoderSize(getBytesEncoder(), 8).encode(SET_ADMIN_DISCRIMINATOR);
+export function getAcceptAdminDiscriminatorBytes() {
+  return fixEncoderSize(getBytesEncoder(), 8).encode(
+    ACCEPT_ADMIN_DISCRIMINATOR,
+  );
 }
 
-export type SetAdminInstruction<
+export type AcceptAdminInstruction<
   TProgram extends string = typeof MINTER_PROGRAM_ADDRESS,
-  TAccountAdmin extends string | AccountMeta<string> = string,
+  TAccountNewAdmin extends string | AccountMeta<string> = string,
   TAccountMinterConfig extends string | AccountMeta<string> = string,
   TRemainingAccounts extends readonly AccountMeta<string>[] = [],
 > = Instruction<TProgram> &
   InstructionWithData<ReadonlyUint8Array> &
   InstructionWithAccounts<
     [
-      TAccountAdmin extends string
-        ? ReadonlySignerAccount<TAccountAdmin> &
-            AccountSignerMeta<TAccountAdmin>
-        : TAccountAdmin,
+      TAccountNewAdmin extends string
+        ? ReadonlySignerAccount<TAccountNewAdmin> &
+            AccountSignerMeta<TAccountNewAdmin>
+        : TAccountNewAdmin,
       TAccountMinterConfig extends string
         ? WritableAccount<TAccountMinterConfig>
         : TAccountMinterConfig,
@@ -63,74 +63,67 @@ export type SetAdminInstruction<
     ]
   >;
 
-export type SetAdminInstructionData = {
-  discriminator: ReadonlyUint8Array;
-  newAdmin: Address;
-};
+export type AcceptAdminInstructionData = { discriminator: ReadonlyUint8Array };
 
-export type SetAdminInstructionDataArgs = { newAdmin: Address };
+export type AcceptAdminInstructionDataArgs = {};
 
-export function getSetAdminInstructionDataEncoder(): FixedSizeEncoder<SetAdminInstructionDataArgs> {
+export function getAcceptAdminInstructionDataEncoder(): FixedSizeEncoder<AcceptAdminInstructionDataArgs> {
   return transformEncoder(
-    getStructEncoder([
-      ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
-      ["newAdmin", getAddressEncoder()],
-    ]),
-    (value) => ({ ...value, discriminator: SET_ADMIN_DISCRIMINATOR }),
+    getStructEncoder([["discriminator", fixEncoderSize(getBytesEncoder(), 8)]]),
+    (value) => ({ ...value, discriminator: ACCEPT_ADMIN_DISCRIMINATOR }),
   );
 }
 
-export function getSetAdminInstructionDataDecoder(): FixedSizeDecoder<SetAdminInstructionData> {
+export function getAcceptAdminInstructionDataDecoder(): FixedSizeDecoder<AcceptAdminInstructionData> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
-    ["newAdmin", getAddressDecoder()],
   ]);
 }
 
-export function getSetAdminInstructionDataCodec(): FixedSizeCodec<
-  SetAdminInstructionDataArgs,
-  SetAdminInstructionData
+export function getAcceptAdminInstructionDataCodec(): FixedSizeCodec<
+  AcceptAdminInstructionDataArgs,
+  AcceptAdminInstructionData
 > {
   return combineCodec(
-    getSetAdminInstructionDataEncoder(),
-    getSetAdminInstructionDataDecoder(),
+    getAcceptAdminInstructionDataEncoder(),
+    getAcceptAdminInstructionDataDecoder(),
   );
 }
 
-export type SetAdminAsyncInput<
-  TAccountAdmin extends string = string,
+export type AcceptAdminAsyncInput<
+  TAccountNewAdmin extends string = string,
   TAccountMinterConfig extends string = string,
 > = {
-  admin: TransactionSigner<TAccountAdmin>;
+  newAdmin: TransactionSigner<TAccountNewAdmin>;
   minterConfig?: Address<TAccountMinterConfig>;
-  newAdmin: SetAdminInstructionDataArgs["newAdmin"];
 };
 
-export async function getSetAdminInstructionAsync<
-  TAccountAdmin extends string,
+export async function getAcceptAdminInstructionAsync<
+  TAccountNewAdmin extends string,
   TAccountMinterConfig extends string,
   TProgramAddress extends Address = typeof MINTER_PROGRAM_ADDRESS,
 >(
-  input: SetAdminAsyncInput<TAccountAdmin, TAccountMinterConfig>,
+  input: AcceptAdminAsyncInput<TAccountNewAdmin, TAccountMinterConfig>,
   config?: { programAddress?: TProgramAddress },
 ): Promise<
-  SetAdminInstruction<TProgramAddress, TAccountAdmin, TAccountMinterConfig>
+  AcceptAdminInstruction<
+    TProgramAddress,
+    TAccountNewAdmin,
+    TAccountMinterConfig
+  >
 > {
   // Program address.
   const programAddress = config?.programAddress ?? MINTER_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    admin: { value: input.admin ?? null, isWritable: false },
+    newAdmin: { value: input.newAdmin ?? null, isWritable: false },
     minterConfig: { value: input.minterConfig ?? null, isWritable: true },
   };
   const accounts = originalAccounts as Record<
     keyof typeof originalAccounts,
     ResolvedAccount
   >;
-
-  // Original args.
-  const args = { ...input };
 
   // Resolve default values.
   if (!accounts.minterConfig.value) {
@@ -140,43 +133,44 @@ export async function getSetAdminInstructionAsync<
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.admin),
+      getAccountMeta(accounts.newAdmin),
       getAccountMeta(accounts.minterConfig),
     ],
-    data: getSetAdminInstructionDataEncoder().encode(
-      args as SetAdminInstructionDataArgs,
-    ),
+    data: getAcceptAdminInstructionDataEncoder().encode({}),
     programAddress,
-  } as SetAdminInstruction<
+  } as AcceptAdminInstruction<
     TProgramAddress,
-    TAccountAdmin,
+    TAccountNewAdmin,
     TAccountMinterConfig
   >);
 }
 
-export type SetAdminInput<
-  TAccountAdmin extends string = string,
+export type AcceptAdminInput<
+  TAccountNewAdmin extends string = string,
   TAccountMinterConfig extends string = string,
 > = {
-  admin: TransactionSigner<TAccountAdmin>;
+  newAdmin: TransactionSigner<TAccountNewAdmin>;
   minterConfig: Address<TAccountMinterConfig>;
-  newAdmin: SetAdminInstructionDataArgs["newAdmin"];
 };
 
-export function getSetAdminInstruction<
-  TAccountAdmin extends string,
+export function getAcceptAdminInstruction<
+  TAccountNewAdmin extends string,
   TAccountMinterConfig extends string,
   TProgramAddress extends Address = typeof MINTER_PROGRAM_ADDRESS,
 >(
-  input: SetAdminInput<TAccountAdmin, TAccountMinterConfig>,
+  input: AcceptAdminInput<TAccountNewAdmin, TAccountMinterConfig>,
   config?: { programAddress?: TProgramAddress },
-): SetAdminInstruction<TProgramAddress, TAccountAdmin, TAccountMinterConfig> {
+): AcceptAdminInstruction<
+  TProgramAddress,
+  TAccountNewAdmin,
+  TAccountMinterConfig
+> {
   // Program address.
   const programAddress = config?.programAddress ?? MINTER_PROGRAM_ADDRESS;
 
   // Original accounts.
   const originalAccounts = {
-    admin: { value: input.admin ?? null, isWritable: false },
+    newAdmin: { value: input.newAdmin ?? null, isWritable: false },
     minterConfig: { value: input.minterConfig ?? null, isWritable: true },
   };
   const accounts = originalAccounts as Record<
@@ -184,46 +178,41 @@ export function getSetAdminInstruction<
     ResolvedAccount
   >;
 
-  // Original args.
-  const args = { ...input };
-
   const getAccountMeta = getAccountMetaFactory(programAddress, "programId");
   return Object.freeze({
     accounts: [
-      getAccountMeta(accounts.admin),
+      getAccountMeta(accounts.newAdmin),
       getAccountMeta(accounts.minterConfig),
     ],
-    data: getSetAdminInstructionDataEncoder().encode(
-      args as SetAdminInstructionDataArgs,
-    ),
+    data: getAcceptAdminInstructionDataEncoder().encode({}),
     programAddress,
-  } as SetAdminInstruction<
+  } as AcceptAdminInstruction<
     TProgramAddress,
-    TAccountAdmin,
+    TAccountNewAdmin,
     TAccountMinterConfig
   >);
 }
 
-export type ParsedSetAdminInstruction<
+export type ParsedAcceptAdminInstruction<
   TProgram extends string = typeof MINTER_PROGRAM_ADDRESS,
   TAccountMetas extends readonly AccountMeta[] = readonly AccountMeta[],
 > = {
   programAddress: Address<TProgram>;
   accounts: {
-    admin: TAccountMetas[0];
+    newAdmin: TAccountMetas[0];
     minterConfig: TAccountMetas[1];
   };
-  data: SetAdminInstructionData;
+  data: AcceptAdminInstructionData;
 };
 
-export function parseSetAdminInstruction<
+export function parseAcceptAdminInstruction<
   TProgram extends string,
   TAccountMetas extends readonly AccountMeta[],
 >(
   instruction: Instruction<TProgram> &
     InstructionWithAccounts<TAccountMetas> &
     InstructionWithData<ReadonlyUint8Array>,
-): ParsedSetAdminInstruction<TProgram, TAccountMetas> {
+): ParsedAcceptAdminInstruction<TProgram, TAccountMetas> {
   if (instruction.accounts.length < 2) {
     // TODO: Coded error.
     throw new Error("Not enough accounts");
@@ -236,7 +225,7 @@ export function parseSetAdminInstruction<
   };
   return {
     programAddress: instruction.programAddress,
-    accounts: { admin: getNextAccount(), minterConfig: getNextAccount() },
-    data: getSetAdminInstructionDataDecoder().decode(instruction.data),
+    accounts: { newAdmin: getNextAccount(), minterConfig: getNextAccount() },
+    data: getAcceptAdminInstructionDataDecoder().decode(instruction.data),
   };
 }

@@ -16,8 +16,9 @@ fn test_set_mint_initiator_should_transfer_initiator() {
     // but we verify by checking account data)
     let (config, _) = minter_config_pda();
     let acc = svm.get_account(&config).unwrap();
-    // mint_initiator at offset 40..72
-    assert_eq!(&acc.data[40..72], new_initiator.pubkey().as_ref());
+    // Layout when pending_admin=None: disc(8) + admin(32) + pending_admin_tag(1) + mint_initiator(32) + bump(1)
+    // mint_initiator at offset 41..73
+    assert_eq!(&acc.data[41..73], new_initiator.pubkey().as_ref());
 }
 
 #[test]

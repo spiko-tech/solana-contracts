@@ -15,12 +15,15 @@ fn test_initialize_should_create_config() {
 
     let (config, _) = minter_config_pda();
     let acc = svm.get_account(&config).unwrap();
-    // discriminator(8) + admin(32) + mint_initiator(32) + bump(1) = 73
-    assert_eq!(acc.data.len(), 73);
+    // discriminator(8) + admin(32) + pending_admin(1 for None OR 1+32 for Some) + mint_initiator(32) + bump(1)
+    // Account allocated at max size: 106 bytes
+    assert_eq!(acc.data.len(), 106);
     // admin stored at offset 8
     assert_eq!(&acc.data[8..40], admin.pubkey().as_ref());
-    // mint_initiator stored at offset 40
-    assert_eq!(&acc.data[40..72], initiator.pubkey().as_ref());
+    // pending_admin at offset 40: tag=0 (None)
+    assert_eq!(acc.data[40], 0);
+    // When None, mint_initiator starts at offset 41 (Borsh variable-length)
+    assert_eq!(&acc.data[41..73], initiator.pubkey().as_ref());
 }
 
 #[test]

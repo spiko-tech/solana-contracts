@@ -7,13 +7,19 @@
  */
 
 import {
+  getAddressEncoder,
   getBytesEncoder,
   getProgramDerivedAddress,
   type Address,
   type ProgramDerivedAddress,
 } from "@solana/kit";
 
-export async function findMinterConfigPda(
+export type PendingTransferSeeds = {
+  mint: Address;
+};
+
+export async function findPendingTransferPda(
+  seeds: PendingTransferSeeds,
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
@@ -24,9 +30,11 @@ export async function findMinterConfigPda(
     seeds: [
       getBytesEncoder().encode(
         new Uint8Array([
-          109, 105, 110, 116, 101, 114, 95, 99, 111, 110, 102, 105, 103,
+          112, 101, 110, 100, 105, 110, 103, 95, 109, 105, 110, 116, 95, 97,
+          117, 116, 104, 111, 114, 105, 116, 121,
         ]),
       ),
+      getAddressEncoder().encode(seeds.mint),
     ],
   });
 }

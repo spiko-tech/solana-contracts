@@ -9,3 +9,4 @@
 export * from "./mintDailyLimit";
 export * from "./minterConfig";
 export * from "./mintOperation";
+export * from "./pendingMintAuthorityTransfer";

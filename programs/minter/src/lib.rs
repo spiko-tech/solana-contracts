@@ -7,7 +7,7 @@ pub mod state;
 
 use instructions::*;
 
-declare_id!("Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc");
+declare_id!("GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb");
 
 #[program]
 pub mod minter {
@@ -38,15 +38,36 @@ pub mod minter {
         instructions::cancel_mint::handler(ctx, salt)
     }
 
-    pub fn set_admin(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
-        instructions::set_admin::handler(ctx, new_admin)
+    pub fn nominate_admin(ctx: Context<NominateAdmin>, new_admin: Pubkey) -> Result<()> {
+        instructions::nominate_admin::handler(ctx, new_admin)
+    }
+
+    pub fn accept_admin(ctx: Context<AcceptAdmin>) -> Result<()> {
+        instructions::accept_admin::handler(ctx)
+    }
+
+    pub fn cancel_admin_nomination(ctx: Context<CancelAdminNomination>) -> Result<()> {
+        instructions::cancel_admin_nomination::handler(ctx)
     }
 
     pub fn set_mint_initiator(ctx: Context<SetMintInitiator>, new_initiator: Pubkey) -> Result<()> {
         instructions::set_mint_initiator::handler(ctx, new_initiator)
     }
 
-    pub fn set_mint_authority(ctx: Context<SetMintAuthority>, new_authority: Pubkey) -> Result<()> {
-        instructions::set_mint_authority::handler(ctx, new_authority)
+    pub fn nominate_mint_authority(
+        ctx: Context<NominateMintAuthority>,
+        new_authority: Pubkey,
+    ) -> Result<()> {
+        instructions::nominate_mint_authority::handler(ctx, new_authority)
+    }
+
+    pub fn accept_mint_authority(ctx: Context<AcceptMintAuthority>) -> Result<()> {
+        instructions::accept_mint_authority::handler(ctx)
+    }
+
+    pub fn cancel_mint_authority_nomination(
+        ctx: Context<CancelMintAuthorityNomination>,
+    ) -> Result<()> {
+        instructions::cancel_mint_authority_nomination::handler(ctx)
     }
 }
