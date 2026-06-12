@@ -6,10 +6,15 @@
  * @see https://github.com/codama-idl/codama
  */
 
+export * from "./acceptAdmin";
+export * from "./acceptMintAuthority";
 export * from "./approveMint";
+export * from "./cancelAdminNomination";
 export * from "./cancelMint";
+export * from "./cancelMintAuthorityNomination";
 export * from "./initialize";
 export * from "./initiateMint";
-export * from "./setAdmin";
+export * from "./nominateAdmin";
+export * from "./nominateMintAuthority";
 export * from "./setDailyLimit";
 export * from "./setMintInitiator";

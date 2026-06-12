@@ -9,7 +9,7 @@ use solana_signer::Signer;
 use solana_transaction::Transaction;
 
 pub const PROGRAM_ID: Pubkey =
-    solana_pubkey::pubkey!("Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc");
+    solana_pubkey::pubkey!("GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb");
 
 pub const TOKEN_2022_PROGRAM_ID: Pubkey =
     solana_pubkey::pubkey!("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
@@ -19,6 +19,7 @@ pub const SYSTEM_PROGRAM_ID: Pubkey = solana_pubkey::pubkey!("111111111111111111
 pub const MINTER_CONFIG_SEED: &[u8] = b"minter_config";
 pub const MINT_DAILY_LIMIT_SEED: &[u8] = b"mint_daily_limit";
 pub const MINT_OPERATION_SEED: &[u8] = b"mint_op";
+pub const PENDING_MINT_AUTHORITY_SEED: &[u8] = b"pending_mint_authority";
 
 const MINT_LEN: usize = 82;
 const TOKEN_ACCOUNT_LEN: usize = 165;
@@ -48,6 +49,10 @@ pub fn mint_operation_pda(salt: u64) -> (Pubkey, u8) {
         &[MINT_OPERATION_SEED, salt.to_le_bytes().as_ref()],
         &PROGRAM_ID,
     )
+}
+
+pub fn pending_mint_authority_pda(mint: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(&[PENDING_MINT_AUTHORITY_SEED, mint.as_ref()], &PROGRAM_ID)
 }
 
 pub fn setup() -> (LiteSVM, Keypair) {
@@ -236,7 +241,7 @@ pub fn ix_cancel_mint(admin: &Pubkey, salt: u64) -> Instruction {
     }
 }
 
-pub fn ix_set_admin(admin: &Pubkey, new_admin: Pubkey) -> Instruction {
+pub fn ix_nominate_admin(admin: &Pubkey, new_admin: Pubkey) -> Instruction {
     let (config, _) = minter_config_pda();
 
     #[derive(AnchorSerialize)]
@@ -244,8 +249,38 @@ pub fn ix_set_admin(admin: &Pubkey, new_admin: Pubkey) -> Instruction {
         new_admin: Pubkey,
     }
 
-    let mut data = anchor_discriminator("set_admin").to_vec();
+    let mut data = anchor_discriminator("nominate_admin").to_vec();
     Args { new_admin }.serialize(&mut data).unwrap();
+
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: vec![
+            AccountMeta::new_readonly(*admin, true),
+            AccountMeta::new(config, false),
+        ],
+        data,
+    }
+}
+
+pub fn ix_accept_admin(new_admin: &Pubkey) -> Instruction {
+    let (config, _) = minter_config_pda();
+
+    let data = anchor_discriminator("accept_admin").to_vec();
+
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: vec![
+            AccountMeta::new_readonly(*new_admin, true),
+            AccountMeta::new(config, false),
+        ],
+        data,
+    }
+}
+
+pub fn ix_cancel_admin_nomination(admin: &Pubkey) -> Instruction {
+    let (config, _) = minter_config_pda();
+
+    let data = anchor_discriminator("cancel_admin_nomination").to_vec();
 
     Instruction {
         program_id: PROGRAM_ID,
@@ -278,15 +313,21 @@ pub fn ix_set_mint_initiator(admin: &Pubkey, new_initiator: Pubkey) -> Instructi
     }
 }
 
-pub fn ix_set_mint_authority(admin: &Pubkey, mint: &Pubkey, new_authority: Pubkey) -> Instruction {
+pub fn ix_nominate_mint_authority(
+    admin: &Pubkey,
+    mint: &Pubkey,
+    payer: &Pubkey,
+    new_authority: Pubkey,
+) -> Instruction {
     let (config, _) = minter_config_pda();
+    let (pending_transfer, _) = pending_mint_authority_pda(mint);
 
     #[derive(AnchorSerialize)]
     struct Args {
         new_authority: Pubkey,
     }
 
-    let mut data = anchor_discriminator("set_mint_authority").to_vec();
+    let mut data = anchor_discriminator("nominate_mint_authority").to_vec();
     Args { new_authority }.serialize(&mut data).unwrap();
 
     Instruction {
@@ -294,8 +335,47 @@ pub fn ix_set_mint_authority(admin: &Pubkey, mint: &Pubkey, new_authority: Pubke
         accounts: vec![
             AccountMeta::new_readonly(*admin, true),
             AccountMeta::new_readonly(config, false),
+            AccountMeta::new_readonly(*mint, false),
+            AccountMeta::new(pending_transfer, false),
+            AccountMeta::new(*payer, true),
+            AccountMeta::new_readonly(SYSTEM_PROGRAM_ID, false),
+        ],
+        data,
+    }
+}
+
+pub fn ix_accept_mint_authority(new_authority: &Pubkey, mint: &Pubkey) -> Instruction {
+    let (config, _) = minter_config_pda();
+    let (pending_transfer, _) = pending_mint_authority_pda(mint);
+
+    let data = anchor_discriminator("accept_mint_authority").to_vec();
+
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: vec![
+            AccountMeta::new(*new_authority, true),
+            AccountMeta::new_readonly(config, false),
             AccountMeta::new(*mint, false),
+            AccountMeta::new(pending_transfer, false),
             AccountMeta::new_readonly(TOKEN_2022_PROGRAM_ID, false),
+        ],
+        data,
+    }
+}
+
+pub fn ix_cancel_mint_authority_nomination(admin: &Pubkey, mint: &Pubkey) -> Instruction {
+    let (config, _) = minter_config_pda();
+    let (pending_transfer, _) = pending_mint_authority_pda(mint);
+
+    let data = anchor_discriminator("cancel_mint_authority_nomination").to_vec();
+
+    Instruction {
+        program_id: PROGRAM_ID,
+        accounts: vec![
+            AccountMeta::new(*admin, true),
+            AccountMeta::new_readonly(config, false),
+            AccountMeta::new_readonly(*mint, false),
+            AccountMeta::new(pending_transfer, false),
         ],
         data,
     }

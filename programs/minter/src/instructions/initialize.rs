@@ -23,6 +23,7 @@ pub struct Initialize<'info> {
 pub(crate) fn handler(ctx: Context<Initialize>, mint_initiator: Pubkey) -> Result<()> {
     ctx.accounts.minter_config.set_inner(MinterConfig {
         admin: ctx.accounts.admin.key(),
+        pending_admin: None,
         mint_initiator,
         bump: ctx.bumps.minter_config,
     });

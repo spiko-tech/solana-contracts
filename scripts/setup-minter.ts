@@ -7,14 +7,16 @@
  * Flow:
  *   1. anchor build
  *   2. solana program deploy
- *   3. Initialize MinterConfig (admin = keypair, mint_initiator from CLI)
- *   4. set_admin → --minter-admin (multisig)
+ *   3. Initialize MinterConfig (admin = deployer keypair, mint_initiator from CLI)
+ *   4. nominate_admin → Squads vault PDA (two-step transfer)
+ *   5. accept_admin via Squads vault transaction (completes admin transfer)
  *
  * Usage:
  *   pnpm tsx scripts/setup-minter.ts \
  *     --cluster devnet \
  *     --keypair ./deployer.json \
- *     --minter-admin <multisig-pubkey> \
+ *     --minter-admin-squad-account <multisig-account-pubkey> \
+ *     --minter-admin-squad-vault <vault-pda-pubkey> \
  *     --mint-initiator <pubkey>
  */
 import { parseArgs } from 'node:util';
@@ -29,18 +31,28 @@ import {
   type SolanaRpcSubscriptionsApi,
   type Address,
   address,
+  createNoopSigner,
 } from '@solana/kit';
 import { sendTx } from './lib/sendTx.js';
 import { MINTER_PROGRAM_ADDRESS } from '../clients/ts/minter/src/generated/programs/index.js';
 import { findMinterConfigPda } from '../clients/ts/minter/src/generated/pdas/index.js';
 import { loadKeypair } from './lib/loadKeypair.js';
 import { getInitializeInstructionAsync } from '../clients/ts/minter/src/generated/instructions/initialize.js';
-import { getSetAdminInstructionAsync } from '../clients/ts/minter/src/generated/instructions/setAdmin.js';
+import { getNominateAdminInstructionAsync } from '../clients/ts/minter/src/generated/instructions/nominateAdmin.js';
+import { getAcceptAdminInstructionAsync, ACCEPT_ADMIN_DISCRIMINATOR } from '../clients/ts/minter/src/generated/instructions/acceptAdmin.js';
 import { getRpc } from './lib/getRpc.js';
+import { executeSquadsProposal } from './lib/executeSquadsProposal.js';
+import * as multisig from '@sqds/multisig';
+import { PublicKey } from '@solana/web3.js';
 
 const accountExists = async (rpc: Rpc<SolanaRpcApi>, addr: Address): Promise<boolean> => {
   const { value } = await rpc.getAccountInfo(addr, { encoding: 'base64' }).send();
   return value !== null;
+};
+
+const CLUSTER_URLS: Record<string, string> = {
+  devnet: 'https://api.devnet.solana.com',
+  'mainnet-beta': 'https://api.mainnet-beta.solana.com',
 };
 
 const initializeAndTransferAdmin = async (
@@ -48,8 +60,11 @@ const initializeAndTransferAdmin = async (
   rpcSub: RpcSubscriptions<SolanaRpcSubscriptionsApi>,
   admin: KeyPairSigner,
   mintInitiator: string,
-  minterAdmin: string,
+  minterAdminSquadAccount: string,
+  minterAdminSquadVault: string,
   minterConfigAddr: string,
+  cluster: string,
+  keypairPath: string,
 ) => {
   console.log(`\n── Initializing Minter Config... ──`);
   const initIx = await getInitializeInstructionAsync({
@@ -59,19 +74,49 @@ const initializeAndTransferAdmin = async (
   await sendTx(rpc, rpcSub, admin, [initIx], 'Init Minter');
   console.log(`  Config PDA: ${minterConfigAddr}`);
 
-  console.log(`\n── Transferring config admin to multisig... ──`);
-  const setAdminIx = await getSetAdminInstructionAsync({
+  console.log(`\n── Nominating Squads vault as pending admin... ──`);
+  const nominateIx = await getNominateAdminInstructionAsync({
     admin,
-    newAdmin: address(minterAdmin),
+    newAdmin: address(minterAdminSquadVault),
   });
-  await sendTx(rpc, rpcSub, admin, [setAdminIx], `Set admin → ${minterAdmin}`);
+  await sendTx(rpc, rpcSub, admin, [nominateIx], `Nominate admin → ${minterAdminSquadVault}`);
+
+  if (cluster === 'mainnet-beta') {
+    console.log(`\n── Manual step required (mainnet) ──`);
+    console.log(`  The Squads vault is now the PENDING admin.`);
+    console.log(`  To complete the transfer, propose the following instruction via Squads UI:\n`);
+    console.log(`  Program:  ${MINTER_PROGRAM_ADDRESS}`);
+    console.log(`  Instruction: accept_admin`);
+    console.log(`  Data (hex): ${Buffer.from(ACCEPT_ADMIN_DISCRIMINATOR).toString('hex')}`);
+    console.log(`  Accounts:`);
+    console.log(`    1. ${minterAdminSquadVault} (signer, readonly)  — new_admin (vault)`);
+    console.log(`    2. ${minterConfigAddr} (writable)              — minter_config PDA`);
+    console.log(`\n  Once threshold approvals are met, execute the vault transaction.`);
+  } else {
+    console.log(`\n── Accepting admin via Squads vault transaction... ──`);
+    const vaultSigner = createNoopSigner(address(minterAdminSquadVault));
+    const acceptIx = await getAcceptAdminInstructionAsync({
+      newAdmin: vaultSigner,
+    });
+    const rpcUrl = CLUSTER_URLS[cluster];
+    if (!rpcUrl) throw new Error(`Unknown cluster: ${cluster}`);
+    await executeSquadsProposal({
+      rpcUrl,
+      keypairPath,
+      multisigPubkey: minterAdminSquadAccount,
+      vaultIndex: 0,
+      instructions: [acceptIx as any],
+      label: 'Accept Admin',
+    });
+  }
 };
 
 const saveDeployment = (
   cluster: string,
   admin: KeyPairSigner,
   minterConfigAddr: string,
-  minterAdmin: string,
+  minterAdminSquadAccount: string,
+  minterAdminSquadVault: string,
   mintInitiator: string,
 ): string => {
   const outDir = path.resolve(process.cwd(), 'deployments');
@@ -82,7 +127,8 @@ const saveDeployment = (
     deployer: admin.address,
     program: MINTER_PROGRAM_ADDRESS,
     minterConfig: minterConfigAddr,
-    minterAdmin,
+    minterAdminSquadAccount,
+    minterAdminSquadVault,
     mintInitiator,
     upgradeAuthority: admin.address,
     setupAt: new Date().toISOString(),
@@ -96,22 +142,37 @@ const saveDeployment = (
 const main = async ({
   cluster,
   keypair,
-  minterAdmin,
+  minterAdminSquadAccount,
+  minterAdminSquadVault,
   mintInitiator,
 }: {
   cluster: string;
   keypair: string;
-  minterAdmin: string;
+  minterAdminSquadAccount: string;
+  minterAdminSquadVault: string;
   mintInitiator: string;
 }) => {
   console.log(`\n═══════════════════════════════════════════════════════`);
   console.log(`  Setup Minter — cluster: ${cluster}`);
   console.log(`═══════════════════════════════════════════════════════\n`);
 
+  const multisigPda = new PublicKey(minterAdminSquadAccount);
+  const [derivedVault] = multisig.getVaultPda({ multisigPda, index: 0 });
+  if (derivedVault.toBase58() !== minterAdminSquadVault) {
+    throw new Error(
+      `Vault PDA mismatch!\n` +
+        `  Derived from squad account: ${derivedVault.toBase58()}\n` +
+        `  Provided --minter-admin-squad-vault: ${minterAdminSquadVault}\n` +
+        `  These must match. Verify your inputs.`,
+    );
+  }
+
   const admin = await loadKeypair(keypair);
-  console.log(`Deployer/Temp Admin: ${admin.address}`);
-  console.log(`Final Admin:         ${minterAdmin}`);
-  console.log(`Mint Initiator:      ${mintInitiator}`);
+  console.log(`Deployer/Temp Admin:      ${admin.address}`);
+  console.log(`Squad Account:            ${minterAdminSquadAccount}`);
+  console.log(`Squad Vault (on-chain):   ${minterAdminSquadVault}`);
+  console.log(`Mint Initiator:           ${mintInitiator}`);
+  console.log(`  Vault PDA derivation verified.`);
 
   const { rpc, rpcSub } = getRpc(cluster);
   const [minterConfigAddr] = await findMinterConfigPda();
@@ -142,39 +203,51 @@ const main = async ({
   });
   console.log(`  ✓ Program deployed: ${MINTER_PROGRAM_ADDRESS}`);
 
-  await initializeAndTransferAdmin(rpc, rpcSub, admin, mintInitiator, minterAdmin, minterConfigAddr);
+  await initializeAndTransferAdmin(rpc, rpcSub, admin, mintInitiator, minterAdminSquadAccount, minterAdminSquadVault, minterConfigAddr, cluster, keypair);
 
-  const outPath = saveDeployment(cluster, admin, minterConfigAddr, minterAdmin, mintInitiator);
+  const outPath = saveDeployment(cluster, admin, minterConfigAddr, minterAdminSquadAccount, minterAdminSquadVault, mintInitiator);
 
   console.log(`\n═══════════════════════════════════════════════════════`);
   console.log(`  Setup complete! Output: ${outPath}`);
-  console.log(`  Config admin transferred to multisig.`);
+  if (cluster === 'mainnet-beta') {
+    console.log(`  Admin nomination pending — complete via Squads UI.`);
+  } else {
+    console.log(`  Config admin transferred to Squads vault (two-step).`);
+  }
   console.log(`  Upgrade authority remains with deployer keypair.`);
   console.log(`═══════════════════════════════════════════════════════\n`);
 };
 
 const {
-  values: { cluster, keypair, 'minter-admin': minterAdmin, 'mint-initiator': mintInitiator },
+  values: {
+    cluster,
+    keypair,
+    'minter-admin-squad-account': minterAdminSquadAccount,
+    'minter-admin-squad-vault': minterAdminSquadVault,
+    'mint-initiator': mintInitiator,
+  },
 } = parseArgs({
   options: {
     cluster: { type: 'string', default: 'devnet' },
     keypair: { type: 'string' },
-    'minter-admin': { type: 'string' },
+    'minter-admin-squad-account': { type: 'string' },
+    'minter-admin-squad-vault': { type: 'string' },
     'mint-initiator': { type: 'string' },
   },
   strict: true,
 });
 
-if (!keypair || !minterAdmin || !mintInitiator) {
+if (!keypair || !minterAdminSquadAccount || !minterAdminSquadVault || !mintInitiator) {
   console.error('Usage: pnpm tsx scripts/setup-minter.ts \\');
   console.error('  --cluster devnet \\');
   console.error('  --keypair ./deployer.json \\');
-  console.error('  --minter-admin <multisig-pubkey> \\');
+  console.error('  --minter-admin-squad-account <multisig-account-pubkey> \\');
+  console.error('  --minter-admin-squad-vault <vault-pda-pubkey> \\');
   console.error('  --mint-initiator <pubkey>');
   process.exit(1);
 }
 
-main({ cluster, keypair, minterAdmin, mintInitiator }).catch((e) => {
+main({ cluster, keypair, minterAdminSquadAccount, minterAdminSquadVault, mintInitiator }).catch((e) => {
   console.error(e);
   process.exit(1);
 });

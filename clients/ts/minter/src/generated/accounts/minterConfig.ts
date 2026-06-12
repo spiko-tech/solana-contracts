@@ -19,6 +19,8 @@ import {
   getAddressEncoder,
   getBytesDecoder,
   getBytesEncoder,
+  getOptionDecoder,
+  getOptionEncoder,
   getStructDecoder,
   getStructEncoder,
   getU8Decoder,
@@ -26,14 +28,16 @@ import {
   transformEncoder,
   type Account,
   type Address,
+  type Codec,
+  type Decoder,
   type EncodedAccount,
+  type Encoder,
   type FetchAccountConfig,
   type FetchAccountsConfig,
-  type FixedSizeCodec,
-  type FixedSizeDecoder,
-  type FixedSizeEncoder,
   type MaybeAccount,
   type MaybeEncodedAccount,
+  type Option,
+  type OptionOrNullable,
   type ReadonlyUint8Array,
 } from "@solana/kit";
 
@@ -50,22 +54,25 @@ export function getMinterConfigDiscriminatorBytes() {
 export type MinterConfig = {
   discriminator: ReadonlyUint8Array;
   admin: Address;
+  pendingAdmin: Option<Address>;
   mintInitiator: Address;
   bump: number;
 };
 
 export type MinterConfigArgs = {
   admin: Address;
+  pendingAdmin: OptionOrNullable<Address>;
   mintInitiator: Address;
   bump: number;
 };
 
 /** Gets the encoder for {@link MinterConfigArgs} account data. */
-export function getMinterConfigEncoder(): FixedSizeEncoder<MinterConfigArgs> {
+export function getMinterConfigEncoder(): Encoder<MinterConfigArgs> {
   return transformEncoder(
     getStructEncoder([
       ["discriminator", fixEncoderSize(getBytesEncoder(), 8)],
       ["admin", getAddressEncoder()],
+      ["pendingAdmin", getOptionEncoder(getAddressEncoder())],
       ["mintInitiator", getAddressEncoder()],
       ["bump", getU8Encoder()],
     ]),
@@ -74,20 +81,18 @@ export function getMinterConfigEncoder(): FixedSizeEncoder<MinterConfigArgs> {
 }
 
 /** Gets the decoder for {@link MinterConfig} account data. */
-export function getMinterConfigDecoder(): FixedSizeDecoder<MinterConfig> {
+export function getMinterConfigDecoder(): Decoder<MinterConfig> {
   return getStructDecoder([
     ["discriminator", fixDecoderSize(getBytesDecoder(), 8)],
     ["admin", getAddressDecoder()],
+    ["pendingAdmin", getOptionDecoder(getAddressDecoder())],
     ["mintInitiator", getAddressDecoder()],
     ["bump", getU8Decoder()],
   ]);
 }
 
 /** Gets the codec for {@link MinterConfig} account data. */
-export function getMinterConfigCodec(): FixedSizeCodec<
-  MinterConfigArgs,
-  MinterConfig
-> {
+export function getMinterConfigCodec(): Codec<MinterConfigArgs, MinterConfig> {
   return combineCodec(getMinterConfigEncoder(), getMinterConfigDecoder());
 }
 
@@ -142,8 +147,4 @@ export async function fetchAllMaybeMinterConfig(
 ): Promise<MaybeAccount<MinterConfig>[]> {
   const maybeAccounts = await fetchEncodedAccounts(rpc, addresses, config);
   return maybeAccounts.map((maybeAccount) => decodeMinterConfig(maybeAccount));
-}
-
-export function getMinterConfigSize(): number {
-  return 73;
 }

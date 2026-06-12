@@ -39,5 +39,6 @@ export const sendTx = async (
 
   const sig = getSignatureFromTransaction(signedTx);
   console.log(`  ✓ ${label}: ${sig}`);
+  await new Promise((r) => setTimeout(r, 1000));
   return sig;
 };

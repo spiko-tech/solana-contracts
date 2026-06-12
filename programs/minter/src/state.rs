@@ -6,6 +6,7 @@ use crate::errors::MinterError;
 #[derive(InitSpace)]
 pub struct MinterConfig {
     pub admin: Pubkey,
+    pub pending_admin: Option<Pubkey>,
     pub mint_initiator: Pubkey,
     pub bump: u8,
 }
@@ -51,5 +52,13 @@ pub struct MintOperation {
     pub recipient: Pubkey,
     pub mint: Pubkey,
     pub amount: u64,
+    pub bump: u8,
+}
+
+#[account]
+#[derive(InitSpace)]
+pub struct PendingMintAuthorityTransfer {
+    pub new_authority: Pubkey,
+    pub mint: Pubkey,
     pub bump: u8,
 }

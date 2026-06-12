@@ -17,29 +17,40 @@ import {
   type ReadonlyUint8Array,
 } from "@solana/kit";
 import {
+  parseAcceptAdminInstruction,
+  parseAcceptMintAuthorityInstruction,
   parseApproveMintInstruction,
+  parseCancelAdminNominationInstruction,
+  parseCancelMintAuthorityNominationInstruction,
   parseCancelMintInstruction,
   parseInitializeInstruction,
   parseInitiateMintInstruction,
-  parseSetAdminInstruction,
+  parseNominateAdminInstruction,
+  parseNominateMintAuthorityInstruction,
   parseSetDailyLimitInstruction,
   parseSetMintInitiatorInstruction,
+  type ParsedAcceptAdminInstruction,
+  type ParsedAcceptMintAuthorityInstruction,
   type ParsedApproveMintInstruction,
+  type ParsedCancelAdminNominationInstruction,
+  type ParsedCancelMintAuthorityNominationInstruction,
   type ParsedCancelMintInstruction,
   type ParsedInitializeInstruction,
   type ParsedInitiateMintInstruction,
-  type ParsedSetAdminInstruction,
+  type ParsedNominateAdminInstruction,
+  type ParsedNominateMintAuthorityInstruction,
   type ParsedSetDailyLimitInstruction,
   type ParsedSetMintInitiatorInstruction,
 } from "../instructions";
 
 export const MINTER_PROGRAM_ADDRESS =
-  "Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc" as Address<"Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc">;
+  "GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb" as Address<"GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb">;
 
 export enum MinterAccount {
   MintDailyLimit,
   MintOperation,
   MinterConfig,
+  PendingMintAuthorityTransfer,
 }
 
 export function identifyMinterAccount(
@@ -79,17 +90,33 @@ export function identifyMinterAccount(
   ) {
     return MinterAccount.MinterConfig;
   }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([86, 71, 250, 250, 13, 41, 115, 60]),
+      ),
+      0,
+    )
+  ) {
+    return MinterAccount.PendingMintAuthorityTransfer;
+  }
   throw new Error(
     "The provided account could not be identified as a minter account.",
   );
 }
 
 export enum MinterInstruction {
+  AcceptAdmin,
+  AcceptMintAuthority,
   ApproveMint,
+  CancelAdminNomination,
   CancelMint,
+  CancelMintAuthorityNomination,
   Initialize,
   InitiateMint,
-  SetAdmin,
+  NominateAdmin,
+  NominateMintAuthority,
   SetDailyLimit,
   SetMintInitiator,
 }
@@ -98,6 +125,28 @@ export function identifyMinterInstruction(
   instruction: { data: ReadonlyUint8Array } | ReadonlyUint8Array,
 ): MinterInstruction {
   const data = "data" in instruction ? instruction.data : instruction;
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([112, 42, 45, 90, 116, 181, 13, 170]),
+      ),
+      0,
+    )
+  ) {
+    return MinterInstruction.AcceptAdmin;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([139, 154, 57, 100, 119, 196, 182, 45]),
+      ),
+      0,
+    )
+  ) {
+    return MinterInstruction.AcceptMintAuthority;
+  }
   if (
     containsBytes(
       data,
@@ -113,12 +162,34 @@ export function identifyMinterInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([24, 177, 168, 131, 72, 94, 236, 165]),
+      ),
+      0,
+    )
+  ) {
+    return MinterInstruction.CancelAdminNomination;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
         new Uint8Array([61, 87, 130, 22, 64, 57, 137, 57]),
       ),
       0,
     )
   ) {
     return MinterInstruction.CancelMint;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([9, 232, 34, 129, 141, 52, 153, 62]),
+      ),
+      0,
+    )
+  ) {
+    return MinterInstruction.CancelMintAuthorityNomination;
   }
   if (
     containsBytes(
@@ -146,12 +217,23 @@ export function identifyMinterInstruction(
     containsBytes(
       data,
       fixEncoderSize(getBytesEncoder(), 8).encode(
-        new Uint8Array([251, 163, 0, 52, 91, 194, 187, 92]),
+        new Uint8Array([134, 11, 31, 244, 20, 77, 138, 121]),
       ),
       0,
     )
   ) {
-    return MinterInstruction.SetAdmin;
+    return MinterInstruction.NominateAdmin;
+  }
+  if (
+    containsBytes(
+      data,
+      fixEncoderSize(getBytesEncoder(), 8).encode(
+        new Uint8Array([36, 192, 79, 215, 27, 29, 30, 24]),
+      ),
+      0,
+    )
+  ) {
+    return MinterInstruction.NominateMintAuthority;
   }
   if (
     containsBytes(
@@ -181,14 +263,26 @@ export function identifyMinterInstruction(
 }
 
 export type ParsedMinterInstruction<
-  TProgram extends string = "Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc",
+  TProgram extends string = "GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb",
 > =
+  | ({
+      instructionType: MinterInstruction.AcceptAdmin;
+    } & ParsedAcceptAdminInstruction<TProgram>)
+  | ({
+      instructionType: MinterInstruction.AcceptMintAuthority;
+    } & ParsedAcceptMintAuthorityInstruction<TProgram>)
   | ({
       instructionType: MinterInstruction.ApproveMint;
     } & ParsedApproveMintInstruction<TProgram>)
   | ({
+      instructionType: MinterInstruction.CancelAdminNomination;
+    } & ParsedCancelAdminNominationInstruction<TProgram>)
+  | ({
       instructionType: MinterInstruction.CancelMint;
     } & ParsedCancelMintInstruction<TProgram>)
+  | ({
+      instructionType: MinterInstruction.CancelMintAuthorityNomination;
+    } & ParsedCancelMintAuthorityNominationInstruction<TProgram>)
   | ({
       instructionType: MinterInstruction.Initialize;
     } & ParsedInitializeInstruction<TProgram>)
@@ -196,8 +290,11 @@ export type ParsedMinterInstruction<
       instructionType: MinterInstruction.InitiateMint;
     } & ParsedInitiateMintInstruction<TProgram>)
   | ({
-      instructionType: MinterInstruction.SetAdmin;
-    } & ParsedSetAdminInstruction<TProgram>)
+      instructionType: MinterInstruction.NominateAdmin;
+    } & ParsedNominateAdminInstruction<TProgram>)
+  | ({
+      instructionType: MinterInstruction.NominateMintAuthority;
+    } & ParsedNominateMintAuthorityInstruction<TProgram>)
   | ({
       instructionType: MinterInstruction.SetDailyLimit;
     } & ParsedSetDailyLimitInstruction<TProgram>)
@@ -210,6 +307,20 @@ export function parseMinterInstruction<TProgram extends string>(
 ): ParsedMinterInstruction<TProgram> {
   const instructionType = identifyMinterInstruction(instruction);
   switch (instructionType) {
+    case MinterInstruction.AcceptAdmin: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: MinterInstruction.AcceptAdmin,
+        ...parseAcceptAdminInstruction(instruction),
+      };
+    }
+    case MinterInstruction.AcceptMintAuthority: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: MinterInstruction.AcceptMintAuthority,
+        ...parseAcceptMintAuthorityInstruction(instruction),
+      };
+    }
     case MinterInstruction.ApproveMint: {
       assertIsInstructionWithAccounts(instruction);
       return {
@@ -217,11 +328,25 @@ export function parseMinterInstruction<TProgram extends string>(
         ...parseApproveMintInstruction(instruction),
       };
     }
+    case MinterInstruction.CancelAdminNomination: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: MinterInstruction.CancelAdminNomination,
+        ...parseCancelAdminNominationInstruction(instruction),
+      };
+    }
     case MinterInstruction.CancelMint: {
       assertIsInstructionWithAccounts(instruction);
       return {
         instructionType: MinterInstruction.CancelMint,
         ...parseCancelMintInstruction(instruction),
+      };
+    }
+    case MinterInstruction.CancelMintAuthorityNomination: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: MinterInstruction.CancelMintAuthorityNomination,
+        ...parseCancelMintAuthorityNominationInstruction(instruction),
       };
     }
     case MinterInstruction.Initialize: {
@@ -238,11 +363,18 @@ export function parseMinterInstruction<TProgram extends string>(
         ...parseInitiateMintInstruction(instruction),
       };
     }
-    case MinterInstruction.SetAdmin: {
+    case MinterInstruction.NominateAdmin: {
       assertIsInstructionWithAccounts(instruction);
       return {
-        instructionType: MinterInstruction.SetAdmin,
-        ...parseSetAdminInstruction(instruction),
+        instructionType: MinterInstruction.NominateAdmin,
+        ...parseNominateAdminInstruction(instruction),
+      };
+    }
+    case MinterInstruction.NominateMintAuthority: {
+      assertIsInstructionWithAccounts(instruction);
+      return {
+        instructionType: MinterInstruction.NominateMintAuthority,
+        ...parseNominateMintAuthorityInstruction(instruction),
       };
     }
     case MinterInstruction.SetDailyLimit: {

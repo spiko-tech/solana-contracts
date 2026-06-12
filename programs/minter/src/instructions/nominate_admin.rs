@@ -5,7 +5,7 @@ use crate::errors::MinterError;
 use crate::state::MinterConfig;
 
 #[derive(Accounts)]
-pub struct SetAdmin<'info> {
+pub struct NominateAdmin<'info> {
     pub admin: Signer<'info>,
 
     #[account(
@@ -17,7 +17,7 @@ pub struct SetAdmin<'info> {
     pub minter_config: Account<'info, MinterConfig>,
 }
 
-pub(crate) fn handler(ctx: Context<SetAdmin>, new_admin: Pubkey) -> Result<()> {
-    ctx.accounts.minter_config.admin = new_admin;
+pub(crate) fn handler(ctx: Context<NominateAdmin>, new_admin: Pubkey) -> Result<()> {
+    ctx.accounts.minter_config.pending_admin = Some(new_admin);
     Ok(())
 }

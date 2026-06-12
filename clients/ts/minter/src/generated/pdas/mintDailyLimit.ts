@@ -23,7 +23,7 @@ export async function findMintDailyLimitPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc" as Address<"Az2K7mBaAJpkH8ekiHq89zVAtUAEPG4ZhugbtHAPBHTc">,
+    programAddress = "GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb" as Address<"GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,
