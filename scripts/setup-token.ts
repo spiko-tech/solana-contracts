@@ -28,6 +28,7 @@
  *     --metadata-update-authority <pubkey> \
  *     --pause-authority <pubkey> \
  *     --mint-close-authority <pubkey> \
+ *     --burn-authority <pubkey> \
  *     --token-acl-authority <pubkey>
  */
 
@@ -53,6 +54,7 @@ import {
   getInitializeMetadataPointerInstruction,
   getInitializePausableConfigInstruction,
   getInitializeMintCloseAuthorityInstruction,
+  getInitializePermissionedBurnInstruction,
   getInitializeTokenMetadataInstruction,
   getUpdateTokenMetadataUpdateAuthorityInstruction,
   getSetAuthorityInstruction,
@@ -111,12 +113,14 @@ const buildPreMintExtensions = ({
   metadataPointerAuthority,
   pauseAuthority,
   mintCloseAuthority,
+  burnAuthority,
 }: {
   mint: Address;
   permanentDelegate: Address;
   metadataPointerAuthority: Address;
   pauseAuthority: Address;
   mintCloseAuthority: Address;
+  burnAuthority: Address;
 }) => {
   return [
     extension('DefaultAccountState', { state: AccountState.Frozen }),
@@ -124,6 +128,7 @@ const buildPreMintExtensions = ({
     extension('MetadataPointer', { authority: metadataPointerAuthority, metadataAddress: mint }),
     extension('PausableConfig', { authority: pauseAuthority, paused: false }),
     extension('MintCloseAuthority', { closeAuthority: mintCloseAuthority }),
+    extension('PermissionedBurn', { authority: burnAuthority }),
   ];
 };
 
@@ -133,6 +138,7 @@ const buildFullExtensions = ({
   metadataPointerAuthority,
   pauseAuthority,
   mintCloseAuthority,
+  burnAuthority,
   name,
   symbol,
   uri,
@@ -142,12 +148,13 @@ const buildFullExtensions = ({
   metadataPointerAuthority: Address;
   pauseAuthority: Address;
   mintCloseAuthority: Address;
+  burnAuthority: Address;
   name: string;
   symbol: string;
   uri: string;
 }) => {
   return [
-    ...buildPreMintExtensions({ mint, permanentDelegate, metadataPointerAuthority, pauseAuthority, mintCloseAuthority }),
+    ...buildPreMintExtensions({ mint, permanentDelegate, metadataPointerAuthority, pauseAuthority, mintCloseAuthority, burnAuthority }),
     extension('TokenMetadata', {
       updateAuthority: address('11111111111111111111111111111111'), // placeholder for size calc
       mint,
@@ -170,6 +177,7 @@ const createMintWithExtensions = async ({
   metadataPointerAuthority,
   pauseAuthority,
   mintCloseAuthority,
+  burnAuthority,
 }: {
   rpc: Rpc<SolanaRpcApi>;
   rpcSub: RpcSubscriptions<SolanaRpcSubscriptionsApi>;
@@ -181,6 +189,7 @@ const createMintWithExtensions = async ({
   metadataPointerAuthority: Address;
   pauseAuthority: Address;
   mintCloseAuthority: Address;
+  burnAuthority: Address;
 }) => {
   const mint = mintKp.address;
 
@@ -192,6 +201,7 @@ const createMintWithExtensions = async ({
     metadataPointerAuthority,
     pauseAuthority,
     mintCloseAuthority,
+    burnAuthority,
   });
   const space = getMintSize(preMintExtensions);
   const mintRent = await getMinimumRent({ rpc, space });
@@ -214,6 +224,7 @@ const createMintWithExtensions = async ({
       getInitializeMetadataPointerInstruction({ mint, authority: metadataPointerAuthority, metadataAddress: mint }),
       getInitializePausableConfigInstruction({ mint, authority: pauseAuthority }),
       getInitializeMintCloseAuthorityInstruction({ mint, closeAuthority: mintCloseAuthority }),
+      getInitializePermissionedBurnInstruction({ mint, authority: burnAuthority }),
       getInitializeMint2Instruction({ mint, decimals, mintAuthority: admin.address, freezeAuthority: admin.address }),
     ],
     `Create mint ${symbol}`,
@@ -229,6 +240,7 @@ const initializeMetadata = async ({
   metadataPointerAuthority,
   pauseAuthority,
   mintCloseAuthority,
+  burnAuthority,
   name,
   symbol,
   uri,
@@ -241,6 +253,7 @@ const initializeMetadata = async ({
   metadataPointerAuthority: Address;
   pauseAuthority: Address;
   mintCloseAuthority: Address;
+  burnAuthority: Address;
   name: string;
   symbol: string;
   uri: string;
@@ -251,6 +264,7 @@ const initializeMetadata = async ({
     metadataPointerAuthority,
     pauseAuthority,
     mintCloseAuthority,
+    burnAuthority,
   });
   const withMetadataExtensions = [
     ...preMintExtensions,
@@ -291,6 +305,7 @@ const addTokenAclField = async ({
   metadataPointerAuthority,
   pauseAuthority,
   mintCloseAuthority,
+  burnAuthority,
   name,
   symbol,
   uri,
@@ -303,12 +318,13 @@ const addTokenAclField = async ({
   metadataPointerAuthority: Address;
   pauseAuthority: Address;
   mintCloseAuthority: Address;
+  burnAuthority: Address;
   name: string;
   symbol: string;
   uri: string;
 }) => {
   const baseExtensions = [
-    ...buildPreMintExtensions({ mint, permanentDelegate, metadataPointerAuthority, pauseAuthority, mintCloseAuthority }),
+    ...buildPreMintExtensions({ mint, permanentDelegate, metadataPointerAuthority, pauseAuthority, mintCloseAuthority, burnAuthority }),
     extension('TokenMetadata', { updateAuthority: admin.address, mint, name, symbol, uri, additionalMetadata: new Map<string, string>() }),
   ];
 
@@ -318,6 +334,7 @@ const addTokenAclField = async ({
     metadataPointerAuthority,
     pauseAuthority,
     mintCloseAuthority,
+    burnAuthority,
     name,
     symbol,
     uri,
@@ -453,6 +470,7 @@ const saveDeployment = ({
   metadataUpdateAuthority,
   pauseAuthority,
   mintCloseAuthority,
+  burnAuthority,
   tokenAclAuthority,
   minterConfigPda,
   tokenAclMintConfigPda,
@@ -473,6 +491,7 @@ const saveDeployment = ({
   metadataUpdateAuthority: string;
   pauseAuthority: string;
   mintCloseAuthority: string;
+  burnAuthority: string;
   tokenAclAuthority: string;
   minterConfigPda: Address;
   tokenAclMintConfigPda: Address;
@@ -498,6 +517,7 @@ const saveDeployment = ({
       metadataUpdateAuthority,
       pauseAuthority,
       mintCloseAuthority,
+      burnAuthority,
       tokenAclAuthority,
     },
     tokenAclMintConfig: tokenAclMintConfigPda,
@@ -540,7 +560,7 @@ const printSetDailyLimitProposal = async ({
   }
 
   const minterConfig = JSON.parse(fs.readFileSync(minterDeployPath, 'utf-8'));
-  const minterAdmin = address(minterConfig.minterAdmin);
+  const minterAdmin = address(minterConfig.minterAdminSquadVault);
 
   const setDailyLimitIx = await getSetDailyLimitInstructionAsync({
     admin: { address: minterAdmin } as any,
@@ -583,6 +603,7 @@ const main = async (args: {
   metadataUpdateAuthority: string;
   pauseAuthority: string;
   mintCloseAuthority: string;
+  burnAuthority: string;
   tokenAclAuthority: string;
   multisigPubkey?: string;
   vaultIndex: number;
@@ -620,6 +641,7 @@ const main = async (args: {
   const metadataUpdateAuthority = address(args.metadataUpdateAuthority);
   const pauseAuthority = address(args.pauseAuthority);
   const mintCloseAuthority = address(args.mintCloseAuthority);
+  const burnAuthority = address(args.burnAuthority);
   const tokenAclAuthority = address(args.tokenAclAuthority);
 
   console.log(`\nAuthorities:`);
@@ -628,6 +650,7 @@ const main = async (args: {
   console.log(`  Metadata Update Authority:  ${metadataUpdateAuthority}`);
   console.log(`  Pause Authority:            ${pauseAuthority}`);
   console.log(`  Mint Close Authority:       ${mintCloseAuthority}`);
+  console.log(`  Burn Authority:             ${burnAuthority}`);
   console.log(`  Token ACL Authority:        ${tokenAclAuthority}`);
   console.log(`  Mint Authority (final):     ${minterConfigPda}`);
   console.log(`  Freeze Authority (final):   ${tokenAclMintConfigPda}`);
@@ -643,6 +666,7 @@ const main = async (args: {
     metadataPointerAuthority,
     pauseAuthority,
     mintCloseAuthority,
+    burnAuthority,
   });
 
   await initializeMetadata({
@@ -654,6 +678,7 @@ const main = async (args: {
     metadataPointerAuthority,
     pauseAuthority,
     mintCloseAuthority,
+    burnAuthority,
     name,
     symbol,
     uri,
@@ -668,6 +693,7 @@ const main = async (args: {
     metadataPointerAuthority,
     pauseAuthority,
     mintCloseAuthority,
+    burnAuthority,
     name,
     symbol,
     uri,
@@ -703,6 +729,7 @@ const main = async (args: {
     metadataUpdateAuthority,
     pauseAuthority,
     mintCloseAuthority,
+    burnAuthority,
     tokenAclAuthority,
     minterConfigPda,
     tokenAclMintConfigPda,
@@ -738,6 +765,7 @@ const {
     'metadata-update-authority': metadataUpdateAuthority,
     'pause-authority': pauseAuthority,
     'mint-close-authority': mintCloseAuthority,
+    'burn-authority': burnAuthority,
     'token-acl-authority': tokenAclAuthority,
     'multisig-pubkey': multisigPubkey,
     'vault-index': vaultIndexStr,
@@ -756,6 +784,7 @@ const {
     'metadata-update-authority': { type: 'string' },
     'pause-authority': { type: 'string' },
     'mint-close-authority': { type: 'string' },
+    'burn-authority': { type: 'string' },
     'token-acl-authority': { type: 'string' },
     'multisig-pubkey': { type: 'string' },
     'vault-index': { type: 'string', default: '0' },
@@ -774,6 +803,7 @@ if (
   !metadataUpdateAuthority ||
   !pauseAuthority ||
   !mintCloseAuthority ||
+  !burnAuthority ||
   !tokenAclAuthority
 ) {
   console.error('Usage: pnpm tsx scripts/setup-token.ts \\');
@@ -789,6 +819,7 @@ if (
   console.error('  --metadata-update-authority <pubkey> \\');
   console.error('  --pause-authority <pubkey> \\');
   console.error('  --mint-close-authority <pubkey> \\');
+  console.error('  --burn-authority <pubkey> \\');
   console.error('  --token-acl-authority <pubkey> \\');
   console.error('  --multisig-pubkey <pubkey> (optional, devnet only) \\');
   console.error('  --vault-index 0 (optional, devnet only)');
@@ -808,6 +839,7 @@ main({
   metadataUpdateAuthority,
   pauseAuthority,
   mintCloseAuthority,
+  burnAuthority,
   tokenAclAuthority,
   multisigPubkey,
   vaultIndex: Number(vaultIndexStr),

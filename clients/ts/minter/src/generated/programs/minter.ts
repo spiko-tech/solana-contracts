@@ -44,7 +44,7 @@ import {
 } from "../instructions";
 
 export const MINTER_PROGRAM_ADDRESS =
-  "GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb" as Address<"GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb">;
+  "8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw" as Address<"8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw">;
 
 export enum MinterAccount {
   MintDailyLimit,
@@ -263,7 +263,7 @@ export function identifyMinterInstruction(
 }
 
 export type ParsedMinterInstruction<
-  TProgram extends string = "GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb",
+  TProgram extends string = "8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw",
 > =
   | ({
       instructionType: MinterInstruction.AcceptAdmin;

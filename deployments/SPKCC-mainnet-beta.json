@@ -1,0 +1,25 @@
+{
+  "cluster": "mainnet-beta",
+  "mint": "14Rg7TaptSo1Ndkz1ngBw2rE4EuFhQd2PzCrkyjGdsL1",
+  "symbol": "SPKCC",
+  "name": "Spiko Digital Assets Cash and Carry Fund",
+  "uri": "https://spiko.io",
+  "decimals": 5,
+  "authorities": {
+    "mintAuthority": "BDvZMhgdCAv1HooiymSCkgH2Rupoqv8Yf15gneHMyWcZ",
+    "freezeAuthority": "7jCcxvpZWFD1jJJW3uDXjRtQDoD3L9tbmwUfMDY1ij8Q",
+    "permanentDelegate": "EeJqADE9Xqkqoyjid6H1GmbwDZ4Bz1qyC7ySpmFq849m",
+    "metadataPointerAuthority": "E5pzf6p7n3UYP8B6q7LdG7sT8GfQcwbZ8beFDqZ26Y75",
+    "metadataUpdateAuthority": "9sM8XStBdZnXqNsKfNfqkHE8ggr7U1koDeEDqMXCFBLg",
+    "pauseAuthority": "3wVzYmWt79gBpPtWBK8GHvRfii1SARpP8SKqEKuzJsDY",
+    "mintCloseAuthority": "7ano9sb3YoEPkYc18uDphWVLYyxvVCNVz31QSAcf3B6C",
+    "burnAuthority": "5CgAHs1K779jzqgB1K5kgTYozcexBGF9voi9zo2WCPMd",
+    "tokenAclAuthority": "63iE6ayimMdRQ3fSScC6zSYZXrtmmBct5BsvWoNXcMXJ"
+  },
+  "tokenAclMintConfig": "7jCcxvpZWFD1jJJW3uDXjRtQDoD3L9tbmwUfMDY1ij8Q",
+  "minterDailyLimit": 500000000000,
+  "allowListPda": "HhA17qyDaBHBk4R1uQ3jgT71rWP5gEXQa3W7NNMHaexZ",
+  "blockListPda": "55MdGQFw5CGZiLxG3G3zT17DefwciEQszQPb9KtxMwLh",
+  "gateAuthority": "8Q62NJJnQuvnEVBg1Dw4XWxc4E4kPLtqDNv79EgmNRoY",
+  "setupAt": "2026-06-26T08:14:16.051Z"
+}

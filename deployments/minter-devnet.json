@@ -1,0 +1,11 @@
+{
+  "cluster": "devnet",
+  "deployer": "GhRFGntEPkDi3ass8HYPqdqWMZQ4F4hs8a3QfNtT622h",
+  "program": "8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw",
+  "minterConfig": "BDvZMhgdCAv1HooiymSCkgH2Rupoqv8Yf15gneHMyWcZ",
+  "minterAdminSquadAccount": "3ynDxXhWUe2e4qj35rEAXnzJZLMxYNhTkLmekSz3yZTv",
+  "minterAdminSquadVault": "DbvTDctFR9vg9Zr9B3AXwuijwaEG2CrQsAbVRJGDLXcd",
+  "mintInitiator": "F8ZugHpjAdtprW4HNUhEcXk72NBrcWNtaTXHLuJQeuGS",
+  "upgradeAuthority": "GhRFGntEPkDi3ass8HYPqdqWMZQ4F4hs8a3QfNtT622h",
+  "setupAt": "2026-06-24T13:19:17.241Z"
+}

@@ -1,0 +1,25 @@
+{
+  "cluster": "devnet",
+  "mint": "FP25gKeP8oKs6RjVj2z4xCBng83ZG2PCS8G7KwoLNHCu",
+  "symbol": "EUTBL",
+  "name": "EU T-Bill",
+  "uri": "https://spiko.finance/eutbl",
+  "decimals": 5,
+  "authorities": {
+    "mintAuthority": "BDvZMhgdCAv1HooiymSCkgH2Rupoqv8Yf15gneHMyWcZ",
+    "freezeAuthority": "8JfYvGkwgeZQa33GkhxMpoQUc5hmSYR3jFzC6v6EFCQx",
+    "permanentDelegate": "HPiFoPhj9GBp4R36tZDgYx5EyvBiY7sKr6YQo3hNVKBF",
+    "metadataPointerAuthority": "FocY7ZDCpZ6mBDtnmiQvKf5Cc1VvE4qmnH8Uh6KKAogq",
+    "metadataUpdateAuthority": "4MmywJDnBM21o2VW4Eg5ycvVpD6HSbi8FESy4rECfYHq",
+    "pauseAuthority": "9fcM9RjgMbczEBShPfD7q424sbDSD7h8zXvq685kBFRj",
+    "mintCloseAuthority": "22fFELs3pQztY75UNzU27Q6j1Sv5tjuMSxANHMkP8yj2",
+    "burnAuthority": "F8ZugHpjAdtprW4HNUhEcXk72NBrcWNtaTXHLuJQeuGS",
+    "tokenAclAuthority": "5HhTmXJwmg62wbtjbK9jjcsiz6btc37iQ5G753cAqTqi"
+  },
+  "tokenAclMintConfig": "8JfYvGkwgeZQa33GkhxMpoQUc5hmSYR3jFzC6v6EFCQx",
+  "minterDailyLimit": 1000000,
+  "allowListPda": "FqtzXTjUzfEb9jtFQNmoPvn2UamN5mW4q3Z34edZG9Qe",
+  "blockListPda": "EB3Y8vWm7ZQssbGSWQWpu3E26pQnYtSJbqXegcJzbSvJ",
+  "gateAuthority": "4wMDSynaKhXyHThzhDugX61bcRQW1FQdPCQ3ap5e8vkN",
+  "setupAt": "2026-06-24T13:26:24.564Z"
+}

@@ -23,7 +23,7 @@ export async function findPendingTransferPda(
   config: { programAddress?: Address | undefined } = {},
 ): Promise<ProgramDerivedAddress> {
   const {
-    programAddress = "GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb" as Address<"GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb">,
+    programAddress = "8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw" as Address<"8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw">,
   } = config;
   return await getProgramDerivedAddress({
     programAddress,

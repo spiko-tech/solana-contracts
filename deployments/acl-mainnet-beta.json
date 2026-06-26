@@ -1,0 +1,9 @@
+{
+  "cluster": "mainnet-beta",
+  "gateAuthority": "8Q62NJJnQuvnEVBg1Dw4XWxc4E4kPLtqDNv79EgmNRoY",
+  "allowListPda": "HhA17qyDaBHBk4R1uQ3jgT71rWP5gEXQa3W7NNMHaexZ",
+  "blockListPda": "55MdGQFw5CGZiLxG3G3zT17DefwciEQszQPb9KtxMwLh",
+  "allowListSeed": "8Q62NJJnQuvnEVBg1Dw4XWxc4E4kPLtqDNv79EgmNRoY",
+  "blockListSeed": "GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz",
+  "setupAt": "2026-06-25T14:45:32.456Z"
+}

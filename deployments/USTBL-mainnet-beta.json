@@ -1,0 +1,25 @@
+{
+  "cluster": "mainnet-beta",
+  "mint": "3E2qphMMBQtH3HZH2ZSg7CkbF8gSLePuoy7yVpkDxHGn",
+  "symbol": "USTBL",
+  "name": "Spiko US T-Bills Money Market Fund",
+  "uri": "https://spiko.io",
+  "decimals": 5,
+  "authorities": {
+    "mintAuthority": "BDvZMhgdCAv1HooiymSCkgH2Rupoqv8Yf15gneHMyWcZ",
+    "freezeAuthority": "6HVJRHB89wHwbzUDgA7yd8ScSXKaMfGYcjH6y6U7sUGK",
+    "permanentDelegate": "EeJqADE9Xqkqoyjid6H1GmbwDZ4Bz1qyC7ySpmFq849m",
+    "metadataPointerAuthority": "E5pzf6p7n3UYP8B6q7LdG7sT8GfQcwbZ8beFDqZ26Y75",
+    "metadataUpdateAuthority": "9sM8XStBdZnXqNsKfNfqkHE8ggr7U1koDeEDqMXCFBLg",
+    "pauseAuthority": "3wVzYmWt79gBpPtWBK8GHvRfii1SARpP8SKqEKuzJsDY",
+    "mintCloseAuthority": "7ano9sb3YoEPkYc18uDphWVLYyxvVCNVz31QSAcf3B6C",
+    "burnAuthority": "5CgAHs1K779jzqgB1K5kgTYozcexBGF9voi9zo2WCPMd",
+    "tokenAclAuthority": "63iE6ayimMdRQ3fSScC6zSYZXrtmmBct5BsvWoNXcMXJ"
+  },
+  "tokenAclMintConfig": "6HVJRHB89wHwbzUDgA7yd8ScSXKaMfGYcjH6y6U7sUGK",
+  "minterDailyLimit": 500000000000,
+  "allowListPda": "HhA17qyDaBHBk4R1uQ3jgT71rWP5gEXQa3W7NNMHaexZ",
+  "blockListPda": "55MdGQFw5CGZiLxG3G3zT17DefwciEQszQPb9KtxMwLh",
+  "gateAuthority": "8Q62NJJnQuvnEVBg1Dw4XWxc4E4kPLtqDNv79EgmNRoY",
+  "setupAt": "2026-06-26T07:59:59.411Z"
+}
