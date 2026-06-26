@@ -1,0 +1,9 @@
+{
+  "cluster": "devnet",
+  "gateAuthority": "4wMDSynaKhXyHThzhDugX61bcRQW1FQdPCQ3ap5e8vkN",
+  "allowListPda": "FqtzXTjUzfEb9jtFQNmoPvn2UamN5mW4q3Z34edZG9Qe",
+  "blockListPda": "EB3Y8vWm7ZQssbGSWQWpu3E26pQnYtSJbqXegcJzbSvJ",
+  "allowListSeed": "4wMDSynaKhXyHThzhDugX61bcRQW1FQdPCQ3ap5e8vkN",
+  "blockListSeed": "GATEzzqxhJnsWF6vHRsgtixxSB8PaQdcqGEVTEHWiULz",
+  "setupAt": "2026-05-28T14:00:03.198Z"
+}

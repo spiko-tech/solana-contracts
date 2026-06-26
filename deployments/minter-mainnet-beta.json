@@ -1,0 +1,11 @@
+{
+  "cluster": "mainnet-beta",
+  "deployer": "GhRFGntEPkDi3ass8HYPqdqWMZQ4F4hs8a3QfNtT622h",
+  "program": "8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw",
+  "minterConfig": "BDvZMhgdCAv1HooiymSCkgH2Rupoqv8Yf15gneHMyWcZ",
+  "minterAdminSquadAccount": "CqexeLYpGafaLfX7Nb3tD8ShLmWP1mmap16iR9M59u1A",
+  "minterAdminSquadVault": "2duhrjMfZdX1TX3sKzc9ZPkdJ1TtnXVgCYcxToTq3Kv9",
+  "mintInitiator": "5CgAHs1K779jzqgB1K5kgTYozcexBGF9voi9zo2WCPMd",
+  "upgradeAuthority": "GhRFGntEPkDi3ass8HYPqdqWMZQ4F4hs8a3QfNtT622h",
+  "setupAt": "2026-06-25T14:43:42.009Z"
+}

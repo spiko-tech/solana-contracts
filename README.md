@@ -16,7 +16,13 @@ All new token accounts start **frozen** (DefaultAccountState). Users are thawed 
 
 | Program | Address                                        |
 | ------- | ---------------------------------------------- |
-| Minter  | `GkT7bx8NcZfFB3AYUaxysN82YWS9piLmaZouvnxnBvwb` |
+| Minter  | `8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw` |
+
+### Mainnet
+
+| Program | Address                                        |
+| ------- | ---------------------------------------------- |
+| Minter  | `8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw` |
 
 ## Authorities
 
@@ -39,7 +45,30 @@ All new token accounts start **frozen** (DefaultAccountState). Users are thawed 
 
 | Name             | Address                                        |
 | ---------------- | ---------------------------------------------- |
-| Minter Initiator | `5kx1nLkKyqG2UyAMtb5yhWVurZ9mqUnUabrGYdtkZoNM` |
+| Minter Initiator | `F8ZugHpjAdtprW4HNUhEcXk72NBrcWNtaTXHLuJQeuGS` |
+| Burn Authority   | `F8ZugHpjAdtprW4HNUhEcXk72NBrcWNtaTXHLuJQeuGS` |
+
+### Mainnet
+
+#### Squads
+
+| Name                       | Multisig Account                               | Squad Vault                                    |
+| -------------------------- | ---------------------------------------------- | ---------------------------------------------- |
+| Minter Admin               | `CqexeLYpGafaLfX7Nb3tD8ShLmWP1mmap16iR9M59u1A` | `2duhrjMfZdX1TX3sKzc9ZPkdJ1TtnXVgCYcxToTq3Kv9` |
+| Gate Authority             | `C3pBB4Rc8X5xT8hRA3q8WtAxdoErmzBQhFvPXr4hoTuZ` | `8Q62NJJnQuvnEVBg1Dw4XWxc4E4kPLtqDNv79EgmNRoY` |
+| Permanent Delegate         | `2z8Xu665SJRSFa77Mbrw4f48VJVEfCYGjvyr9WEUhguC` | `EeJqADE9Xqkqoyjid6H1GmbwDZ4Bz1qyC7ySpmFq849m` |
+| Metadata Pointer Authority | `GnnxydxK1YWBDwUkJs9rwJshxZH9W3L9Mbf3PZ6sxYga` | `E5pzf6p7n3UYP8B6q7LdG7sT8GfQcwbZ8beFDqZ26Y75` |
+| Metadata Update Authority  | `B7rC3Qs7c4nnqiokNR2EfLV3Lz59cQpRK7MkomSAW2g2` | `9sM8XStBdZnXqNsKfNfqkHE8ggr7U1koDeEDqMXCFBLg` |
+| Pause Authority            | `UDNfKHVduuhannhBtYmY727JnTpfNyk3AMfQ9mBdPG8`  | `3wVzYmWt79gBpPtWBK8GHvRfii1SARpP8SKqEKuzJsDY` |
+| Mint Close Authority       | `m2Ez19erx2dkDPZYqyMUq4jiiCa5VbosP75cckcwVxT`  | `7ano9sb3YoEPkYc18uDphWVLYyxvVCNVz31QSAcf3B6C` |
+| Token Acl Authority        | `2xT7Y4E8Cpp6TP153ACChxVjZoNxtfNCHBx4SmBvG3s2` | `63iE6ayimMdRQ3fSScC6zSYZXrtmmBct5BsvWoNXcMXJ` |
+
+#### Operational Keypairs
+
+| Name             | Address                                        |
+| ---------------- | ---------------------------------------------- |
+| Minter Initiator | `5CgAHs1K779jzqgB1K5kgTYozcexBGF9voi9zo2WCPMd` |
+| Burn Authority   | `5CgAHs1K779jzqgB1K5kgTYozcexBGF9voi9zo2WCPMd` |
 
 ## Setup
 
@@ -83,7 +112,15 @@ pnpm tsx scripts/setup-minter.ts \
   --keypair ./deployer.json \
   --minter-admin-squad-account 3ynDxXhWUe2e4qj35rEAXnzJZLMxYNhTkLmekSz3yZTv \
   --minter-admin-squad-vault DbvTDctFR9vg9Zr9B3AXwuijwaEG2CrQsAbVRJGDLXcd \
-  --mint-initiator 5kx1nLkKyqG2UyAMtb5yhWVurZ9mqUnUabrGYdtkZoNM
+  --mint-initiator F8ZugHpjAdtprW4HNUhEcXk72NBrcWNtaTXHLuJQeuGS
+
+### Mainnet
+pnpm tsx scripts/setup-minter.ts \
+  --cluster mainnet-beta \
+  --keypair ./deployer.json \
+  --minter-admin-squad-account CqexeLYpGafaLfX7Nb3tD8ShLmWP1mmap16iR9M59u1A \
+  --minter-admin-squad-vault 2duhrjMfZdX1TX3sKzc9ZPkdJ1TtnXVgCYcxToTq3Kv9 \
+  --mint-initiator 5CgAHs1K779jzqgB1K5kgTYozcexBGF9voi9zo2WCPMd
 ```
 
 | Flag                           | Description                                      |
@@ -110,6 +147,14 @@ pnpm tsx scripts/setup-acl.ts \
   --keypair ./deployer.json \
   --gate-authority 4wMDSynaKhXyHThzhDugX61bcRQW1FQdPCQ3ap5e8vkN \
   --multisig-pubkey 2UPy4twDntnEGAtzPwSgbKFuH7JrPU6RXtGdCzPLnNok \
+  --vault-index 0
+
+### Mainnet
+pnpm tsx scripts/setup-acl.ts \
+  --cluster mainnet-beta \
+  --keypair ./deployer.json \
+  --gate-authority 8Q62NJJnQuvnEVBg1Dw4XWxc4E4kPLtqDNv79EgmNRoY \
+  --multisig-pubkey C3pBB4Rc8X5xT8hRA3q8WtAxdoErmzBQhFvPXr4hoTuZ \
   --vault-index 0
 ```
 
@@ -142,9 +187,27 @@ pnpm tsx scripts/setup-token.ts \
   --metadata-update-authority 4MmywJDnBM21o2VW4Eg5ycvVpD6HSbi8FESy4rECfYHq \
   --pause-authority 9fcM9RjgMbczEBShPfD7q424sbDSD7h8zXvq685kBFRj \
   --mint-close-authority 22fFELs3pQztY75UNzU27Q6j1Sv5tjuMSxANHMkP8yj2 \
+  --burn-authority F8ZugHpjAdtprW4HNUhEcXk72NBrcWNtaTXHLuJQeuGS \
   --token-acl-authority 5HhTmXJwmg62wbtjbK9jjcsiz6btc37iQ5G753cAqTqi \
   --multisig-pubkey 3ynDxXhWUe2e4qj35rEAXnzJZLMxYNhTkLmekSz3yZTv \
   --vault-index 0
+
+### Mainnet
+pnpm tsx scripts/setup-token.ts \
+  --cluster mainnet-beta \
+  --keypair ./deployer.json \
+  --symbol chfSAFO \
+  --name "Spiko Amundi Overnight Swap Fund (CHF)" \
+  --uri "https://spiko.io" \
+  --decimals 5 \
+  --minter-daily-limit 500000000000 \
+  --permanent-delegate EeJqADE9Xqkqoyjid6H1GmbwDZ4Bz1qyC7ySpmFq849m \
+  --metadata-pointer-authority E5pzf6p7n3UYP8B6q7LdG7sT8GfQcwbZ8beFDqZ26Y75 \
+  --metadata-update-authority 9sM8XStBdZnXqNsKfNfqkHE8ggr7U1koDeEDqMXCFBLg \
+  --pause-authority 3wVzYmWt79gBpPtWBK8GHvRfii1SARpP8SKqEKuzJsDY \
+  --mint-close-authority 7ano9sb3YoEPkYc18uDphWVLYyxvVCNVz31QSAcf3B6C \
+  --burn-authority 5CgAHs1K779jzqgB1K5kgTYozcexBGF9voi9zo2WCPMd \
+  --token-acl-authority 63iE6ayimMdRQ3fSScC6zSYZXrtmmBct5BsvWoNXcMXJ
 ```
 
 | Flag                           | Description                                       |
@@ -161,6 +224,7 @@ pnpm tsx scripts/setup-token.ts \
 | `--metadata-update-authority`  | Final metadata update authority                   |
 | `--pause-authority`            | Pause authority (set at init)                     |
 | `--mint-close-authority`       | Mint close authority (set at init)                |
+| `--burn-authority`             | Burn authority (co-signs every burn, rotatable)   |
 | `--token-acl-authority`        | Final Token ACL config authority                  |
 | `--multisig-pubkey`            | Squads multisig account (optional, devnet only)   |
 | `--vault-index`                | Vault index (default: `0`, optional, devnet only) |
