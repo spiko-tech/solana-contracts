@@ -41,6 +41,12 @@ All new token accounts start **frozen** (DefaultAccountState). Users are thawed 
 | ---------------- | ---------------------------------------------- |
 | Minter Initiator | `5kx1nLkKyqG2UyAMtb5yhWVurZ9mqUnUabrGYdtkZoNM` |
 
+## Audit reports
+
+| Auditor  | Date      | Link                                                                                                          |
+| -------- | --------- | ------------------------------------------------------------------------------------------------------------- |
+| OtterSec | June 2026 | https://github.com/AdevarLabs/audit-reports/blob/main/reports/2026-06-12_Spiko_Solana_Minter_audit_report.pdf |
+
 ## Setup
 
 Prerequisites: Rust (stable), Solana CLI 2.x, Anchor CLI 1.0.2, Node.js 20+, pnpm.
