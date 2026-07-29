@@ -202,11 +202,11 @@ pnpm tsx scripts/setup-token.ts \
 pnpm tsx scripts/setup-token.ts \
   --cluster mainnet-beta \
   --keypair ./deployer.json \
-  --symbol chfSAFO \
-  --name "Spiko Amundi Overnight Swap Fund (CHF)" \
+  --symbol czkSAFO \
+  --name "Spiko Amundi Overnight Swap Fund (CZK)" \
   --uri "https://spiko.io" \
   --decimals 5 \
-  --minter-daily-limit 5000000 \
+  --minter-daily-limit 125000000 \
   --permanent-delegate EeJqADE9Xqkqoyjid6H1GmbwDZ4Bz1qyC7ySpmFq849m \
   --metadata-pointer-authority E5pzf6p7n3UYP8B6q7LdG7sT8GfQcwbZ8beFDqZ26Y75 \
   --metadata-update-authority 9sM8XStBdZnXqNsKfNfqkHE8ggr7U1koDeEDqMXCFBLg \
