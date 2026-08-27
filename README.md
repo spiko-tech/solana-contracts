@@ -241,3 +241,14 @@ After execution, the keypair has no remaining power.
 - On **mainnet** (or without `--multisig-pubkey`): prints instruction details for manual execution via the Squads web UI.
 
 **Output:** `deployments/{SYMBOL}-{cluster}.json` + mint keypair saved to `deployments/`
+
+## Security
+
+Report vulnerabilities privately to **<security@spiko.io>**. Please do not open a
+public GitHub issue. See [SECURITY.md](SECURITY.md).
+
+Audit reports are listed in the [Audit reports](#audit-reports) section above.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
