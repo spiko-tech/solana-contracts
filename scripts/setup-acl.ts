@@ -30,20 +30,14 @@ const CLUSTER_URLS: Record<string, string> = {
   'mainnet-beta': 'https://api.mainnet-beta.solana.com',
 };
 
-const main = async (opts: {
-  cluster: string;
-  gateAuthority: string;
-  keypair?: string;
-  multisigPubkey?: string;
-  vaultIndex: number;
-}) => {
+const main = async (opts: { cluster: string; gateAuthority: string; keypair?: string; multisigPubkey?: string; vaultIndex: number }) => {
   const { cluster, gateAuthority, keypair, multisigPubkey, vaultIndex } = opts;
 
   console.log(`\n═══════════════════════════════════════════════════════`);
   console.log(`  Setup ACL — cluster: ${cluster}`);
   console.log(`═══════════════════════════════════════════════════════\n`);
 
-  const { rpc } = getRpc(cluster);
+  getRpc(cluster); // validates the cluster name (throws on unknown)
   const gateAuth = address(gateAuthority);
   console.log(`Gate Authority: ${gateAuth} (immutable list owner)`);
 
@@ -123,13 +117,7 @@ const main = async (opts: {
 };
 
 const {
-  values: {
-    cluster,
-    'gate-authority': gateAuthority,
-    keypair,
-    'multisig-pubkey': multisigPubkey,
-    'vault-index': vaultIndexStr,
-  },
+  values: { cluster, 'gate-authority': gateAuthority, keypair, 'multisig-pubkey': multisigPubkey, 'vault-index': vaultIndexStr },
 } = parseArgs({
   options: {
     cluster: { type: 'string', default: 'devnet' },

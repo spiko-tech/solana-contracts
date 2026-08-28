@@ -28,6 +28,8 @@
     "@types/node": "^25.9.1",
     "codama": "^1.0.0",
     "oxfmt": "^0.52.0",
-    "oxlint": "^1.67.0"
-  }
+    "oxlint": "^1.67.0",
+    "tsx": "^4.23.12"
+  },
+  "packageManager": "pnpm@10.24.0"
 }

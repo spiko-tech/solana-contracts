@@ -60,7 +60,7 @@ pub fn setup() -> (LiteSVM, Keypair) {
     let program_bytes = include_bytes!("../../../../target/deploy/minter.so");
     svm.add_program(PROGRAM_ID, program_bytes);
 
-    let token_2022_bytes = include_bytes!("../../../../target/deploy/spl_token_2022.so");
+    let token_2022_bytes = include_bytes!("../fixtures/spl_token_2022.so");
     svm.add_program(TOKEN_2022_PROGRAM_ID, token_2022_bytes);
 
     let payer = Keypair::new();

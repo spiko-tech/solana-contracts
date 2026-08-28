@@ -203,7 +203,17 @@ const main = async ({
   });
   console.log(`  ✓ Program deployed: ${MINTER_PROGRAM_ADDRESS}`);
 
-  await initializeAndTransferAdmin(rpc, rpcSub, admin, mintInitiator, minterAdminSquadAccount, minterAdminSquadVault, minterConfigAddr, cluster, keypair);
+  await initializeAndTransferAdmin(
+    rpc,
+    rpcSub,
+    admin,
+    mintInitiator,
+    minterAdminSquadAccount,
+    minterAdminSquadVault,
+    minterConfigAddr,
+    cluster,
+    keypair,
+  );
 
   const outPath = saveDeployment(cluster, admin, minterConfigAddr, minterAdminSquadAccount, minterAdminSquadVault, mintInitiator);
 

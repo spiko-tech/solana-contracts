@@ -3,16 +3,27 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
-  SOLANA_CLI_VERSION: stable
-  ANCHOR_VERSION: 0.31.1
-  RUST_TOOLCHAIN: stable
+  SOLANA_CLI_VERSION: v2.1.0
+  ANCHOR_VERSION: 1.0.2
+  RUST_TOOLCHAIN: 1.92.0
+  NODE_VERSION: 24
 
 jobs:
-  lint:
-    name: Lint
+  rust-lint:
+    name: Rust Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -20,8 +31,124 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.RUST_TOOLCHAIN }}
-          components: rustfmt, clippy
+          components: rustfmt
 
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+  ts-lint:
+    name: TypeScript Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm fmt:check
+
+      - name: Lint
+        run: pnpm lint
+
+  build-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.RUST_TOOLCHAIN }}
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Cache Solana CLI + platform-tools
+        id: cache-solana
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/solana
+            ~/.cache/solana
+          key: solana-${{ env.SOLANA_CLI_VERSION }}-anchor-${{ env.ANCHOR_VERSION }}-${{ runner.os }}
+
+      - name: Install Solana CLI
+        if: steps.cache-solana.outputs.cache-hit != 'true'
+        run: sh -c "$(curl -sSfL https://release.anza.xyz/${{ env.SOLANA_CLI_VERSION }}/install)"
+
+      - name: Add Solana CLI to PATH
+        run: echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+
+      - name: Create the platform-tools cache directory
+        run: mkdir -p ~/.cache/solana
+
+      - name: Cache Anchor CLI
+        id: cache-anchor
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/anchor
+          key: anchor-${{ env.ANCHOR_VERSION }}-${{ runner.os }}
+
+      - name: Install Anchor CLI
+        if: steps.cache-anchor.outputs.cache-hit != 'true'
+        env:
+          ANCHOR_SHA256: 51c158a7b66db6d9802afe59cd73e6d78928791114b55567de5c0732e88770eb
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          curl -sSfL -o "$HOME/.local/bin/anchor" \
+            "https://github.com/otter-sec/anchor/releases/download/v${ANCHOR_VERSION}/anchor-${ANCHOR_VERSION}-x86_64-unknown-linux-gnu"
+          echo "${ANCHOR_SHA256}  $HOME/.local/bin/anchor" | sha256sum --check --strict
+          chmod +x "$HOME/.local/bin/anchor"
+
+      - name: Add Anchor CLI to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Generate a throwaway keypair
+        run: |
+          mkdir -p "$HOME/.config/solana"
+          solana-keygen new --no-bip39-passphrase --force -o "$HOME/.config/solana/id.json"
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Report toolchain versions
+        run: |
+          rustc --version
+          solana --version
+          anchor --version
+          node --version
+
+      - name: Build program
+        run: anchor build -p minter --ignore-keys
+
+      - name: Run tests
+        run: cargo test -p minter
+
+      - name: Check generated client is up to date
+        run: |
+          pnpm generate-clients
+          if [ -n "$(git status --porcelain -- clients/ts)" ]; then
+            echo "::error::clients/ts is out of date with the program IDL. Run 'pnpm generate-clients' and commit the result."
+            git status --porcelain -- clients/ts
+            git diff -- clients/ts
+            exit 1
+          fi
+          echo "Generated client is up to date."

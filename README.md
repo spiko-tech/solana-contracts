@@ -82,18 +82,22 @@ Prerequisites: Rust (stable), Solana CLI 2.x, Anchor CLI 1.0.2, Node.js 20+, pnp
 
 ```bash
 pnpm install
+```
 
-# Download SPL Token 2022 program (required for tests)
-solana program dump TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb target/deploy/spl_token_2022.so --url mainnet-beta
+The SPL Token 2022 program needed by the tests is vendored at
+`programs/minter/tests/fixtures/spl_token_2022.so`, so no download is required. To refresh it
+against the current mainnet deployment:
+
+```bash
+solana program dump TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb \
+  programs/minter/tests/fixtures/spl_token_2022.so --url mainnet-beta
 ```
 
 ## Common Commands
 
 ```bash
-# Build
-anchor build -p minter
+anchor build -p minter --ignore-keys
 
-# Run LiteSVM unit tests
 cargo test -p minter
 
 # Regenerate TypeScript clients (Codama)
