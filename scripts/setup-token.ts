@@ -459,7 +459,6 @@ const transferAllAuthorities = async ({
 const saveDeployment = ({
   cluster,
   mint,
-  keypair,
   symbol,
   name,
   uri,
@@ -534,7 +533,6 @@ const saveDeployment = ({
 };
 
 const printSetDailyLimitProposal = async ({
-  rpc,
   mint,
   cluster,
   decimals,
@@ -742,7 +740,16 @@ const main = async (args: {
   console.log(`═══════════════════════════════════════════════════════`);
   console.log(`\n⚠ Minting will be limited to 0 until this is executed:`);
 
-  await printSetDailyLimitProposal({ rpc, mint, cluster, decimals, minterDailyLimit, keypair: args.keypair, multisigPubkey: args.multisigPubkey, vaultIndex: args.vaultIndex });
+  await printSetDailyLimitProposal({
+    rpc,
+    mint,
+    cluster,
+    decimals,
+    minterDailyLimit,
+    keypair: args.keypair,
+    multisigPubkey: args.multisigPubkey,
+    vaultIndex: args.vaultIndex,
+  });
 
   console.log(`\n═══════════════════════════════════════════════════════`);
   console.log(`  ✓ Token setup complete!`);

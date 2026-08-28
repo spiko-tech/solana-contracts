@@ -1,21 +1,19 @@
-import { rootNodeFromAnchor } from "@codama/nodes-from-anchor";
-import { renderVisitor as renderJavaScriptVisitor } from "@codama/renderers-js";
-import { createFromRoot } from "codama";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import { rootNodeFromAnchor } from '@codama/nodes-from-anchor';
+import { renderVisitor as renderJavaScriptVisitor } from '@codama/renderers-js';
+import { createFromRoot } from 'codama';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.join(__dirname, "..");
-const idlDir = path.join(projectRoot, "target", "idl");
-const clientsDir = path.join(projectRoot, "clients", "ts");
+const projectRoot = path.join(__dirname, '..');
+const idlDir = path.join(projectRoot, 'target', 'idl');
+const clientsDir = path.join(projectRoot, 'clients', 'ts');
 
-const programs: [string, string][] = [
-  ["minter.json", "minter"],
-];
+const programs: [string, string][] = [['minter.json', 'minter']];
 
 function preserveConfigFiles(clientDir: string) {
-  const filesToPreserve = ["package.json", "tsconfig.json", ".npmignore"];
+  const filesToPreserve = ['package.json', 'tsconfig.json', '.npmignore'];
   const preservedFiles = new Map<string, string>();
 
   for (const filename of filesToPreserve) {
@@ -55,12 +53,12 @@ for (const [idlFile, clientDir] of programs) {
 
   console.log(`Generating TypeScript client for ${clientDir}...`);
 
-  const idl = JSON.parse(fs.readFileSync(idlPath, "utf-8"));
+  const idl = JSON.parse(fs.readFileSync(idlPath, 'utf-8'));
   const rootNode = rootNodeFromAnchor(idl);
   const codama = createFromRoot(rootNode);
 
   const tsClientDir = path.join(clientsDir, clientDir);
-  const generatedDir = path.join(tsClientDir, "src", "generated");
+  const generatedDir = path.join(tsClientDir, 'src', 'generated');
 
   fs.mkdirSync(generatedDir, { recursive: true });
 
@@ -78,4 +76,4 @@ for (const [idlFile, clientDir] of programs) {
   console.log(`  -> ${generatedDir}`);
 }
 
-console.log("Done generating all TypeScript clients.");
+console.log('Done generating all TypeScript clients.');
