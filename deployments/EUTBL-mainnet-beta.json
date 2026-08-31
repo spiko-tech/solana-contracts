@@ -17,7 +17,7 @@
     "tokenAclAuthority": "63iE6ayimMdRQ3fSScC6zSYZXrtmmBct5BsvWoNXcMXJ"
   },
   "tokenAclMintConfig": "5PjL5KsKgZx3vHJyemWCteNdKdw1zchxsSgEYPSfYX2V",
-  "minterDailyLimit": 500000000000,
+  "minterDailyLimit": 5000000,
   "allowListPda": "HhA17qyDaBHBk4R1uQ3jgT71rWP5gEXQa3W7NNMHaexZ",
   "blockListPda": "55MdGQFw5CGZiLxG3G3zT17DefwciEQszQPb9KtxMwLh",
   "gateAuthority": "8Q62NJJnQuvnEVBg1Dw4XWxc4E4kPLtqDNv79EgmNRoY",
