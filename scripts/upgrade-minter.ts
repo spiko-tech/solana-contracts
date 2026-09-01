@@ -202,8 +202,10 @@ const fetchVerifyStatus = async (): Promise<Record<string, unknown>> => {
   return (await res.json()) as Record<string, unknown>;
 };
 
-const verify = async (repoUrl: string, commit: string, rpcUrl: string, keypairPath: string) => {
-  step('Submitting remote verification (OtterSec)');
+const verify = async (repoUrl: string, commit: string, rpcUrl: string, keypairPath: string, uploader: string) => {
+  // Two steps since solana-verify 0.5.x: the `--remote` flag is deprecated. First the upgrade
+  // authority writes the verify PDA on chain, then the remote build worker is queued against it.
+  step('Uploading verification PDA');
   console.log(`  Repo:   ${repoUrl}`);
   console.log(`  Commit: ${commit}`);
   runInherit('solana-verify', [
@@ -219,9 +221,11 @@ const verify = async (repoUrl: string, commit: string, rpcUrl: string, keypairPa
     rpcUrl,
     '-k',
     keypairPath,
-    '--remote',
     '-y',
   ]);
+
+  step('Queueing the remote verification job');
+  runInherit('solana-verify', ['remote', 'submit-job', '--program-id', MINTER_PROGRAM_ADDRESS, '--uploader', uploader, '-u', rpcUrl]);
 
   step('Polling verification status');
   for (let attempt = 1; attempt <= 40; attempt++) {
@@ -317,7 +321,7 @@ const main = async ({
     return;
   }
 
-  const verified = skipVerify ? false : await verify(repoUrl, commit, rpcUrl, keypair);
+  const verified = skipVerify ? false : await verify(repoUrl, commit, rpcUrl, keypair, signer.address);
 
   const outPath = saveDeployment(deploymentPath, deployment, { programDataAddress, commit, executableHash, agavePin, verified });
 

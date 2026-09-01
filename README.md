@@ -341,12 +341,25 @@ solana program close <BUFFER> -u <rpc> -k ./deployer.json
 
 If the deployed bytes are already correct and only the verification record is missing or stale:
 
+Verification is two steps since `solana-verify` 0.5.x — the `--remote` flag is deprecated. The
+upgrade authority first writes the verify PDA, then the remote build worker is queued against it:
+
 ```bash
+# 1. Upload the verify PDA (signed by the upgrade authority)
 solana-verify verify-from-repo https://github.com/spiko-tech/solana-contracts \
   --program-id 8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw \
   --library-name minter \
   --commit-hash <sha> \
-  -u <rpc> -k ./deployer.json --remote -y
+  -u <rpc> -k ./deployer.json -y
+
+# 2. Queue the remote job (uploader = the pubkey that signed step 1)
+solana-verify remote submit-job \
+  --program-id 8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw \
+  --uploader GhRFGntEPkDi3ass8HYPqdqWMZQ4F4hs8a3QfNtT622h \
+  -u <rpc>
+
+# Status at any time
+solana-verify remote get-status --program-id 8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw
 ```
 
 ### CI
