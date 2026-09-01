@@ -13,5 +13,5 @@
     "outDir": "dist",
     "types": ["node"]
   },
-  "include": ["setup-minter.ts", "setup-acl.ts", "setup-token.ts", "lib/**/*.ts", "../clients/ts/minter/**/*.ts"]
+  "include": ["setup-minter.ts", "setup-acl.ts", "setup-token.ts", "upgrade-minter.ts", "lib/**/*.ts", "../clients/ts/minter/**/*.ts"]
 }

@@ -7,5 +7,11 @@
   "minterAdminSquadVault": "2duhrjMfZdX1TX3sKzc9ZPkdJ1TtnXVgCYcxToTq3Kv9",
   "mintInitiator": "5CgAHs1K779jzqgB1K5kgTYozcexBGF9voi9zo2WCPMd",
   "upgradeAuthority": "GhRFGntEPkDi3ass8HYPqdqWMZQ4F4hs8a3QfNtT622h",
-  "setupAt": "2026-06-25T14:43:42.009Z"
+  "setupAt": "2026-06-25T14:43:42.009Z",
+  "programDataAddress": "Gc8oYdqWg3PrgA7ioCXKY53vsB9vy6XHNWJyDcGaaWJe",
+  "deployedCommit": "afdab14fb1a59bf3abe2f263870023349a560e2e",
+  "executableHash": "0aff1fc23cc42369aacdcaf797d2579c691019c3170115b91116c3394f70a68d",
+  "verifiableBuildImage": "solanafoundation/solana-verifiable-build:3.1.10",
+  "verified": true,
+  "lastUpgradeAt": "2026-09-01T13:20:00.000Z"
 }

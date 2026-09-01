@@ -1,0 +1,115 @@
+name: Verifiable Build
+
+# Proves the committed source reproduces byte-for-byte through the Solana verifiable-build
+# Docker image, and reports whether `main` has drifted from what is deployed on mainnet-beta.
+#
+# Kept out of ci.yml because it pulls a ~1.4 GB image and does a full SBF build from scratch.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - 'programs/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'Anchor.toml'
+      - '.github/workflows/verify.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROGRAM_ID: 8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw
+  LIBRARY_NAME: minter
+  SOLANA_VERIFY_VERSION: 0.5.1
+  MAINNET_RPC: https://api.mainnet-beta.solana.com
+
+jobs:
+  verifiable-build:
+    name: Reproducible build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      # `solana-verify build` picks solanafoundation/solana-verifiable-build:<this pin>.
+      # ci.yml's `pins` job already fails if it drifts from Anchor.toml solana_version.
+      - name: Resolve Agave pin
+        id: pin
+        run: |
+          set -euo pipefail
+          agave=$(sed -n '/^\[workspace\.metadata\.cli\]/,/^\[/{s/^solana *= *"\([^"]*\)".*/\1/p;}' Cargo.toml | head -1)
+          if [ -z "$agave" ]; then
+            echo "::error::could not resolve [workspace.metadata.cli] solana from Cargo.toml"
+            exit 1
+          fi
+          echo "agave=$agave" >> "$GITHUB_OUTPUT"
+          echo "Verifiable build image: solanafoundation/solana-verifiable-build:$agave"
+
+      - name: Cache solana-verify
+        id: cache-solana-verify
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/solana-verify
+          key: solana-verify-${{ env.SOLANA_VERIFY_VERSION }}-${{ runner.os }}
+
+      - name: Install solana-verify
+        if: steps.cache-solana-verify.outputs.cache-hit != 'true'
+        run: cargo install solana-verify --version ${{ env.SOLANA_VERIFY_VERSION }} --locked
+
+      - name: Build
+        run: solana-verify build --library-name "$LIBRARY_NAME"
+
+      - name: Compute executable hash
+        id: hash
+        run: |
+          set -euo pipefail
+          hash=$(solana-verify get-executable-hash target/deploy/${LIBRARY_NAME}.so)
+          size=$(stat -c %s target/deploy/${LIBRARY_NAME}.so)
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+          echo "size=$size" >> "$GITHUB_OUTPUT"
+          echo "Executable hash: $hash ($size bytes)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.LIBRARY_NAME }}-${{ github.sha }}.so
+          path: target/deploy/${{ env.LIBRARY_NAME }}.so
+          if-no-files-found: error
+
+      # Informational only. A legitimate program change is expected to differ from mainnet
+      # until it is deployed, so drift must never fail the build.
+      - name: Compare against mainnet-beta
+        run: |
+          set -euo pipefail
+          built="${{ steps.hash.outputs.hash }}"
+          onchain=$(solana-verify get-program-hash -u "$MAINNET_RPC" "$PROGRAM_ID" || echo "unavailable")
+
+          {
+            echo "### Verifiable build"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Image | \`solanafoundation/solana-verifiable-build:${{ steps.pin.outputs.agave }}\` |"
+            echo "| Commit | \`${{ github.sha }}\` |"
+            echo "| Built hash | \`$built\` |"
+            echo "| Size | ${{ steps.hash.outputs.size }} bytes |"
+            echo "| mainnet-beta hash | \`$onchain\` |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$onchain" = "unavailable" ]; then
+            echo "::warning::Could not read the on-chain program hash; skipping drift check."
+            echo "Drift check skipped (RPC unavailable)." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$built" = "$onchain" ]; then
+            echo "Matches the deployed mainnet-beta program." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::notice::This commit does not match the deployed mainnet-beta program. Run scripts/upgrade-minter.ts to deploy and verify it."
+            echo "**Drift:** this commit is not what is deployed on mainnet-beta. Run \`scripts/upgrade-minter.ts\` to deploy and verify." >> "$GITHUB_STEP_SUMMARY"
+          fi
