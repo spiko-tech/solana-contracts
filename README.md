@@ -24,6 +24,14 @@ All new token accounts start **frozen** (DefaultAccountState). Users are thawed 
 | ------- | ---------------------------------------------- |
 | Minter  | `8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw` |
 
+The mainnet program is a [verified build](https://solscan.io/account/8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw#programVerification):
+the deployed bytes reproduce byte-for-byte from this repository. Check at any time with
+
+```bash
+solana-verify get-program-hash -u mainnet-beta 8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw
+curl -s https://verify.osec.io/status/8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw
+```
+
 ## Authorities
 
 ### Devnet
@@ -245,6 +253,108 @@ After execution, the keypair has no remaining power.
 - On **mainnet** (or without `--multisig-pubkey`): prints instruction details for manual execution via the Squads web UI.
 
 **Output:** `deployments/{SYMBOL}-{cluster}.json` + mint keypair saved to `deployments/`
+
+## Upgrading the Minter
+
+`setup-minter.ts` is first-deploy only. Once the program is live, upgrades go through
+`scripts/upgrade-minter.ts`, which builds reproducibly, deploys, and submits the program for
+verification in one pass.
+
+### Why not `anchor build`
+
+The binary that gets deployed is the one produced by **`solana-verify build`** — a build inside
+`solanafoundation/solana-verifiable-build:<agave-version>`, not a host build. Only that artifact is
+reproducible by a third party, so deploying an `anchor build` output would leave the program
+unverifiable. `anchor build` is still run first, but only to regenerate the IDL and the Codama
+clients; `solana-verify build` then overwrites `target/deploy/minter.so` with the artifact that is
+actually deployed.
+
+The image tag comes from `Cargo.toml` `[workspace.metadata.cli] solana`, which the CI `pins` job
+keeps equal to `Anchor.toml` `solana_version`. If those drift, the verified build stops
+reproducing — that check is why it exists.
+
+### Prerequisites
+
+- Docker running (the verifiable build runs in a container)
+- `cargo install solana-verify`
+- The change committed **and pushed** — OtterSec clones the commit from GitHub, so an unpushed
+  commit cannot be verified
+- The upgrade-authority keypair
+- A private RPC endpoint. `api.mainnet-beta.solana.com` will not reliably carry a ~300 KB deploy.
+
+### Run it
+
+```bash
+# Dry run: preflight + reproducible build + hash comparison, no chain writes
+pnpm tsx scripts/upgrade-minter.ts \
+  --cluster mainnet-beta \
+  --keypair ./deployer.json \
+  --rpc-url <private-rpc> \
+  --dry-run
+
+# The real thing
+pnpm tsx scripts/upgrade-minter.ts \
+  --cluster mainnet-beta \
+  --keypair ./deployer.json \
+  --rpc-url <private-rpc>
+```
+
+| Flag            | Description                                                          |
+| --------------- | -------------------------------------------------------------------- |
+| `--cluster`     | `devnet` or `mainnet-beta` (default: `mainnet-beta`)                 |
+| `--keypair`     | Upgrade authority keypair (asserted against the on-chain authority)  |
+| `--rpc-url`     | RPC override; defaults to the public endpoint for the cluster        |
+| `--repo-url`    | Repo to verify from (default: this repository)                       |
+| `--dry-run`     | Stop before deploying                                                |
+| `--skip-verify` | Deploy without submitting for verification                           |
+
+The script refuses to run on a dirty tree, on an unpushed commit, if `clients/ts` is out of date
+with the IDL, or if the keypair is not the current upgrade authority. It is idempotent: if the
+on-chain hash already matches the build, it skips the deploy and goes straight to verification.
+
+**Output:** updates `deployments/minter-<cluster>.json` with `deployedCommit`, `executableHash`,
+`verifiableBuildImage`, `programDataAddress`, `verified`, and `lastUpgradeAt`.
+
+### If the binary grew
+
+The program account is sized at its last deploy. If the new binary is larger, the script aborts and
+prints the fix:
+
+```bash
+solana program extend 8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw <additional-bytes> \
+  -u <rpc> -k ./deployer.json
+```
+
+### If the deploy fails midway
+
+Funds stay parked in an intermediate buffer account. Resume rather than restart:
+
+```bash
+solana program show --buffers --buffer-authority <deployer-pubkey> -u <rpc>
+solana program deploy --buffer <BUFFER> \
+  --program-id 8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw -u <rpc> -k ./deployer.json
+# or reclaim the rent:
+solana program close <BUFFER> -u <rpc> -k ./deployer.json
+```
+
+### Re-verifying without redeploying
+
+If the deployed bytes are already correct and only the verification record is missing or stale:
+
+```bash
+solana-verify verify-from-repo https://github.com/spiko-tech/solana-contracts \
+  --program-id 8CVKFptWa13Z43e82tYufueoWH7tqJfsNQXB33g1WeVw \
+  --library-name minter \
+  --commit-hash <sha> \
+  -u <rpc> -k ./deployer.json --remote -y
+```
+
+### CI
+
+`.github/workflows/verify.yml` runs the same reproducible build on every push to `main` and on PRs
+touching `programs/`, `Cargo.*`, or `Anchor.toml`. It publishes the executable hash to the job
+summary and emits a notice when `main` has drifted from what is deployed on mainnet-beta. Drift is
+never a failure — a merged change is expected to differ until it is deployed.
 
 ## Security
 
