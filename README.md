@@ -78,7 +78,7 @@ All new token accounts start **frozen** (DefaultAccountState). Users are thawed 
 
 ## Setup
 
-Prerequisites: Rust (stable), Solana CLI 2.x, Anchor CLI 1.0.2, Node.js 20+, pnpm.
+Prerequisites: Rust (stable), Solana CLI 3.1.10, Anchor CLI 1.0.2, Node.js 20+, pnpm.
 
 ```bash
 pnpm install
